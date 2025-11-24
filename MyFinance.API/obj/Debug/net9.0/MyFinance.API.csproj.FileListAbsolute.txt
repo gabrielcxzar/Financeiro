@@ -121,3 +121,4 @@ C:\Users\wende\OneDrive\Área de Trabalho\Finançass\MyFinance.API\obj\Debug\net
 C:\Users\wende\OneDrive\Área de Trabalho\Finançass\MyFinance.API\obj\Debug\net9.0\MyFinance.API.pdb
 C:\Users\wende\OneDrive\Área de Trabalho\Finançass\MyFinance.API\obj\Debug\net9.0\MyFinance.API.genruntimeconfig.cache
 C:\Users\wende\OneDrive\Área de Trabalho\Finançass\MyFinance.API\obj\Debug\net9.0\ref\MyFinance.API.dll
+C:\Users\wende\OneDrive\Área de Trabalho\Finançass\MyFinance.API\obj\Debug\net9.0\MyFinance.API.sourcelink.json
