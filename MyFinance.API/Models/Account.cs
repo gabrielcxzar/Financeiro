@@ -2,10 +2,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MyFinance.API.Models
 {
-    [Table("accounts")] // <--- Nome da tabela no banco (minúsculo)
+    [Table("accounts")]
     public class Account
     {
-        [Column("id")] // <--- Nome da coluna no banco
+        [Column("id")]
         public int Id { get; set; }
 
         [Column("name")]
@@ -18,6 +18,19 @@ namespace MyFinance.API.Models
         public decimal CurrentBalance { get; set; }
 
         [Column("type")]
-        public string Type { get; set; } = "Checking";
+        public string Type { get; set; } = "Checking"; // Checking, Investment
+
+        // --- NOVOS CAMPOS PARA CARTÃO DE CRÉDITO ---
+        [Column("is_credit_card")]
+        public bool IsCreditCard { get; set; }
+
+        [Column("closing_day")]
+        public int? ClosingDay { get; set; } // Dia que a fatura fecha
+
+        [Column("due_day")]
+        public int? DueDay { get; set; } // Dia que vence
+
+        [Column("credit_limit")]
+        public decimal? CreditLimit { get; set; } // Limite total
     }
 }

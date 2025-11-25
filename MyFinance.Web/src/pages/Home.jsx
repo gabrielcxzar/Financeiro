@@ -1,80 +1,160 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Grid, SpinLoading, Button } from 'antd-mobile'; // <--- Mudou aqui
-import { EyeOutline, EyeInvisibleOutline } from 'antd-mobile-icons';
-import styled from 'styled-components';
+import { Card, Col, Row, Statistic, Spin, Table, Tag, message } from 'antd';
+import { ArrowUpOutlined, ArrowDownOutlined, DollarOutlined } from '@ant-design/icons';
 import api from '../services/api';
+import DashboardCharts from '../components/DashboardCharts';
 
-const BalanceContainer = styled.div`
-  text-align: center;
-  margin-bottom: 20px;
-  
-  h3 { margin: 0; color: #666; font-weight: normal; font-size: 16px; }
-  h1 { margin: 5px 0; color: #333; font-size: 32px; font-weight: bold; }
-`;
+const formatMoney = (value) => {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
-export default function Home() {
+const columns = [
+  {
+    title: 'Descrição',
+    dataIndex: 'description',
+    key: 'description',
+  },
+  {
+    title: 'Categoria',
+    dataIndex: ['category', 'name'],
+    key: 'category',
+    render: (text) => <Tag color="blue">{text || 'Geral'}</Tag>,
+  },
+  {
+    title: 'Valor',
+    dataIndex: 'amount',
+    key: 'amount',
+    render: (value, record) => (
+      <span style={{ color: record.type === 'Expense' ? '#cf1322' : '#3f8600', fontWeight: 'bold' }}>
+        {record.type === 'Expense' ? '- ' : '+ '}
+        {formatMoney(value)}
+      </span>
+    ),
+  },
+  {
+    title: 'Data',
+    dataIndex: 'date',
+    key: 'date',
+    render: (date) => new Date(date).toLocaleDateString('pt-BR'),
+  },
+  {
+    title: 'Status',
+    dataIndex: 'paid',
+    key: 'paid',
+    render: (paid) => (
+        <Tag color={paid ? 'green' : 'orange'}>
+            {paid ? 'Pago' : 'Pendente'}
+        </Tag>
+    )
+  }
+];
+
+export default function Home({ month, year }) {
   const [loading, setLoading] = useState(true);
-  const [totalBalance, setTotalBalance] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const [summary, setSummary] = useState({ total: 0, income: 0, expense: 0 });
+  const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    fetchSaldo();
-  }, []);
+    fetchData();
+  }, [month, year]);
 
-  const fetchSaldo = async () => {
+  const fetchData = async () => {
     try {
-      const response = await api.get('/accounts');
-      const contas = response.data;
-      const total = contas.reduce((acc, conta) => acc + conta.currentBalance, 0);
-      setTotalBalance(total);
+      setLoading(true);
+      
+      const accResponse = await api.get('/accounts');
+      const totalBalance = accResponse.data.reduce((acc, conta) => acc + conta.currentBalance, 0);
+
+      const transResponse = await api.get(`/transactions?month=${month}&year=${year}`);
+      const listaTransacoes = transResponse.data;
+      
+      let totalIncome = 0;
+      let totalExpense = 0;
+
+      listaTransacoes.forEach(t => {
+        if (t.type === 'Income') totalIncome += t.amount;
+        else totalExpense += t.amount;
+      });
+
+      setSummary({
+        total: totalBalance,
+        income: totalIncome,
+        expense: totalExpense
+      });
+
+      setTransactions(listaTransacoes);
+
     } catch (error) {
-      console.error("Erro ao buscar saldo:", error);
+      console.error("Erro:", error);
+      message.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    // <--- Mudou aqui embaixo também
-    return <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}><SpinLoading color='primary' /></div>;
+    return (
+      <div style={{ textAlign: 'center', padding: 50 }}>
+        <Spin size="large" />
+        <div style={{ marginTop: 16, color: '#888' }}>Carregando dashboard...</div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <BalanceContainer>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <h3>Saldo Atual</h3>
-          <div onClick={() => setVisible(!visible)}>
-            {visible ? <EyeOutline /> : <EyeInvisibleOutline />}
-          </div>
-        </div>
-        
-        <h1>
-          {visible 
-            ? `R$ ${totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
-            : '••••••'}
-        </h1>
-      </BalanceContainer>
+    <div>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #1890ff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Saldo Geral (Atual)"
+              value={summary.total}
+              formatter={(value) => <span style={{ color: '#1890ff', fontWeight: 'bold', fontSize: '24px' }}>{formatMoney(value)}</span>}
+              prefix={<DollarOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #3f8600', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Receitas (Neste Mês)"
+              value={summary.income}
+              formatter={(value) => <span style={{ color: '#3f8600', fontSize: '24px' }}>{formatMoney(value)}</span>}
+              prefix={<ArrowUpOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #cf1322', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Despesas (Neste Mês)"
+              value={summary.expense}
+              formatter={(value) => <span style={{ color: '#cf1322', fontSize: '24px' }}>{formatMoney(value)}</span>}
+              prefix={<ArrowDownOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      <Grid columns={2} gap={12}>
-        <Grid.Item>
-          <Card title="Receitas do Mês">
-            <span style={{ color: 'green', fontWeight: 'bold' }}>R$ 0,00</span>
+      <Row gutter={24}>
+        <Col span={14}>
+          <Card title="Despesas por Categoria" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
+             <DashboardCharts transactions={transactions} />
           </Card>
-        </Grid.Item>
-        <Grid.Item>
-          <Card title="Despesas do Mês">
-            <span style={{ color: 'red', fontWeight: 'bold' }}>R$ 0,00</span>
+        </Col>
+
+        <Col span={10}>
+          <Card title="Transações do Mês" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
+            <Table 
+                dataSource={transactions} 
+                columns={columns} 
+                pagination={{ pageSize: 5 }} 
+                size="middle"
+                rowKey="id"
+            />
           </Card>
-        </Grid.Item>
-      </Grid>
-      
-      <div style={{ marginTop: 20 }}>
-        <h3>Contas</h3>
-        <Card>
-            Você ainda não cadastrou contas ou transações.
-        </Card>
-      </div>
+        </Col>
+      </Row>
     </div>
   );
 }

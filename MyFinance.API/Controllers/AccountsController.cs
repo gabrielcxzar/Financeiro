@@ -28,5 +28,42 @@ namespace MyFinance.API.Controllers
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetAccounts", new { id = account.Id }, account);
         }
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutAccount(int id, Account account)
+        {
+            if (id != account.Id) return BadRequest();
+
+            _context.Entry(account).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.Accounts.Any(e => e.Id == id)) return NotFound();
+                else throw;
+            }
+
+            return NoContent();
+        }
+
+        // DELETE: api/Accounts/5 (Excluir)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAccount(int id)
+        {
+            var account = await _context.Accounts.FindAsync(id);
+            if (account == null) return NotFound();
+
+            // Antes de apagar a conta, precisamos apagar as transações dela
+            // ou o banco vai travar (Erro de Foreign Key)
+            var transactions = _context.Transactions.Where(t => t.AccountId == id);
+            _context.Transactions.RemoveRange(transactions);
+
+            _context.Accounts.Remove(account);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 }

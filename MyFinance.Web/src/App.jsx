@@ -1,89 +1,155 @@
-import React, { useState } from 'react'
-import { TabBar, NavBar } from 'antd-mobile'
-import { 
-  AppOutline, 
-  UnorderedListOutline, 
-  PieOutline,
-  AddCircleOutline 
-} from 'antd-mobile-icons'
-import styled from 'styled-components'
+import React, { useState } from 'react';
+import { Layout, Menu, theme, DatePicker } from 'antd';
+import Categories from './pages/Categories';
+import {
+  HomeOutlined,
+  UnorderedListOutlined,
+  PieChartOutlined,
+  PlusCircleOutlined,
+  WalletOutlined,
+  BankOutlined,
+  SyncOutlined,
+  TagsOutlined
+} from '@ant-design/icons';
+import styled from 'styled-components';
+import dayjs from 'dayjs';
+import 'dayjs/locale/pt-br';
 
-// Importações
+// --- IMPORTAÇÕES DAS PÁGINAS ---
 import Home from './pages/Home';
-import AddTransactionModal from './components/AddTransactionModal'; // <--- Importamos o modal
+import Transactions from './pages/Transactions';
+import Reports from './pages/Reports';
+import Accounts from './pages/Accounts';
+import Recurring from './pages/Recurring';
+import AddTransactionModal from './components/AddTransactionModal';
 
-// Placeholders
-const Transactions = () => <div style={{ padding: 20 }}><h2>Transações</h2></div>
-const Statistics = () => <div style={{ padding: 20 }}><h2>Gráficos</h2></div>
+const { Header, Content, Footer, Sider } = Layout;
 
-const AddButton = styled.div`
-  background-color: #6236FF;
-  color: white;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+const Logo = styled.div`
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  margin-top: -15px; 
-  box-shadow: 0 4px 10px rgba(98, 54, 255, 0.4);
-`
+  background: #001529;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  
+  svg {
+    margin-right: 10px;
+    font-size: 22px;
+    color: #1890ff;
+  }
+`;
 
-export default function App() {
-  const [activeKey, setActiveKey] = useState('home');
-  const [isModalOpen, setIsModalOpen] = useState(false); // Estado para abrir/fechar modal
-  const [refreshKey, setRefreshKey] = useState(0); // Um truque para forçar a Home atualizar
+const App = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeKey, setActiveKey] = useState('1');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Estado da Data (Inicia com hoje)
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+
+  const {
+    token: { colorBgContainer, borderRadiusLG },
+  } = theme.useToken();
+
+  // Lista do Menu Lateral
+ const items = [
+  { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
+  { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
+  { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
+  { key: '6', icon: <TagsOutlined />, label: 'Categorias' }, // <--- NOVO
+  { key: '5', icon: <SyncOutlined />, label: 'Despesas Fixas' },
+  { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
+  { type: 'divider' },
+  { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
+];
+
+  const handleMenuClick = (e) => {
+    if (e.key === 'add') {
+      setIsModalOpen(true);
+    } else {
+      setActiveKey(e.key);
+    }
+  };
 
   const renderContent = () => {
-    switch (activeKey) {
-      // Passamos a key para forçar recarregamento quando salvar algo novo
-      case 'home': return <Home key={refreshKey} /> 
-      case 'transactions': return <Transactions />
-      case 'stats': return <Statistics />
-      default: return <Home />
-    }
-  }
+    // Prepara mês/ano para enviar para as páginas
+    const month = selectedDate.month() + 1;
+    const year = selectedDate.year();
 
-  // Função especial para quando clicar na TabBar
-  const handleTabChange = (key) => {
-    if (key === 'add') {
-      setIsModalOpen(true); // Se for o botão (+), abre o modal e não muda de tela
-    } else {
-      setActiveKey(key); // Se for outro, navega normal
-    }
-  }
+    switch (activeKey) {
+  case '1': return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
+  case '2': return <Transactions key={`${month}-${year}`} month={month} year={year} />;
+  case '3': return <Reports />;
+  case '4': return <Accounts />;
+  case '5': return <Recurring />;
+  case '6': return <Categories />; // <--- NOVO
+  default: return <Home month={month} year={year} />;
+}
+  };
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ background: '#fff' }}>
-        <NavBar backArrow={false}>MyFinance</NavBar>
-      </div>
-      
-      <div style={{ flex: 1, overflowY: 'auto', background: '#f5f5f5' }}>
-        {renderContent()}
-      </div>
-
-      <TabBar 
-        activeKey={activeKey} 
-        onChange={handleTabChange} // <--- Usamos nossa função customizada
-        style={{ background: '#fff', borderTop: '1px solid #eee' }}
-      >
-        <TabBar.Item key='home' icon={<AppOutline />} title='Início' />
-        <TabBar.Item key='transactions' icon={<UnorderedListOutline />} title='Extrato' />
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
+        <Logo>
+          <WalletOutlined />
+          {!collapsed && 'MyFinance'}
+        </Logo>
+        <Menu 
+          theme="dark" 
+          defaultSelectedKeys={['1']} 
+          mode="inline" 
+          items={items} 
+          onClick={handleMenuClick}
+        />
+      </Sider>
+      <Layout>
+        {/* HEADER COM SELETOR DE DATA */}
+        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0, color: '#001529' }}>Visão Geral</h2>
+          
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+             <span style={{ color: '#888' }}>Período:</span>
+             <DatePicker 
+                picker="month" 
+                format="MMMM/YYYY"
+                allowClear={false}
+                value={selectedDate}
+                onChange={(date) => setSelectedDate(date)}
+                style={{ width: 150 }}
+             />
+          </div>
+        </Header>
         
-        {/* Botão Central */}
-        <TabBar.Item key='add' icon={<AddButton><AddCircleOutline /></AddButton>} title='' />
-        
-        <TabBar.Item key='stats' icon={<PieOutline />} title='Gráficos' />
-      </TabBar>
+        <Content style={{ margin: '16px 16px' }}>
+          <div
+            style={{
+              padding: 24,
+              minHeight: 360,
+              background: colorBgContainer,
+              borderRadius: borderRadiusLG,
+            }}
+          >
+            {renderContent()}
+          </div>
+        </Content>
+        <Footer style={{ textAlign: 'center', color: '#888' }}>
+          MyFinance ©{new Date().getFullYear()}
+        </Footer>
+      </Layout>
 
-      {/* O Modal fica aqui, "escondido" até ser chamado */}
       <AddTransactionModal 
         visible={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => setRefreshKey(old => old + 1)} // Atualiza a Home
+        onSuccess={() => setRefreshKey(old => old + 1)}
       />
-    </div>
-  )
-}
+    </Layout>
+  );
+};
+
+export default App;
