@@ -1,8 +1,16 @@
 import axios from 'axios';
 
 const api = axios.create({
-    // Lembre-se: sua API C# está rodando na porta 5050 (conforme seu print anterior)
     baseURL: 'http://localhost:5050/api', 
+});
+
+// Interceptor: Antes de cada requisição, cola o token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 export default api;

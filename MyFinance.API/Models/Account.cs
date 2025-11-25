@@ -32,5 +32,7 @@ namespace MyFinance.API.Models
 
         [Column("credit_limit")]
         public decimal? CreditLimit { get; set; } // Limite total
+        [Column("user_id")]
+        public int UserId { get; set; }
     }
 }

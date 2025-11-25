@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Statistic, Spin, Tag, Divider, Progress, Popconfirm, message, Tooltip } from 'antd';
-import { PlusOutlined, BankOutlined, RiseOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { PlusOutlined, BankOutlined, RiseOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, SwapOutlined } from '@ant-design/icons';
 import api from '../services/api';
+import TransferModal from '../components/TransferModal';
 import AddAccountModal from '../components/AddAccountModal';
 
 const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -9,7 +10,10 @@ const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency'
 export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState([]);
+  
+  // Estados dos Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -22,6 +26,7 @@ export default function Accounts() {
       setAccounts(response.data);
     } catch (error) {
       console.error(error);
+      message.error('Erro ao carregar contas.');
     } finally {
       setLoading(false);
     }
@@ -157,25 +162,35 @@ export default function Accounts() {
             <span style={{ color: '#888' }}>Gerencie onde seu dinheiro está guardado</span>
         </div>
         
-        <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={() => setIsModalOpen(true)}
-            size="large"
-            style={{ borderRadius: 6, boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
-        >
-          Nova Carteira
-        </Button>
+        {/* Grupo de Botões do Header */}
+        <div style={{ display: 'flex', gap: 10 }}>
+            <Button 
+                icon={<SwapOutlined />} 
+                onClick={() => setIsTransferOpen(true)}
+                size="large"
+            >
+              Transferir
+            </Button>
+            <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={() => setIsModalOpen(true)}
+                size="large"
+                style={{ borderRadius: 6, boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
+            >
+              Nova Carteira
+            </Button>
+        </div>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
-          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <Card bordered={false} style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
             <Statistic title="Disponível (Giro)" value={totalChecking} formatter={(v) => formatMoney(v)} valueStyle={{ color: '#3f8600', fontWeight: 'bold' }} prefix={<BankOutlined />} />
           </Card>
         </Col>
         <Col span={12}>
-          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <Card bordered={false} style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
             <Statistic title="Total Investido" value={totalInvested} formatter={(v) => formatMoney(v)} valueStyle={{ color: '#1890ff', fontWeight: 'bold' }} prefix={<RiseOutlined />} />
           </Card>
         </Col>
@@ -193,9 +208,17 @@ export default function Accounts() {
         {[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}
       </Row>
 
+      {/* Modal de Nova Conta */}
       <AddAccountModal 
         visible={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
+        onSuccess={loadAccounts} 
+      />
+
+      {/* Modal de Transferência */}
+      <TransferModal 
+        visible={isTransferOpen} 
+        onClose={() => setIsTransferOpen(false)} 
         onSuccess={loadAccounts} 
       />
     </div>

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Gabriel\\Documents\\Projetos dev\\financeiro\\myfinance.api\\MyFinance.API.csproj": {}
+    "C:\\Users\\Dan13\\OneDrive\\Documentos\\Projetos dev\\Financeiro\\MyFinance.API\\MyFinance.API.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Gabriel\\Documents\\Projetos dev\\financeiro\\myfinance.api\\MyFinance.API.csproj": {
+    "C:\\Users\\Dan13\\OneDrive\\Documentos\\Projetos dev\\Financeiro\\MyFinance.API\\MyFinance.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Gabriel\\Documents\\Projetos dev\\financeiro\\myfinance.api\\MyFinance.API.csproj",
+        "projectUniqueName": "C:\\Users\\Dan13\\OneDrive\\Documentos\\Projetos dev\\Financeiro\\MyFinance.API\\MyFinance.API.csproj",
         "projectName": "MyFinance.API",
-        "projectPath": "C:\\Users\\Gabriel\\Documents\\Projetos dev\\financeiro\\myfinance.api\\MyFinance.API.csproj",
-        "packagesPath": "C:\\Users\\Gabriel\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Gabriel\\Documents\\Projetos dev\\financeiro\\myfinance.api\\obj\\",
+        "projectPath": "C:\\Users\\Dan13\\OneDrive\\Documentos\\Projetos dev\\Financeiro\\MyFinance.API\\MyFinance.API.csproj",
+        "packagesPath": "C:\\Users\\Dan13\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Dan13\\OneDrive\\Documentos\\Projetos dev\\Financeiro\\MyFinance.API\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\Gabriel\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\Dan13\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -37,13 +37,20 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "10.0.100"
+        }
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "BCrypt.Net-Next": {
+              "target": "Package",
+              "version": "[4.0.3, )"
+            },
+            "Microsoft.AspNetCore.Authentication.JwtBearer": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[8.0.0, )"
@@ -86,7 +93,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

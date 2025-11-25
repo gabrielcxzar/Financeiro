@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
+using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CategoriesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -15,18 +18,22 @@ namespace MyFinance.API.Controllers
             _context = context;
         }
 
-        // GET: api/Categories
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
         {
-            return await _context.Categories.OrderBy(c => c.Name).ToListAsync();
+            var userId = GetUserId();
+            return await _context.Categories
+                .Where(c => c.UserId == userId)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
         }
 
-        // POST: api/Categories
         [HttpPost]
         public async Task<ActionResult<Category>> PostCategory(Category category)
         {
-            // Se não mandar cor, define uma padrão (cinza)
+            category.UserId = GetUserId();
             if (string.IsNullOrEmpty(category.Color)) category.Color = "#8c8c8c";
             
             _context.Categories.Add(category);
@@ -35,19 +42,17 @@ namespace MyFinance.API.Controllers
             return CreatedAtAction("GetCategories", new { id = category.Id }, category);
         }
 
-        // DELETE: api/Categories/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var userId = GetUserId();
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+
             if (category == null) return NotFound();
 
-            // Proteção: Não deixar apagar categoria que já tem transação
             bool hasTransactions = await _context.Transactions.AnyAsync(t => t.CategoryId == id);
-            if (hasTransactions)
-            {
-                return BadRequest("Não é possível apagar esta categoria pois ela possui transações vinculadas.");
-            }
+            if (hasTransactions) return BadRequest("Categoria em uso.");
 
             _context.Categories.Remove(category);
             await _context.SaveChangesAsync();

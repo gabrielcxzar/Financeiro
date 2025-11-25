@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Menu, theme, DatePicker } from 'antd';
-import Categories from './pages/Categories';
+import { Layout, Menu, theme, DatePicker, Button } from 'antd';
 import {
   HomeOutlined,
   UnorderedListOutlined,
@@ -9,18 +8,21 @@ import {
   WalletOutlined,
   BankOutlined,
   SyncOutlined,
-  TagsOutlined
+  TagsOutlined,
+  LogoutOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
 // --- IMPORTAÇÕES DAS PÁGINAS ---
+import Login from './pages/Login';
 import Home from './pages/Home';
 import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Accounts from './pages/Accounts';
 import Recurring from './pages/Recurring';
+import Categories from './pages/Categories';
 import AddTransactionModal from './components/AddTransactionModal';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -45,96 +47,96 @@ const Logo = styled.div`
 `;
 
 const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  
   const [collapsed, setCollapsed] = useState(false);
   const [activeKey, setActiveKey] = useState('1');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  
-  // Estado da Data (Inicia com hoje)
   const [selectedDate, setSelectedDate] = useState(dayjs());
 
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  // Lista do Menu Lateral
- const items = [
-  { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
-  { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
-  { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
-  { key: '6', icon: <TagsOutlined />, label: 'Categorias' }, // <--- NOVO
-  { key: '5', icon: <SyncOutlined />, label: 'Despesas Fixas' },
-  { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
-  { type: 'divider' },
-  { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
-];
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userName');
+    setIsAuthenticated(false);
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
+
+  const items = [
+    { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
+    { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
+    { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
+    { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
+    { key: '5', icon: <SyncOutlined />, label: 'Despesas Fixas' },
+    { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
+    { type: 'divider' },
+    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
+  ];
 
   const handleMenuClick = (e) => {
-    if (e.key === 'add') {
-      setIsModalOpen(true);
-    } else {
-      setActiveKey(e.key);
-    }
+    if (e.key === 'add') setIsModalOpen(true);
+    else setActiveKey(e.key);
   };
 
   const renderContent = () => {
-    // Prepara mês/ano para enviar para as páginas
     const month = selectedDate.month() + 1;
     const year = selectedDate.year();
 
     switch (activeKey) {
-  case '1': return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
-  case '2': return <Transactions key={`${month}-${year}`} month={month} year={year} />;
-  case '3': return <Reports />;
-  case '4': return <Accounts />;
-  case '5': return <Recurring />;
-  case '6': return <Categories />; // <--- NOVO
-  default: return <Home month={month} year={year} />;
-}
+      case '1': return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
+      case '2': return <Transactions key={`${month}-${year}`} month={month} year={year} />;
+      case '3': return <Reports />;
+      case '4': return <Accounts />;
+      case '5': return <Recurring />;
+      case '6': return <Categories />;
+      default: return <Home month={month} year={year} />;
+    }
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    // MUDANÇA 1: height: '100vh' trava a tela inteira no tamanho do navegador
+    <Layout style={{ height: '100vh' }}>
       <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
         <Logo>
           <WalletOutlined />
           {!collapsed && 'MyFinance'}
         </Logo>
-        <Menu 
-          theme="dark" 
-          defaultSelectedKeys={['1']} 
-          mode="inline" 
-          items={items} 
-          onClick={handleMenuClick}
-        />
+        <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} onClick={handleMenuClick} />
       </Sider>
-      <Layout>
-        {/* HEADER COM SELETOR DE DATA */}
-        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      
+      {/* MUDANÇA 2: overflowY: 'auto' cria a rolagem APENAS neste lado direito */}
+      <Layout style={{ overflowY: 'auto' }}>
+        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
           <h2 style={{ margin: 0, color: '#001529' }}>Visão Geral</h2>
           
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-             <span style={{ color: '#888' }}>Período:</span>
-             <DatePicker 
-                picker="month" 
-                format="MMMM/YYYY"
-                allowClear={false}
-                value={selectedDate}
-                onChange={(date) => setSelectedDate(date)}
-                style={{ width: 150 }}
-             />
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ color: '#888' }}>Período:</span>
+                <DatePicker 
+                    picker="month" 
+                    format="MMMM/YYYY"
+                    allowClear={false}
+                    value={selectedDate}
+                    onChange={(date) => setSelectedDate(date)}
+                    style={{ width: 150 }}
+                />
+             </div>
+             
+             <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+                Sair
+             </Button>
           </div>
         </Header>
         
         <Content style={{ margin: '16px 16px' }}>
-          <div
-            style={{
-              padding: 24,
-              minHeight: 360,
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-            }}
-          >
+          <div style={{ padding: 24, minHeight: 360, background: colorBgContainer, borderRadius: borderRadiusLG }}>
             {renderContent()}
           </div>
         </Content>

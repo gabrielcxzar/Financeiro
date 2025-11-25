@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
+using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // <--- Exige Login
     public class TransactionsController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -15,94 +18,235 @@ namespace MyFinance.API.Controllers
             _context = context;
         }
 
-        // GET: api/Transactions (Traz todas as transações + dados da Categoria)
-        // GET: api/Transactions?month=11&year=2025
+        // Pega o ID do usuário logado
+        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Transaction>>> GetTransactions([FromQuery] int? month, [FromQuery] int? year)
         {
+            var userId = GetUserId();
             var query = _context.Transactions
+                .Where(t => t.UserId == userId) // <--- Filtra por usuário
                 .Include(t => t.Category)
                 .AsQueryable();
 
-            // Se o mês e ano forem informados, filtra. Se não, traz tudo (bom para o histórico).
             if (month.HasValue && year.HasValue)
             {
-                // DateTime no banco pode ter hora, então comparamos Month e Year
                 query = query.Where(t => t.Date.Month == month && t.Date.Year == year);
             }
 
             return await query.OrderByDescending(t => t.Date).ToListAsync();
         }
 
-        // POST: api/Transactions
         [HttpPost]
         public async Task<ActionResult<Transaction>> PostTransaction(Transaction transaction)
         {
+            var userId = GetUserId();
+            transaction.UserId = userId;
+
             if (transaction.Date == default) transaction.Date = DateTime.UtcNow;
 
-            // 1. Salva a transação no histórico
-            _context.Transactions.Add(transaction);
-
-            // 2. BUSCA A CONTA VINCULADA PARA ATUALIZAR O SALDO
-            var account = await _context.Accounts.FindAsync(transaction.AccountId);
+            // VERIFICAÇÃO DE CARTÃO DE CRÉDITO
+            // Se a conta escolhida for cartão, precisamos ajustar a data para o vencimento
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
             
-            if (account != null)
+            // Lógica de Parcelamento
+            int parcelas = transaction.Installments > 1 ? transaction.Installments : 1;
+            decimal valorParcela = transaction.Amount;
+            
+            // Data base para cálculo (se for cartão, usa lógica de fechamento, senão usa data atual)
+            DateTime dataBase = transaction.Date;
+
+            // Se for cartão, joga para o vencimento correto
+            if (account != null && account.IsCreditCard && account.ClosingDay.HasValue && account.DueDay.HasValue)
             {
-                // Se for Receita, soma. Se for Despesa, subtrai.
-                if (transaction.Type == "Income")
+                // Se comprou DEPOIS do fechamento, só cai no outro mês
+                if (dataBase.Day >= account.ClosingDay.Value)
                 {
-                    account.CurrentBalance += transaction.Amount;
-                }
-                else 
-                {
-                    account.CurrentBalance -= transaction.Amount;
+                    dataBase = dataBase.AddMonths(1);
                 }
                 
-                // Marca a conta como modificada para o banco salvar
-                _context.Entry(account).State = EntityState.Modified;
+                // Força o dia para o dia do vencimento
+                try {
+                    dataBase = new DateTime(dataBase.Year, dataBase.Month, account.DueDay.Value);
+                } catch {
+                    // Caso o dia de vencimento seja 31 e o mês não tenha (ex: Fev), joga pro último dia
+                    dataBase = new DateTime(dataBase.Year, dataBase.Month, 1).AddMonths(1).AddDays(-1);
+                }
             }
 
-            // 3. Salva tudo (Transação + Novo Saldo da Conta) numa tacada só
+            // LOOP PARA CRIAR AS PARCELAS
+            for (int i = 0; i < parcelas; i++)
+            {
+                var novaTransacao = new Transaction
+                {
+                    UserId = userId,
+                    CategoryId = transaction.CategoryId,
+                    AccountId = transaction.AccountId,
+                    Type = transaction.Type,
+                    Paid = transaction.Paid, // Se for crédito, geralmente nasce "Pendente" (fatura aberta)
+                    
+                    // Ajusta valor e descrição
+                    Amount = valorParcela,
+                    Description = parcelas > 1 ? $"{transaction.Description} ({i + 1}/{parcelas})" : transaction.Description,
+                    
+                    // A cada loop, adiciona 1 mês na data
+                    Date = dataBase.AddMonths(i)
+                };
+
+                _context.Transactions.Add(novaTransacao);
+
+                // Atualiza saldo da conta IMEDIATAMENTE apenas se NÃO for cartão de crédito
+                // (Cartão de crédito não mexe no saldo da conta bancária na hora da compra, só gera dívida)
+                if (account != null && !account.IsCreditCard)
+                {
+                    if (novaTransacao.Type == "Income") account.CurrentBalance += novaTransacao.Amount;
+                    else account.CurrentBalance -= novaTransacao.Amount;
+                    _context.Entry(account).State = EntityState.Modified;
+                }
+                else if (account != null && account.IsCreditCard)
+                {
+                    // Se for cartão, atualizamos o "Saldo" do cartão (que é a dívida acumulada)
+                    if (novaTransacao.Type == "Expense") account.CurrentBalance -= novaTransacao.Amount; // Aumenta dívida (negativo)
+                    // Não mexemos no saldo "bancário", apenas no limite do cartão
+                    _context.Entry(account).State = EntityState.Modified;
+                }
+            }
+
             await _context.SaveChangesAsync();
 
+            // Retorna a primeira parcela criada só para confirmar
             return CreatedAtAction("GetTransactions", new { id = transaction.Id }, transaction);
         }
 
-        // DELETE: api/Transactions/5
-        // DELETE: api/Transactions/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTransaction(int id)
         {
-            var transaction = await _context.Transactions.FindAsync(id);
-            if (transaction == null)
-            {
-                return NotFound();
-            }
+            var userId = GetUserId();
+            var transaction = await _context.Transactions
+                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
-            // --- LÓGICA DE ESTORNO ---
-            // Se estou apagando, preciso reverter o efeito na conta.
-            var account = await _context.Accounts.FindAsync(transaction.AccountId);
+            if (transaction == null) return NotFound();
+
+            // Estorno
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
             
             if (account != null)
             {
-                // Se era Receita e apaguei: O saldo diminui.
-                // Se era Despesa e apaguei: O dinheiro volta pra conta (soma).
-                if (transaction.Type == "Income")
-                {
-                    account.CurrentBalance -= transaction.Amount;
-                }
-                else
-                {
-                    account.CurrentBalance += transaction.Amount;
-                }
+                if (transaction.Type == "Income") account.CurrentBalance -= transaction.Amount;
+                else account.CurrentBalance += transaction.Amount;
                 _context.Entry(account).State = EntityState.Modified;
             }
-            // --------------------------
 
             _context.Transactions.Remove(transaction);
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+        // PUT: api/Transactions/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutTransaction(int id, Transaction transaction)
+        {
+            var userId = GetUserId();
+            if (id != transaction.Id) return BadRequest();
+
+            // 1. Busca a transação ANTIGA no banco (para saber o valor velho)
+            var oldTransaction = await _context.Transactions
+                .AsNoTracking() // Importante para não travar o Entity Framework
+                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+            if (oldTransaction == null) return NotFound();
+
+            transaction.UserId = userId; // Garante a segurança
+
+            // 2. Atualiza o saldo da Conta (Estorna o velho -> Aplica o novo)
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+
+            if (account != null)
+            {
+                // Reverte o efeito da transação antiga
+                if (oldTransaction.Type == "Income") account.CurrentBalance -= oldTransaction.Amount;
+                else account.CurrentBalance += oldTransaction.Amount;
+
+                // Aplica o efeito da transação nova
+                if (transaction.Type == "Income") account.CurrentBalance += transaction.Amount;
+                else account.CurrentBalance -= transaction.Amount;
+
+                _context.Entry(account).State = EntityState.Modified;
+            }
+
+            // 3. Salva a transação atualizada
+            _context.Entry(transaction).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.Transactions.Any(e => e.Id == id)) return NotFound();
+                else throw;
+            }
+
+            return NoContent();
+        }
+        // POST: api/Transactions/transfer
+        [HttpPost("transfer")]
+        public async Task<IActionResult> Transfer(TransferDto request)
+        {
+            var userId = GetUserId();
+
+            // 1. Cria a Saída da Origem
+            var expense = new Transaction
+            {
+                UserId = userId,
+                AccountId = request.FromAccountId,
+                Amount = request.Amount,
+                Description = $"Transferência para conta {request.ToAccountId}",
+                Type = "Expense",
+                Date = request.Date,
+                Paid = true
+            };
+
+            // 2. Cria a Entrada no Destino
+            var income = new Transaction
+            {
+                UserId = userId,
+                AccountId = request.ToAccountId,
+                Amount = request.Amount,
+                Description = $"Transferência recebida da conta {request.FromAccountId}",
+                Type = "Income",
+                Date = request.Date,
+                Paid = true
+            };
+
+            // 3. Atualiza Saldos
+            var fromAcc = await _context.Accounts.FindAsync(request.FromAccountId);
+            var toAcc = await _context.Accounts.FindAsync(request.ToAccountId);
+
+            if (fromAcc == null || toAcc == null || fromAcc.UserId != userId || toAcc.UserId != userId)
+                return BadRequest("Contas inválidas");
+
+            fromAcc.CurrentBalance -= request.Amount;
+            toAcc.CurrentBalance += request.Amount;
+
+            _context.Transactions.Add(expense);
+            _context.Transactions.Add(income);
+            
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Transferência realizada!" });
+        }
+
+        // DTO auxiliar (Coloque no fim do arquivo ou num arquivo separado)
+        public class TransferDto
+        {
+            public int FromAccountId { get; set; }
+            public int ToAccountId { get; set; }
+            public decimal Amount { get; set; }
+            public DateTime Date { get; set; }
         }
     }
 }

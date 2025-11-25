@@ -1,26 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Radio, Select, message, InputNumber, DatePicker, Switch } from 'antd';
+import { Modal, Form, Input, Radio, Select, message, InputNumber, DatePicker, Switch, Row, Col, Divider } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
 
-export default function AddTransactionModal({ visible, onClose, onSuccess }) {
+export default function AddTransactionModal({ visible, onClose, onSuccess, transactionToEdit }) {
   const [form] = Form.useForm();
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Controle do Switch de Pagamento
+  // Controles
+  const [transactionType, setTransactionType] = useState('Expense'); // 'Income' ou 'Expense'
+  const [isCreditCard, setIsCreditCard] = useState(false);
   const [isPaid, setIsPaid] = useState(true);
 
   useEffect(() => {
     if (visible) {
       loadData();
-      form.resetFields();
-      setIsPaid(true); // Reseta para pago ao abrir
+      if (transactionToEdit) {
+        // Modo Edição
+        form.setFieldsValue({
+            ...transactionToEdit,
+            date: dayjs(transactionToEdit.date),
+            amount: Math.abs(transactionToEdit.amount)
+        });
+        setTransactionType(transactionToEdit.type);
+        setIsPaid(transactionToEdit.paid);
+        setIsCreditCard(false); // Simplificação: não muda parcelas na edição
+      } else {
+        // Modo Criação
+        form.resetFields();
+        setTransactionType('Expense');
+        setIsPaid(true);
+        setIsCreditCard(false);
+      }
     }
-  }, [visible]);
+  }, [visible, transactionToEdit]);
 
   const loadData = async () => {
     try {
@@ -35,27 +52,47 @@ export default function AddTransactionModal({ visible, onClose, onSuccess }) {
     }
   };
 
+  // Filtra categorias pelo tipo selecionado
+  const filteredCategories = categories.filter(c => c.type === transactionType);
+
+  const handleAccountChange = (value) => {
+    const acc = accounts.find(a => a.id === value);
+    if (acc && acc.isCreditCard) {
+        setIsCreditCard(true);
+        setIsPaid(false); // Cartão nasce pendente
+    } else {
+        setIsCreditCard(false);
+        setIsPaid(true); // Conta corrente nasce paga
+    }
+  };
+
   const handleOk = () => {
     form.validateFields().then(async (values) => {
       setLoading(true);
       try {
-        const transaction = {
+        const payload = {
+          id: transactionToEdit ? transactionToEdit.id : 0,
           description: values.description,
-          amount: Number(values.amount),
+          amount: Number(values.amount), // Backend agora espera o valor da parcela aqui
           type: values.type,
           categoryId: values.categoryId,
           accountId: values.accountId,
-          date: values.date ? values.date.toISOString() : new Date().toISOString(),
-          paid: isPaid // <--- Envia o status do Switch
+          date: values.date.toISOString(),
+          paid: isPaid,
+          installments: values.installments || 1
         };
 
-        await api.post('/transactions', transaction);
+        if (transactionToEdit) {
+            await api.put(`/transactions/${transactionToEdit.id}`, payload);
+            message.success('Atualizado!');
+        } else {
+            await api.post('/transactions', payload);
+            message.success('Criado!');
+        }
         
-        message.success('Transação salva!');
         onSuccess();
         onClose();
       } catch (error) {
-        console.error(error);
         message.error('Erro ao salvar');
       } finally {
         setLoading(false);
@@ -65,82 +102,95 @@ export default function AddTransactionModal({ visible, onClose, onSuccess }) {
 
   return (
     <Modal
-      title="Nova Transação"
+      title={transactionToEdit ? "Editar Lançamento" : "Novo Lançamento"}
       open={visible}
       onOk={handleOk}
       onCancel={onClose}
       confirmLoading={loading}
       okText="Salvar"
       cancelText="Cancelar"
+      width={600} // Mais largo para caber lado a lado
     >
-      <Form form={form} layout="vertical" initialValues={{ type: 'Expense' }}>
+      <Form form={form} layout="vertical" initialValues={{ type: 'Expense', installments: 1 }}>
         
-        <Form.Item name="type" label="Tipo">
-          <Radio.Group buttonStyle="solid">
-            <Radio.Button value="Income" style={{ color: 'green' }}>Receita</Radio.Button>
-            <Radio.Button value="Expense" style={{ color: 'red' }}>Despesa</Radio.Button>
-          </Radio.Group>
+        {/* Linha 1: Tipo e Data */}
+        <Row gutter={16}>
+            <Col span={12}>
+                <Form.Item name="type" label="Tipo de Movimentação">
+                    <Radio.Group buttonStyle="solid" onChange={e => setTransactionType(e.target.value)}>
+                        <Radio.Button value="Income" style={{ color: 'green' }}>Receita</Radio.Button>
+                        <Radio.Button value="Expense" style={{ color: 'red' }}>Despesa</Radio.Button>
+                    </Radio.Group>
+                </Form.Item>
+            </Col>
+            <Col span={12}>
+                <Form.Item name="date" label="Data do Lançamento" initialValue={dayjs()}>
+                    <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                </Form.Item>
+            </Col>
+        </Row>
+
+        {/* Linha 2: Descrição */}
+        <Form.Item name="description" label="Descrição" rules={[{ required: true }]}>
+            <Input placeholder="Ex: Almoço, Uber, Salário..." />
         </Form.Item>
 
-        <Form.Item name="date" label="Data" initialValue={dayjs()}>
-          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-        </Form.Item>
+        {/* Linha 3: Categoria e Conta */}
+        <Row gutter={16}>
+            <Col span={12}>
+                <Form.Item name="categoryId" label="Categoria" rules={[{ required: true }]}>
+                    <Select placeholder="Selecione">
+                        {filteredCategories.map(c => (
+                            <Option key={c.id} value={c.id}>
+                                <span style={{ color: c.color, marginRight: 8 }}>●</span>
+                                {c.name}
+                            </Option>
+                        ))}
+                    </Select>
+                </Form.Item>
+            </Col>
+            <Col span={12}>
+                <Form.Item name="accountId" label="Conta / Cartão" rules={[{ required: true }]}>
+                    <Select placeholder="Selecione" onChange={handleAccountChange}>
+                        {accounts.map(a => (
+                            <Option key={a.id} value={a.id}>
+                                {a.isCreditCard ? `💳 ${a.name}` : `🏦 ${a.name}`}
+                            </Option>
+                        ))}
+                    </Select>
+                </Form.Item>
+            </Col>
+        </Row>
 
-        <Form.Item 
-            name="amount" 
-            label="Valor" 
-            rules={[{ required: true, message: 'Informe o valor' }]}
-        >
-          <InputNumber 
-            style={{ width: '100%' }} 
-            prefix="R$" 
-            precision={2}
-            placeholder="0,00"
-          />
-        </Form.Item>
+        <Divider style={{ margin: '12px 0' }} />
 
-        {/* STATUS DE PAGAMENTO */}
-        <Form.Item label="Situação">
-           <Switch 
-              checked={isPaid} 
-              onChange={setIsPaid} 
-              checkedChildren="Pago / Recebido" 
-              unCheckedChildren="Pendente / Agendado" 
-              defaultChecked
-           />
-        </Form.Item>
+        {/* Linha 4: Valores e Status */}
+        <Row gutter={16}>
+            <Col span={isCreditCard ? 8 : 12}>
+                <Form.Item name="amount" label={isCreditCard ? "Valor da Parcela" : "Valor Total"} rules={[{ required: true }]}>
+                    <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} />
+                </Form.Item>
+            </Col>
+            
+            {isCreditCard && !transactionToEdit && (
+                <Col span={8}>
+                    <Form.Item name="installments" label="Qtd. Parcelas">
+                        <InputNumber min={1} max={48} style={{ width: '100%' }} addonAfter="x" />
+                    </Form.Item>
+                </Col>
+            )}
 
-        <Form.Item 
-            name="description" 
-            label="Descrição" 
-            rules={[{ required: true, message: 'Informe a descrição' }]}
-        >
-          <Input placeholder="Ex: Supermercado" />
-        </Form.Item>
-
-        <Form.Item 
-            name="categoryId" 
-            label="Categoria" 
-            rules={[{ required: true, message: 'Selecione a categoria' }]}
-        >
-          <Select placeholder="Selecione">
-            {categories.map(c => (
-              <Option key={c.id} value={c.id}>{c.name}</Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        <Form.Item 
-            name="accountId" 
-            label="Conta" 
-            rules={[{ required: true, message: 'Selecione a conta' }]}
-        >
-          <Select placeholder="Selecione">
-            {accounts.map(a => (
-              <Option key={a.id} value={a.id}>{a.name}</Option>
-            ))}
-          </Select>
-        </Form.Item>
+            <Col span={isCreditCard ? 8 : 12}>
+                <Form.Item label="Situação">
+                    <Switch 
+                        checked={isPaid} 
+                        onChange={setIsPaid} 
+                        checkedChildren="Pago" 
+                        unCheckedChildren="Pendente" 
+                    />
+                </Form.Item>
+            </Col>
+        </Row>
 
       </Form>
     </Modal>

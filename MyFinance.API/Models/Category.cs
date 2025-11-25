@@ -19,5 +19,7 @@ namespace MyFinance.API.Models
 
         [Column("color")]
         public string Color { get; set; } = string.Empty;
+        [Column("user_id")]
+        public int UserId { get; set; }
     }
 }

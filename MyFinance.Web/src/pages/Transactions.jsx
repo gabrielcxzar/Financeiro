@@ -1,24 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Popconfirm, message, Card } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import AddTransactionModal from '../components/AddTransactionModal';
 import api from '../services/api';
 
 const formatMoney = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-export default function Transactions() {
+export default function Transactions({ month, year }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     loadTransactions();
-  }, []);
+  }, [month, year]); // Recarrega se mudar a data lá no topo
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/transactions');
+      // Passa o filtro de data se existir
+      const query = month && year ? `?month=${month}&year=${year}` : '';
+      const response = await api.get(`/transactions${query}`);
       setTransactions(response.data);
     } catch (error) {
       message.error('Erro ao carregar transações');
@@ -31,10 +36,15 @@ export default function Transactions() {
     try {
       await api.delete(`/transactions/${id}`);
       message.success('Transação excluída e saldo atualizado!');
-      loadTransactions(); // Recarrega a lista
+      loadTransactions(); 
     } catch (error) {
       message.error('Erro ao excluir');
     }
+  };
+
+  const handleEdit = (record) => {
+    setEditingItem(record); // Guarda o item que vamos editar
+    setIsModalOpen(true);   // Abre o modal
   };
 
   const columns = [
@@ -56,7 +66,6 @@ export default function Transactions() {
       key: 'category',
       render: (text) => <Tag color="cyan">{text || 'Geral'}</Tag>,
       filters: [
-        // Aqui poderíamos popular dinamicamente depois
         { text: 'Salário', value: 'Salário' },
         { text: 'Alimentação', value: 'Alimentação' },
       ],
@@ -75,18 +84,35 @@ export default function Transactions() {
       sorter: (a, b) => a.amount - b.amount,
     },
     {
+      title: 'Status',
+      dataIndex: 'paid',
+      key: 'paid',
+      render: (paid) => (
+          <Tag color={paid ? 'green' : 'orange'}>
+              {paid ? 'Pago' : 'Pendente'}
+          </Tag>
+      )
+    },
+    {
       title: 'Ações',
       key: 'action',
       render: (_, record) => (
-        <Popconfirm
-          title="Tem certeza?"
-          description="Isso vai estornar o valor da conta."
-          onConfirm={() => handleDelete(record.id)}
-          okText="Sim"
-          cancelText="Não"
-        >
-          <Button type="text" danger icon={<DeleteOutlined />} />
-        </Popconfirm>
+        <div style={{ display: 'flex', gap: 8 }}>
+            <Button 
+                type="text" 
+                icon={<EditOutlined style={{ color: '#1890ff' }} />} 
+                onClick={() => handleEdit(record)} 
+            />
+            <Popconfirm
+              title="Tem certeza?"
+              description="Isso vai estornar o valor da conta."
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+               <Button type="text" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+        </div>
       ),
     },
   ];
@@ -100,9 +126,20 @@ export default function Transactions() {
             columns={columns} 
             rowKey="id"
             loading={loading}
-            pagination={{ pageSize: 8 }}
+            pagination={{ pageSize: 10 }}
           />
        </Card>
+
+       {/* MODAL DE EDIÇÃO/CRIAÇÃO PRECISA ESTAR AQUI */}
+       <AddTransactionModal 
+           visible={isModalOpen}
+           transactionToEdit={editingItem}
+           onClose={() => {
+               setIsModalOpen(false);
+               setEditingItem(null); // Limpa a edição ao fechar
+           }}
+           onSuccess={loadTransactions} 
+       />
     </div>
   );
 }

@@ -29,6 +29,11 @@ namespace MyFinance.API.Models
         
         [Column("accountid")]
         public int AccountId { get; set; }
-        // public Account? Account { get; set; }
+        public Account? Account { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
+        [NotMapped]
+        public int Installments { get; set; } = 1;
     }
 }

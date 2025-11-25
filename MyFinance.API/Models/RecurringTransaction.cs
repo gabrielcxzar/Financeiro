@@ -30,5 +30,7 @@ namespace MyFinance.API.Models
         [Column("account_id")]
         public int AccountId { get; set; }
         public Account? Account { get; set; }
+        [Column("user_id")]
+        public int UserId { get; set; }
     }
 }
