@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Radio, Select, message, InputNumber, DatePicker, Switch, Row, Col, Divider } from 'antd';
+import { Modal, Form, Input, Radio, Select, message, DatePicker, Switch, Row, Col, Divider } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
+import InputMoney from './InputMoney';
 
 const { Option } = Select;
 
@@ -168,14 +169,14 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         <Row gutter={16}>
             <Col span={isCreditCard ? 8 : 12}>
                 <Form.Item name="amount" label={isCreditCard ? "Valor da Parcela" : "Valor Total"} rules={[{ required: true }]}>
-                    <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} />
+                    <InputMoney style={{ width: '100%' }} prefix="R$" precision={2} />
                 </Form.Item>
             </Col>
             
             {isCreditCard && !transactionToEdit && (
                 <Col span={8}>
                     <Form.Item name="installments" label="Qtd. Parcelas">
-                        <InputNumber min={1} max={48} style={{ width: '100%' }} addonAfter="x" />
+                        <InputMoney min={1} max={48} style={{ width: '100%' }} addonAfter="x" />
                     </Form.Item>
                 </Col>
             )}

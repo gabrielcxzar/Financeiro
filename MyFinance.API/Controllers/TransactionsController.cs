@@ -248,5 +248,39 @@ namespace MyFinance.API.Controllers
             public decimal Amount { get; set; }
             public DateTime Date { get; set; }
         }
+        [HttpGet("invoice")]
+        public async Task<ActionResult<object>> GetInvoiceSummary([FromQuery] int accountId, [FromQuery] int month, [FromQuery] int year)
+        {
+            var userId = GetUserId();
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
+            
+            if (account == null || !account.IsCreditCard) return BadRequest("Conta não é cartão de crédito");
+
+            // Lógica de Fechamento
+            // Fatura de Maio (Mês 5):
+            // Fecha dia 20/05.
+            // Pega compras de 21/04 até 20/05.
+            
+            int closingDay = account.ClosingDay ?? 1;
+            
+            DateTime closeDate = new DateTime(year, month, closingDay);
+            DateTime startDate = closeDate.AddMonths(-1).AddDays(1);
+
+            var transactions = await _context.Transactions
+                .Include(t => t.Category)
+                .Where(t => t.AccountId == accountId && t.Date >= startDate && t.Date <= closeDate)
+                .OrderByDescending(t => t.Date)
+                .ToListAsync();
+
+            var total = transactions.Sum(t => t.Amount); // Assumindo que no cartão só tem Expense positivo
+
+            return new { 
+                period = $"{startDate:dd/MM} a {closeDate:dd/MM}",
+                dueDate = new DateTime(year, month, account.DueDay ?? 1),
+                total,
+                status = total > 0 ? "Aberta/Fechada" : "Paga", // Simplificação
+                transactions 
+            };
+        }
     }
 }

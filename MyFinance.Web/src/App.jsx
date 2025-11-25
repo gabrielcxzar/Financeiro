@@ -9,7 +9,9 @@ import {
   BankOutlined,
   SyncOutlined,
   TagsOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  CreditCardOutlined,
+  UserOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -23,6 +25,8 @@ import Reports from './pages/Reports';
 import Accounts from './pages/Accounts';
 import Recurring from './pages/Recurring';
 import Categories from './pages/Categories';
+import Invoices from './pages/Invoices'; // <--- Tela de Faturas
+import Profile from './pages/Profile';     // <--- Tela de Perfil
 import AddTransactionModal from './components/AddTransactionModal';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -48,7 +52,6 @@ const Logo = styled.div`
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
-  
   const [collapsed, setCollapsed] = useState(false);
   const [activeKey, setActiveKey] = useState('1');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,10 +75,13 @@ const App = () => {
   const items = [
     { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
     { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
+    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cartão' }, // <--- NOVO
     { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
-    { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
     { key: '5', icon: <SyncOutlined />, label: 'Despesas Fixas' },
+    { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
     { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
+    { type: 'divider' },
+    { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' }, // <--- NOVO
     { type: 'divider' },
     { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
   ];
@@ -92,16 +98,17 @@ const App = () => {
     switch (activeKey) {
       case '1': return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
       case '2': return <Transactions key={`${month}-${year}`} month={month} year={year} />;
-      case '3': return <Reports />;
+      case '3': return <Reports month={month} year={year} />;
       case '4': return <Accounts />;
       case '5': return <Recurring />;
       case '6': return <Categories />;
+      case '8': return <Invoices />; // <--- Tela Nova
+      case '9': return <Profile />;  // <--- Tela Nova
       default: return <Home month={month} year={year} />;
     }
   };
 
   return (
-    // MUDANÇA 1: height: '100vh' trava a tela inteira no tamanho do navegador
     <Layout style={{ height: '100vh' }}>
       <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
         <Logo>
@@ -111,10 +118,9 @@ const App = () => {
         <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} onClick={handleMenuClick} />
       </Sider>
       
-      {/* MUDANÇA 2: overflowY: 'auto' cria a rolagem APENAS neste lado direito */}
       <Layout style={{ overflowY: 'auto' }}>
         <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
-          <h2 style={{ margin: 0, color: '#001529' }}>Visão Geral</h2>
+          <h2 style={{ margin: 0, color: '#001529' }}>Gestão Financeira</h2>
           
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

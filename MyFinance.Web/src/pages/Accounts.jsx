@@ -14,6 +14,9 @@ export default function Accounts() {
   // Estados dos Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
+  
+  // Estado da Edição (A PEÇA QUE FALTAVA)
+  const [editingAccount, setEditingAccount] = useState(null);
 
   useEffect(() => {
     loadAccounts();
@@ -26,7 +29,6 @@ export default function Accounts() {
       setAccounts(response.data);
     } catch (error) {
       console.error(error);
-      message.error('Erro ao carregar contas.');
     } finally {
       setLoading(false);
     }
@@ -42,6 +44,17 @@ export default function Accounts() {
     }
   };
 
+  const handleEdit = (account) => {
+    setEditingAccount(account); // Agora essa variável existe!
+    setIsModalOpen(true);
+  };
+
+  // Quando fecha o modal, limpa a edição
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingAccount(null);
+  };
+
   const creditCards = accounts.filter(a => a.isCreditCard);
   const checkingAccounts = accounts.filter(a => !a.isCreditCard && a.type !== 'Investment');
   const investmentAccounts = accounts.filter(a => !a.isCreditCard && a.type === 'Investment');
@@ -50,8 +63,8 @@ export default function Accounts() {
   const totalInvested = investmentAccounts.reduce((acc, val) => acc + val.currentBalance, 0);
 
   const renderActions = (account) => [
-    <Tooltip title="Editar (Em breve)" key="edit">
-        <EditOutlined style={{ color: '#1890ff' }} />
+    <Tooltip title="Editar" key="edit">
+        <EditOutlined style={{ color: '#1890ff' }} onClick={() => handleEdit(account)} />
     </Tooltip>,
     <Popconfirm
       title="Apagar conta?"
@@ -69,6 +82,7 @@ export default function Accounts() {
     <Col xs={24} sm={12} md={8} key={account.id}>
       <Card 
         hoverable 
+        variant="borderless" // Atualizado: 'bordered={false}' is deprecated
         style={{ borderRadius: 12, marginBottom: 16, border: '1px solid #f0f0f0' }}
         actions={renderActions(account)}
       >
@@ -77,7 +91,7 @@ export default function Accounts() {
             {account.type === 'Investment' ? <RiseOutlined style={{ color: '#1890ff' }} /> : <BankOutlined style={{ color: '#52c41a' }} />}
             {account.name}
           </h4>
-          <Tag bordered={false} color={account.type === 'Investment' ? 'blue' : 'success'}>
+          <Tag variant="borderless" color={account.type === 'Investment' ? 'blue' : 'success'}>
             {account.type === 'Investment' ? 'Investimento' : 'Conta'}
           </Tag>
         </div>
@@ -101,7 +115,8 @@ export default function Accounts() {
       <Col xs={24} sm={12} md={8} key={card.id}>
         <Card 
             hoverable 
-            style={{ borderRadius: 12, marginBottom: 16, background: 'linear-gradient(145deg, #2b2b2b 0%, #444 100%)', border: 'none' }}
+            variant="borderless"
+            style={{ borderRadius: 12, marginBottom: 16, background: 'linear-gradient(145deg, #2b2b2b 0%, #444 100%)' }}
             actions={renderActions(card)}
             className="dark-card"
         >
@@ -127,8 +142,8 @@ export default function Accounts() {
                 percent={percentualUso} 
                 showInfo={false} 
                 strokeColor={percentualUso > 90 ? '#ff4d4f' : '#1890ff'} 
-                trailColor="rgba(255,255,255,0.1)"
-                strokeWidth={8}
+                railColor="rgba(255,255,255,0.1)" // Atualizado: 'trailColor' deprecated
+                size={["100%", 8]} // Atualizado: 'strokeWidth' deprecated
             />
             <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 8 }}>
               Disponível: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
@@ -162,7 +177,6 @@ export default function Accounts() {
             <span style={{ color: '#888' }}>Gerencie onde seu dinheiro está guardado</span>
         </div>
         
-        {/* Grupo de Botões do Header */}
         <div style={{ display: 'flex', gap: 10 }}>
             <Button 
                 icon={<SwapOutlined />} 
@@ -174,24 +188,39 @@ export default function Accounts() {
             <Button 
                 type="primary" 
                 icon={<PlusOutlined />} 
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => {
+                    setEditingAccount(null); // Garante que é criação
+                    setIsModalOpen(true);
+                }}
                 size="large"
                 style={{ borderRadius: 6, boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
             >
-              Nova Carteira
+              Nova Conta
             </Button>
         </div>
       </div>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
-          <Card bordered={false} style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic title="Disponível (Giro)" value={totalChecking} formatter={(v) => formatMoney(v)} valueStyle={{ color: '#3f8600', fontWeight: 'bold' }} prefix={<BankOutlined />} />
+          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <Statistic 
+                title="Disponível (Giro)" 
+                value={totalChecking} 
+                formatter={(v) => formatMoney(v)} 
+                valueStyle={{ color: '#3f8600', fontWeight: 'bold' }} 
+                prefix={<BankOutlined />} 
+            />
           </Card>
         </Col>
         <Col span={12}>
-          <Card bordered={false} style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic title="Total Investido" value={totalInvested} formatter={(v) => formatMoney(v)} valueStyle={{ color: '#1890ff', fontWeight: 'bold' }} prefix={<RiseOutlined />} />
+          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <Statistic 
+                title="Total Investido" 
+                value={totalInvested} 
+                formatter={(v) => formatMoney(v)} 
+                valueStyle={{ color: '#1890ff', fontWeight: 'bold' }} 
+                prefix={<RiseOutlined />} 
+            />
           </Card>
         </Col>
       </Row>
@@ -208,14 +237,15 @@ export default function Accounts() {
         {[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}
       </Row>
 
-      {/* Modal de Nova Conta */}
+      {/* MODAL DE CRIAR/EDITAR CONTA */}
       <AddAccountModal 
         visible={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        accountToEdit={editingAccount} // <--- Agora passa o dado certo
+        onClose={handleCloseModal} 
         onSuccess={loadAccounts} 
       />
 
-      {/* Modal de Transferência */}
+      {/* MODAL DE TRANSFERÊNCIA */}
       <TransferModal 
         visible={isTransferOpen} 
         onClose={() => setIsTransferOpen(false)} 

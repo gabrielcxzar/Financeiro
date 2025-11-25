@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Popconfirm, message, Card } from 'antd';
-import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined,CloudUploadOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import api from '../services/api';
+import ImportModal from '../components/ImportModal';
 
 const formatMoney = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
+
 export default function Transactions({ month, year }) {
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -119,7 +122,12 @@ export default function Transactions({ month, year }) {
 
   return (
     <div>
-       <h2 style={{ marginBottom: 16 }}>Extrato Completo</h2>
+       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Extrato Completo</h2>
+          <Button icon={<CloudUploadOutlined />} onClick={() => setIsImportOpen(true)}>
+              Importar CSV
+          </Button>
+      </div>
        <Card bordered={false} style={{ borderRadius: 8 }}>
           <Table 
             dataSource={transactions} 
@@ -140,6 +148,11 @@ export default function Transactions({ month, year }) {
            }}
            onSuccess={loadTransactions} 
        />
+       <ImportModal 
+          visible={isImportOpen}
+          onClose={() => setIsImportOpen(false)}
+          onSuccess={loadTransactions}
+        />
     </div>
   );
 }

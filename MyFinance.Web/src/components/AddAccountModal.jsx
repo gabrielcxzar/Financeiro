@@ -1,42 +1,66 @@
-import React, { useState } from 'react';
-import { Modal, Form, Input, Radio, InputNumber, message, Switch, Divider, Row, Col } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Modal, Form, Input, Radio, message, Switch, Row, Col } from 'antd';
 import api from '../services/api';
+import InputMoney from './InputMoney'; // Usando o componente novo
 
-export default function AddAccountModal({ visible, onClose, onSuccess }) {
+export default function AddAccountModal({ visible, onClose, onSuccess, accountToEdit }) {
   const [loading, setLoading] = useState(false);
   const [isCreditCard, setIsCreditCard] = useState(false);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (visible) {
+      if (accountToEdit) {
+        // Modo Edição
+        form.setFieldsValue(accountToEdit);
+        setIsCreditCard(accountToEdit.isCreditCard);
+      } else {
+        // Modo Criação
+        form.resetFields();
+        setIsCreditCard(false);
+      }
+    }
+  }, [visible, accountToEdit]);
 
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
       setLoading(true);
       
-      await api.post('/accounts', {
-        name: values.name,
+      const payload = {
+        ...values,
+        id: accountToEdit ? accountToEdit.id : 0,
         initialBalance: Number(values.initialBalance || 0),
-        currentBalance: Number(values.initialBalance || 0),
-        type: isCreditCard ? 'CreditCard' : values.type,
+        currentBalance: accountToEdit ? accountToEdit.currentBalance : Number(values.initialBalance || 0), // Mantém saldo atual se for edição
+        type: isCreditCard ? 'Checking' : values.type, // Cartão no backend é checking com flag true
         isCreditCard: isCreditCard,
-        creditLimit: isCreditCard ? Number(values.creditLimit) : null,
-        closingDay: isCreditCard ? Number(values.closingDay) : null,
-        dueDay: isCreditCard ? Number(values.dueDay) : null,
-      });
+      };
 
-      message.success('Conta/Cartão salvo com sucesso!');
-      form.resetFields();
-      setIsCreditCard(false);
+      if (accountToEdit) {
+        await api.put(`/accounts/${accountToEdit.id}`, payload);
+        message.success('Conta atualizada!');
+      } else {
+        await api.post('/accounts', payload);
+        message.success('Conta criada!');
+      }
+
       onSuccess();
       onClose();
     } catch (error) {
-      message.error('Erro ao criar conta');
+      message.error('Erro ao salvar conta');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Modal title="Nova Carteira / Cartão" open={visible} onOk={handleOk} onCancel={onClose} confirmLoading={loading}>
+    <Modal 
+        title={accountToEdit ? "Editar Conta" : "Nova Carteira / Cartão"} 
+        open={visible} 
+        onOk={handleOk} 
+        onCancel={onClose} 
+        confirmLoading={loading}
+    >
       <Form form={form} layout="vertical" initialValues={{ type: 'Checking', initialBalance: 0 }}>
         
         <Form.Item label="É Cartão de Crédito?">
@@ -47,40 +71,39 @@ export default function AddAccountModal({ visible, onClose, onSuccess }) {
           <Input placeholder={isCreditCard ? "Ex: Nubank Platinum" : "Ex: Carteira, Banco..."} />
         </Form.Item>
 
-        {!isCreditCard ? (
-          <>
-            <Form.Item name="initialBalance" label="Saldo Atual" rules={[{ required: true }]}>
-              <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} />
-            </Form.Item>
+        {!accountToEdit && !isCreditCard && (
+           <Form.Item name="initialBalance" label="Saldo Inicial">
+              <InputMoney />
+           </Form.Item>
+        )}
 
+        {!isCreditCard && (
             <Form.Item name="type" label="Tipo">
               <Radio.Group buttonStyle="solid">
                 <Radio.Button value="Checking">Conta Corrente</Radio.Button>
                 <Radio.Button value="Investment">Investimento</Radio.Button>
               </Radio.Group>
             </Form.Item>
-          </>
-        ) : (
+        )}
+
+        {isCreditCard && (
           <>
             <Form.Item name="creditLimit" label="Limite do Cartão" rules={[{ required: true }]}>
-              <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} placeholder="Ex: 5000,00" />
+              <InputMoney />
             </Form.Item>
 
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="closingDay" label="Dia Fechamento" rules={[{ required: true }]}>
-                  <InputNumber min={1} max={31} style={{ width: '100%' }} placeholder="Ex: 25" />
+                  <Input type="number" min={1} max={31} />
                 </Form.Item>
               </Col>
               <Col span={12}>
                 <Form.Item name="dueDay" label="Dia Vencimento" rules={[{ required: true }]}>
-                  <InputNumber min={1} max={31} style={{ width: '100%' }} placeholder="Ex: 05" />
+                  <Input type="number" min={1} max={31} />
                 </Form.Item>
               </Col>
             </Row>
-            <div style={{ color: '#888', fontSize: '12px', marginTop: -10 }}>
-              * Transações feitas após o dia do fechamento cairão no mês seguinte.
-            </div>
           </>
         )}
       </Form>

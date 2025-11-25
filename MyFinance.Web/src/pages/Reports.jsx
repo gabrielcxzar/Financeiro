@@ -11,17 +11,21 @@ const formatMoney = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-export default function Reports() {
+// RECEBE AS PROPS DE DATA AGORA
+export default function Reports({ month, year }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [month, year]); // Recarrega quando muda a data
 
   const loadData = async () => {
     try {
-      const response = await api.get('/transactions');
+      setLoading(true);
+      // AGORA PASSA O FILTRO PARA A API
+      const query = month && year ? `?month=${month}&year=${year}` : '';
+      const response = await api.get(`/transactions${query}`);
       setTransactions(response.data);
     } catch (error) {
       console.error(error);
