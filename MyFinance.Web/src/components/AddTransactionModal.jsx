@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Radio, Select, message, DatePicker, Switch, Row, Col, Divider } from 'antd';
+import { Modal, Form, Input, Radio, Select, message, InputNumber, DatePicker, Switch, Row, Col, Divider } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
-import InputMoney from './InputMoney';
 
 const { Option } = Select;
 
@@ -12,8 +11,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // Controles
-  const [transactionType, setTransactionType] = useState('Expense'); // 'Income' ou 'Expense'
+  const [transactionType, setTransactionType] = useState('Expense');
   const [isCreditCard, setIsCreditCard] = useState(false);
   const [isPaid, setIsPaid] = useState(true);
 
@@ -21,7 +19,6 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
     if (visible) {
       loadData();
       if (transactionToEdit) {
-        // Modo Edição
         form.setFieldsValue({
             ...transactionToEdit,
             date: dayjs(transactionToEdit.date),
@@ -29,9 +26,8 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         });
         setTransactionType(transactionToEdit.type);
         setIsPaid(transactionToEdit.paid);
-        setIsCreditCard(false); // Simplificação: não muda parcelas na edição
+        setIsCreditCard(false); 
       } else {
-        // Modo Criação
         form.resetFields();
         setTransactionType('Expense');
         setIsPaid(true);
@@ -53,17 +49,16 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
     }
   };
 
-  // Filtra categorias pelo tipo selecionado
   const filteredCategories = categories.filter(c => c.type === transactionType);
 
   const handleAccountChange = (value) => {
     const acc = accounts.find(a => a.id === value);
     if (acc && acc.isCreditCard) {
         setIsCreditCard(true);
-        setIsPaid(false); // Cartão nasce pendente
+        setIsPaid(false);
     } else {
         setIsCreditCard(false);
-        setIsPaid(true); // Conta corrente nasce paga
+        setIsPaid(true);
     }
   };
 
@@ -74,7 +69,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         const payload = {
           id: transactionToEdit ? transactionToEdit.id : 0,
           description: values.description,
-          amount: Number(values.amount), // Backend agora espera o valor da parcela aqui
+          amount: Number(values.amount),
           type: values.type,
           categoryId: values.categoryId,
           accountId: values.accountId,
@@ -94,6 +89,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         onSuccess();
         onClose();
       } catch (error) {
+        console.error(error);
         message.error('Erro ao salvar');
       } finally {
         setLoading(false);
@@ -110,14 +106,13 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
       confirmLoading={loading}
       okText="Salvar"
       cancelText="Cancelar"
-      width={600} // Mais largo para caber lado a lado
+      width={600}
     >
       <Form form={form} layout="vertical" initialValues={{ type: 'Expense', installments: 1 }}>
         
-        {/* Linha 1: Tipo e Data */}
         <Row gutter={16}>
             <Col span={12}>
-                <Form.Item name="type" label="Tipo de Movimentação">
+                <Form.Item name="type" label="Tipo">
                     <Radio.Group buttonStyle="solid" onChange={e => setTransactionType(e.target.value)}>
                         <Radio.Button value="Income" style={{ color: 'green' }}>Receita</Radio.Button>
                         <Radio.Button value="Expense" style={{ color: 'red' }}>Despesa</Radio.Button>
@@ -125,33 +120,30 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
                 </Form.Item>
             </Col>
             <Col span={12}>
-                <Form.Item name="date" label="Data do Lançamento" initialValue={dayjs()}>
+                <Form.Item name="date" label="Data" initialValue={dayjs()}>
                     <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
                 </Form.Item>
             </Col>
         </Row>
 
-        {/* Linha 2: Descrição */}
         <Form.Item name="description" label="Descrição" rules={[{ required: true }]}>
-            <Input placeholder="Ex: Almoço, Uber, Salário..." />
+            <Input placeholder="Ex: Supermercado" />
         </Form.Item>
 
-        {/* Linha 3: Categoria e Conta */}
         <Row gutter={16}>
             <Col span={12}>
                 <Form.Item name="categoryId" label="Categoria" rules={[{ required: true }]}>
                     <Select placeholder="Selecione">
                         {filteredCategories.map(c => (
                             <Option key={c.id} value={c.id}>
-                                <span style={{ color: c.color, marginRight: 8 }}>●</span>
-                                {c.name}
+                                <span style={{ color: c.color, marginRight: 8 }}>●</span> {c.name}
                             </Option>
                         ))}
                     </Select>
                 </Form.Item>
             </Col>
             <Col span={12}>
-                <Form.Item name="accountId" label="Conta / Cartão" rules={[{ required: true }]}>
+                <Form.Item name="accountId" label="Conta" rules={[{ required: true }]}>
                     <Select placeholder="Selecione" onChange={handleAccountChange}>
                         {accounts.map(a => (
                             <Option key={a.id} value={a.id}>
@@ -165,18 +157,25 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
 
         <Divider style={{ margin: '12px 0' }} />
 
-        {/* Linha 4: Valores e Status */}
         <Row gutter={16}>
             <Col span={isCreditCard ? 8 : 12}>
-                <Form.Item name="amount" label={isCreditCard ? "Valor da Parcela" : "Valor Total"} rules={[{ required: true }]}>
-                    <InputMoney style={{ width: '100%' }} prefix="R$" precision={2} />
+                {/* INPUT DE DINHEIRO SIMPLIFICADO E FUNCIONAL */}
+                <Form.Item name="amount" label={isCreditCard ? "Valor da Parcela" : "Valor"} rules={[{ required: true }]}>
+                    <InputNumber 
+                        style={{ width: '100%' }} 
+                        prefix="R$" 
+                        decimalSeparator="," 
+                        precision={2}
+                        step={0.01}
+                        stringMode // Garante precisão
+                    />
                 </Form.Item>
             </Col>
             
             {isCreditCard && !transactionToEdit && (
                 <Col span={8}>
                     <Form.Item name="installments" label="Qtd. Parcelas">
-                        <InputMoney min={1} max={48} style={{ width: '100%' }} addonAfter="x" />
+                        <InputNumber min={1} max={48} style={{ width: '100%' }} /> 
                     </Form.Item>
                 </Col>
             )}

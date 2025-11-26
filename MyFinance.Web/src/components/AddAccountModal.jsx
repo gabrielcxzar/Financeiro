@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Radio, message, Switch, Row, Col } from 'antd';
+import { Modal, Form, Input, Radio, message, Switch, Row, Col, InputNumber } from 'antd';
 import api from '../services/api';
-import InputMoney from './InputMoney'; // Usando o componente novo
 
 export default function AddAccountModal({ visible, onClose, onSuccess, accountToEdit }) {
   const [loading, setLoading] = useState(false);
@@ -11,11 +10,9 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
   useEffect(() => {
     if (visible) {
       if (accountToEdit) {
-        // Modo Edição
         form.setFieldsValue(accountToEdit);
         setIsCreditCard(accountToEdit.isCreditCard);
       } else {
-        // Modo Criação
         form.resetFields();
         setIsCreditCard(false);
       }
@@ -31,8 +28,8 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
         ...values,
         id: accountToEdit ? accountToEdit.id : 0,
         initialBalance: Number(values.initialBalance || 0),
-        currentBalance: accountToEdit ? accountToEdit.currentBalance : Number(values.initialBalance || 0), // Mantém saldo atual se for edição
-        type: isCreditCard ? 'Checking' : values.type, // Cartão no backend é checking com flag true
+        currentBalance: accountToEdit ? accountToEdit.currentBalance : Number(values.initialBalance || 0),
+        type: isCreditCard ? 'Checking' : values.type,
         isCreditCard: isCreditCard,
       };
 
@@ -73,7 +70,13 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
 
         {!accountToEdit && !isCreditCard && (
            <Form.Item name="initialBalance" label="Saldo Inicial">
-              <InputMoney />
+              <InputNumber 
+                  style={{ width: '100%' }} 
+                  prefix="R$" 
+                  decimalSeparator="," 
+                  precision={2}
+                  stringMode
+              />
            </Form.Item>
         )}
 
@@ -89,7 +92,13 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
         {isCreditCard && (
           <>
             <Form.Item name="creditLimit" label="Limite do Cartão" rules={[{ required: true }]}>
-              <InputMoney />
+              <InputNumber 
+                  style={{ width: '100%' }} 
+                  prefix="R$" 
+                  decimalSeparator="," 
+                  precision={2}
+                  stringMode
+              />
             </Form.Item>
 
             <Row gutter={16}>

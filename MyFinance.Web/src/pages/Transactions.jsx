@@ -1,30 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Popconfirm, message, Card } from 'antd';
-import { DeleteOutlined, EditOutlined,CloudUploadOutlined } from '@ant-design/icons';
+import { Table, Tag, Button, Modal, message, Card, Tooltip } from 'antd';
+import { DeleteOutlined, EditOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
-import api from '../services/api';
 import ImportModal from '../components/ImportModal';
+import api from '../services/api';
 
 const formatMoney = (value) => {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-
 export default function Transactions({ month, year }) {
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     loadTransactions();
-  }, [month, year]); // Recarrega se mudar a data lá no topo
+  }, [month, year]);
 
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      // Passa o filtro de data se existir
       const query = month && year ? `?month=${month}&year=${year}` : '';
       const response = await api.get(`/transactions${query}`);
       setTransactions(response.data);
@@ -35,19 +34,37 @@ export default function Transactions({ month, year }) {
     }
   };
 
-  const handleDelete = async (id) => {
+  // Lógica inteligente de exclusão
+  const handleDelete = (record) => {
+      if (record.installmentId) { // <--- Só pergunta se tiver ID de grupo
+        Modal.confirm({
+            title: 'Excluir Parcelamento',
+            content: 'Esta transação faz parte de uma série. O que deseja fazer?',
+            okText: 'Apagar TODAS',
+            cancelText: 'Apenas ESTA',
+            okButtonProps: { danger: true },
+            onOk: () => executeDelete(record.id, true), // <--- TRUE = Apaga Série
+            onCancel: () => executeDelete(record.id, false) // <--- FALSE = Apaga Só Essa
+        });
+      } else {
+          // Se não tiver ID (antigas), apaga direto sem perguntar
+          executeDelete(record.id, false);
+      }
+  };
+
+  const executeDelete = async (id, deleteAll) => {
     try {
-      await api.delete(`/transactions/${id}`);
-      message.success('Transação excluída e saldo atualizado!');
-      loadTransactions(); 
+      await api.delete(`/transactions/${id}?deleteAll=${deleteAll}`);
+      message.success('Excluído com sucesso!');
+      loadTransactions();
     } catch (error) {
       message.error('Erro ao excluir');
     }
   };
 
   const handleEdit = (record) => {
-    setEditingItem(record); // Guarda o item que vamos editar
-    setIsModalOpen(true);   // Abre o modal
+    setEditingItem(record);
+    setIsModalOpen(true);
   };
 
   const columns = [
@@ -68,11 +85,6 @@ export default function Transactions({ month, year }) {
       dataIndex: ['category', 'name'],
       key: 'category',
       render: (text) => <Tag color="cyan">{text || 'Geral'}</Tag>,
-      filters: [
-        { text: 'Salário', value: 'Salário' },
-        { text: 'Alimentação', value: 'Alimentação' },
-      ],
-      onFilter: (value, record) => record.category?.name === value,
     },
     {
       title: 'Valor',
@@ -101,20 +113,21 @@ export default function Transactions({ month, year }) {
       key: 'action',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
-            <Button 
-                type="text" 
-                icon={<EditOutlined style={{ color: '#1890ff' }} />} 
-                onClick={() => handleEdit(record)} 
-            />
-            <Popconfirm
-              title="Tem certeza?"
-              description="Isso vai estornar o valor da conta."
-              onConfirm={() => handleDelete(record.id)}
-              okText="Sim"
-              cancelText="Não"
-            >
-               <Button type="text" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
+            <Tooltip title="Editar">
+                <Button 
+                    type="text" 
+                    icon={<EditOutlined style={{ color: '#1890ff' }} />} 
+                    onClick={() => handleEdit(record)} 
+                />
+            </Tooltip>
+            <Tooltip title="Excluir">
+                <Button 
+                    type="text" 
+                    danger 
+                    icon={<DeleteOutlined />} 
+                    onClick={() => handleDelete(record)} 
+                />
+            </Tooltip>
         </div>
       ),
     },
@@ -128,7 +141,8 @@ export default function Transactions({ month, year }) {
               Importar CSV
           </Button>
       </div>
-       <Card bordered={false} style={{ borderRadius: 8 }}>
+
+       <Card variant="borderless" style={{ borderRadius: 8 }}>
           <Table 
             dataSource={transactions} 
             columns={columns} 
@@ -138,16 +152,16 @@ export default function Transactions({ month, year }) {
           />
        </Card>
 
-       {/* MODAL DE EDIÇÃO/CRIAÇÃO PRECISA ESTAR AQUI */}
        <AddTransactionModal 
            visible={isModalOpen}
            transactionToEdit={editingItem}
            onClose={() => {
                setIsModalOpen(false);
-               setEditingItem(null); // Limpa a edição ao fechar
+               setEditingItem(null);
            }}
            onSuccess={loadTransactions} 
        />
+
        <ImportModal 
           visible={isImportOpen}
           onClose={() => setIsImportOpen(false)}

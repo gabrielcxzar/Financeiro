@@ -35,5 +35,7 @@ namespace MyFinance.API.Models
         public int UserId { get; set; }
         [NotMapped]
         public int Installments { get; set; } = 1;
+        [Column("installment_id")]
+        public string? InstallmentId { get; set; }
     }
 }

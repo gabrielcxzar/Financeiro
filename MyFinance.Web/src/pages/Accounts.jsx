@@ -4,13 +4,15 @@ import { PlusOutlined, BankOutlined, RiseOutlined, CreditCardOutlined, DeleteOut
 import api from '../services/api';
 import TransferModal from '../components/TransferModal';
 import AddAccountModal from '../components/AddAccountModal';
+import AdjustBalanceModal from '../components/AdjustBalanceModal';
+import { ToolOutlined } from '@ant-design/icons';
 
 const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState([]);
-  
+  const [adjustAccount, setAdjustAccount] = useState(null);
   // Estados dos Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
@@ -63,6 +65,9 @@ export default function Accounts() {
   const totalInvested = investmentAccounts.reduce((acc, val) => acc + val.currentBalance, 0);
 
   const renderActions = (account) => [
+    <Tooltip title="Ajustar Saldo" key="adjust">
+        <ToolOutlined style={{ color: '#faad14' }} onClick={() => setAdjustAccount(account)} />
+    </Tooltip>,
     <Tooltip title="Editar" key="edit">
         <EditOutlined style={{ color: '#1890ff' }} onClick={() => handleEdit(account)} />
     </Tooltip>,
@@ -106,10 +111,12 @@ export default function Accounts() {
   );
 
   const renderCreditCard = (card) => {
-    const gastoAtual = Math.abs(card.currentBalance); 
+    const faturaAtual = card.invoiceAmount || 0; 
+    const limiteUsado = Math.abs(card.currentBalance); // Dívida Total
+
     const limite = card.creditLimit || 1000;
-    const disponivel = limite - gastoAtual;
-    const percentualUso = (gastoAtual / limite) * 100;
+    const disponivel = limite - limiteUsado;
+    const percentualUso = (limiteUsado / limite) * 100;
 
     return (
       <Col xs={24} sm={12} md={8} key={card.id}>
@@ -130,20 +137,22 @@ export default function Accounts() {
           
           <div style={{ marginTop: 24, color: '#fff' }}>
             <span style={{ fontSize: 12, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>Fatura Atual</span>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 4 }}>{formatMoney(gastoAtual)}</div>
+            {/* AQUI MUDOU: Mostra a Fatura do Mês, não a dívida total */}
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 4 }}>{formatMoney(faturaAtual)}</div>
           </div>
 
           <div style={{ marginTop: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: 6 }}>
-              <span>Limite Utilizado</span>
-              <span>{percentualUso.toFixed(0)}%</span>
+              <span>Limite Utilizado (Total)</span>
+              {/* Mostra o total usado do limite */}
+              <span>{formatMoney(limiteUsado)}</span>
             </div>
             <Progress 
                 percent={percentualUso} 
                 showInfo={false} 
                 strokeColor={percentualUso > 90 ? '#ff4d4f' : '#1890ff'} 
-                railColor="rgba(255,255,255,0.1)" // Atualizado: 'trailColor' deprecated
-                size={["100%", 8]} // Atualizado: 'strokeWidth' deprecated
+                railColor="rgba(255,255,255,0.1)"
+                size={["100%", 8]}
             />
             <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 8 }}>
               Disponível: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
@@ -249,6 +258,12 @@ export default function Accounts() {
       <TransferModal 
         visible={isTransferOpen} 
         onClose={() => setIsTransferOpen(false)} 
+        onSuccess={loadAccounts} 
+      />
+      <AdjustAccountModal 
+        visible={!!adjustAccount} 
+        account={adjustAccount}
+        onClose={() => setAdjustAccount(null)} 
         onSuccess={loadAccounts} 
       />
     </div>

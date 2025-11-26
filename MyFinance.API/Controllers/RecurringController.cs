@@ -54,7 +54,6 @@ namespace MyFinance.API.Controllers
             return NoContent();
         }
 
-        // --- CORREÇÃO AQUI ---
         [HttpPost("generate")]
         public async Task<IActionResult> GenerateTransactions([FromQuery] int month, [FromQuery] int year)
         {
@@ -67,10 +66,11 @@ namespace MyFinance.API.Controllers
 
             foreach (var rule in rules)
             {
-                // Data ideal (Ex: dia 5 do mês escolhido)
-                var targetDate = new DateTime(year, month, Math.Min(rule.DayOfMonth, DateTime.DaysInMonth(year, month)));
+                int daysInMonth = DateTime.DaysInMonth(year, month);
+                int day = Math.Min(rule.DayOfMonth, daysInMonth);
+                
+                var targetDate = new DateTime(year, month, day, 12, 0, 0, DateTimeKind.Utc);
 
-                // Verifica se já gerou para não duplicar
                 bool exists = await _context.Transactions.AnyAsync(t => 
                     t.UserId == userId &&
                     t.Description == rule.Description && 
@@ -83,7 +83,7 @@ namespace MyFinance.API.Controllers
                 {
                     var newTrans = new Transaction
                     {
-                        UserId = userId, // <--- ESTA LINHA ESTAVA FALTANDO OU ERRADA!
+                        UserId = userId,
                         Description = rule.Description,
                         Amount = rule.Amount,
                         Type = rule.Type,

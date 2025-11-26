@@ -105,7 +105,7 @@ export default function Recurring() {
         </div>
       </div>
 
-      <Card>
+      <Card variant="borderless">
         <Table dataSource={items} columns={columns} rowKey="id" loading={loading} />
       </Card>
 
