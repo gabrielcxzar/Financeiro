@@ -34,7 +34,7 @@ export default function AdjustBalanceModal({ visible, onClose, onSuccess, accoun
       onCancel={onClose}
       confirmLoading={loading}
     >
-      <p>Informe o valor exato que está no seu banco agora. O sistema criará um ajuste automático.</p>
+      <p>Informe o valor exato que está no seu banco agora.</p>
       <Form form={form} layout="vertical">
         <Form.Item name="newBalance" label="Saldo Real Atual" rules={[{ required: true }]}>
           <InputNumber 

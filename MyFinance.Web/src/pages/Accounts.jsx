@@ -1,24 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Button, Statistic, Spin, Tag, Divider, Progress, Popconfirm, message, Tooltip } from 'antd';
-import { PlusOutlined, BankOutlined, RiseOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, SwapOutlined } from '@ant-design/icons';
+import { PlusOutlined, BankOutlined, RiseOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, SwapOutlined, ToolOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import TransferModal from '../components/TransferModal';
 import AddAccountModal from '../components/AddAccountModal';
-import AdjustBalanceModal from '../components/AdjustBalanceModal';
-import { ToolOutlined } from '@ant-design/icons';
+import AdjustBalanceModal from '../components/AdjustBalanceModal'; // <--- IMPORT CORRIGIDO
 
 const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function Accounts() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState([]);
-  const [adjustAccount, setAdjustAccount] = useState(null);
+  
   // Estados dos Modais
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
-  
-  // Estado da Edição (A PEÇA QUE FALTAVA)
   const [editingAccount, setEditingAccount] = useState(null);
+  const [adjustAccount, setAdjustAccount] = useState(null); // Estado para o modal de ajuste
 
   useEffect(() => {
     loadAccounts();
@@ -47,11 +45,10 @@ export default function Accounts() {
   };
 
   const handleEdit = (account) => {
-    setEditingAccount(account); // Agora essa variável existe!
+    setEditingAccount(account);
     setIsModalOpen(true);
   };
 
-  // Quando fecha o modal, limpa a edição
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingAccount(null);
@@ -87,7 +84,7 @@ export default function Accounts() {
     <Col xs={24} sm={12} md={8} key={account.id}>
       <Card 
         hoverable 
-        variant="borderless" // Atualizado: 'bordered={false}' is deprecated
+        variant="borderless"
         style={{ borderRadius: 12, marginBottom: 16, border: '1px solid #f0f0f0' }}
         actions={renderActions(account)}
       >
@@ -112,8 +109,7 @@ export default function Accounts() {
 
   const renderCreditCard = (card) => {
     const faturaAtual = card.invoiceAmount || 0; 
-    const limiteUsado = Math.abs(card.currentBalance); // Dívida Total
-
+    const limiteUsado = Math.abs(card.currentBalance);
     const limite = card.creditLimit || 1000;
     const disponivel = limite - limiteUsado;
     const percentualUso = (limiteUsado / limite) * 100;
@@ -137,14 +133,12 @@ export default function Accounts() {
           
           <div style={{ marginTop: 24, color: '#fff' }}>
             <span style={{ fontSize: 12, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>Fatura Atual</span>
-            {/* AQUI MUDOU: Mostra a Fatura do Mês, não a dívida total */}
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fff', marginTop: 4 }}>{formatMoney(faturaAtual)}</div>
           </div>
 
           <div style={{ marginTop: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: 6 }}>
-              <span>Limite Utilizado (Total)</span>
-              {/* Mostra o total usado do limite */}
+              <span>Limite Utilizado</span>
               <span>{formatMoney(limiteUsado)}</span>
             </div>
             <Progress 
@@ -171,69 +165,38 @@ export default function Accounts() {
 
   return (
     <div>
-      <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center', 
-          marginBottom: 24,
-          background: '#fff',
-          padding: '16px 24px',
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
-      }}>
+      {/* Cabeçalho */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, background: '#fff', padding: '16px 24px', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
         <div>
             <h2 style={{ margin: 0, fontSize: 20 }}>Carteiras & Contas</h2>
             <span style={{ color: '#888' }}>Gerencie onde seu dinheiro está guardado</span>
         </div>
         
         <div style={{ display: 'flex', gap: 10 }}>
-            <Button 
-                icon={<SwapOutlined />} 
-                onClick={() => setIsTransferOpen(true)}
-                size="large"
-            >
+            <Button icon={<SwapOutlined />} onClick={() => setIsTransferOpen(true)} size="large">
               Transferir
             </Button>
-            <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={() => {
-                    setEditingAccount(null); // Garante que é criação
-                    setIsModalOpen(true);
-                }}
-                size="large"
-                style={{ borderRadius: 6, boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingAccount(null); setIsModalOpen(true); }} size="large">
               Nova Conta
             </Button>
         </div>
       </div>
 
+      {/* Resumo */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
           <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic 
-                title="Disponível (Giro)" 
-                value={totalChecking} 
-                formatter={(v) => formatMoney(v)} 
-                valueStyle={{ color: '#3f8600', fontWeight: 'bold' }} 
-                prefix={<BankOutlined />} 
-            />
+            <Statistic title="Disponível (Giro)" value={totalChecking} formatter={(v) => formatMoney(v)} prefix={<BankOutlined />} valueStyle={{ fontWeight: 'bold', color: '#3f8600' }} />
           </Card>
         </Col>
         <Col span={12}>
           <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic 
-                title="Total Investido" 
-                value={totalInvested} 
-                formatter={(v) => formatMoney(v)} 
-                valueStyle={{ color: '#1890ff', fontWeight: 'bold' }} 
-                prefix={<RiseOutlined />} 
-            />
+            <Statistic title="Total Investido" value={totalInvested} formatter={(v) => formatMoney(v)} prefix={<RiseOutlined />} valueStyle={{ fontWeight: 'bold', color: '#1890ff' }} />
           </Card>
         </Col>
       </Row>
 
+      {/* Listas */}
       {creditCards.length > 0 && (
         <>
           <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Cartões de Crédito</h3>
@@ -246,25 +209,24 @@ export default function Accounts() {
         {[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}
       </Row>
 
-      {/* MODAL DE CRIAR/EDITAR CONTA */}
+      {/* Modais */}
       <AddAccountModal 
         visible={isModalOpen} 
-        accountToEdit={editingAccount} // <--- Agora passa o dado certo
+        accountToEdit={editingAccount} 
         onClose={handleCloseModal} 
         onSuccess={loadAccounts} 
       />
-
-      {/* MODAL DE TRANSFERÊNCIA */}
       <TransferModal 
         visible={isTransferOpen} 
         onClose={() => setIsTransferOpen(false)} 
         onSuccess={loadAccounts} 
       />
-      <AdjustAccountModal 
-        visible={!!adjustAccount} 
+      {/* Modal de Ajuste de Saldo (Corrigido) */}
+      <AdjustBalanceModal
+        visible={!!adjustAccount}
         account={adjustAccount}
-        onClose={() => setAdjustAccount(null)} 
-        onSuccess={loadAccounts} 
+        onClose={() => setAdjustAccount(null)}
+        onSuccess={loadAccounts}
       />
     </div>
   );

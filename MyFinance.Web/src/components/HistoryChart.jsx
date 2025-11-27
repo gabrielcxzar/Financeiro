@@ -8,17 +8,21 @@ import {
   Tooltip,
   Legend,
   PointElement,
-  LineElement
+  LineElement,
+  LineController, // <--- Faltava este cara!
+  BarController   // <--- E este
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
-// Registra todos os componentes visuais do gráfico
+// Registra TUDO
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
   PointElement,
   LineElement,
+  LineController, // <--- Registra aqui
+  BarController,  // <--- E aqui
   Title,
   Tooltip,
   Legend
@@ -27,12 +31,10 @@ ChartJS.register(
 export default function HistoryChart({ transactions }) {
   
   const chartData = useMemo(() => {
-    // 1. Agrupar transações por Mês (Chave: "2025-11")
     const groups = {};
 
     transactions.forEach(t => {
       const date = new Date(t.date);
-      // Cria uma chave ordenável: "2025-11"
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
       if (!groups[key]) {
@@ -44,18 +46,14 @@ export default function HistoryChart({ transactions }) {
       } else {
         groups[key].expense += t.amount;
       }
-      // Saldo do mês (Receita - Despesa)
       groups[key].balance = groups[key].income - groups[key].expense;
     });
 
-    // 2. Ordenar cronologicamente (Jan -> Fev -> Mar)
     const sortedKeys = Object.keys(groups).sort();
 
-    // 3. Preparar arrays para o Chart.js
     const labels = sortedKeys.map(key => {
       const [year, month] = key.split('-');
       const date = new Date(year, month - 1);
-      // Formata para "nov/25"
       return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
     });
 
@@ -68,29 +66,32 @@ export default function HistoryChart({ transactions }) {
       datasets: [
         {
           type: 'line',
-          label: 'Saldo do Mês',
+          label: 'Saldo Líquido',
           borderColor: '#1890ff',
           borderWidth: 2,
           fill: false,
           data: dataBalance,
-          tension: 0.3, // Deixa a linha curvinha
+          tension: 0.3,
           pointBackgroundColor: '#fff',
           pointBorderColor: '#1890ff',
-          pointRadius: 4
+          pointRadius: 4,
+          order: 1
         },
         {
           type: 'bar',
           label: 'Receitas',
-          backgroundColor: 'rgba(63, 134, 0, 0.6)', // Verde
+          backgroundColor: 'rgba(63, 134, 0, 0.6)',
           data: dataIncome,
           borderRadius: 4,
+          order: 2
         },
         {
           type: 'bar',
           label: 'Despesas',
-          backgroundColor: 'rgba(207, 19, 34, 0.6)', // Vermelho
+          backgroundColor: 'rgba(207, 19, 34, 0.6)',
           data: dataExpense,
           borderRadius: 4,
+          order: 3
         },
       ],
     };
