@@ -21,7 +21,10 @@ export default function Invoices() {
   }, []);
 
   useEffect(() => {
-    if (selectedCard) loadInvoice();
+    if (selectedCard) {
+        setInvoiceData(null); // <--- LIMPA A TELA ANTES DE CARREGAR O NOVO
+        loadInvoice();
+    }
   }, [selectedCard, currentMonth]);
 
   const loadInvoice = async () => {

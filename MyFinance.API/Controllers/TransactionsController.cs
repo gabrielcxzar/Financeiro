@@ -45,26 +45,52 @@ namespace MyFinance.API.Controllers
             var userId = GetUserId();
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
             
-            if (account == null || !account.IsCreditCard) return BadRequest("Conta inválida ou não é cartão");
+            if (account == null || !account.IsCreditCard) return BadRequest("Conta inválida");
 
             int closingDay = account.ClosingDay ?? 1;
+            int dueDay = account.DueDay ?? 10;
+
+            // 1. Define a Data de Fechamento (UTC)
             int daysInMonth = DateTime.DaysInMonth(year, month);
             int safeClosingDay = Math.Min(closingDay, daysInMonth);
-
             DateTime closeDate = new DateTime(year, month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
+            
+            // 2. Define a Data de Abertura (Dia seguinte ao fechamento anterior)
             DateTime startDate = closeDate.AddMonths(-1).AddDays(1);
 
+            // 3. Define a Data de Vencimento (A Correção!)
+            DateTime dueDate;
+            
+            // Regra: Se o dia do vencimento for MENOR que o fechamento (ex: Fecha 20, Vence 05), 
+            // então o vencimento é no mês seguinte.
+            // Caso contrário (ex: Fecha 20, Vence 27), é no mesmo mês.
+            if (dueDay < closingDay)
+            {
+                // Vence no mês seguinte
+                var nextMonthDate = closeDate.AddMonths(1);
+                int daysInNextMonth = DateTime.DaysInMonth(nextMonthDate.Year, nextMonthDate.Month);
+                int safeDueDay = Math.Min(dueDay, daysInNextMonth);
+                dueDate = new DateTime(nextMonthDate.Year, nextMonthDate.Month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
+            }
+            else
+            {
+                // Vence no mesmo mês
+                int safeDueDay = Math.Min(dueDay, daysInMonth);
+                dueDate = new DateTime(year, month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
+            }
+
+            // 4. Busca Transações
             var transactions = await _context.Transactions
                 .Include(t => t.Category)
                 .Where(t => t.AccountId == accountId && t.UserId == userId && t.Date >= startDate && t.Date <= closeDate)
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
 
-            // Expense = Gasto (Positivo na fatura), Income = Pagamento (Negativo na fatura/Abatimento)
             var total = transactions.Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount);
 
             return new { 
                 period = $"{startDate:dd/MM} a {closeDate:dd/MM}",
+                dueDate = dueDate, // Data calculada corretamente
                 total,
                 status = total > 0 ? "Aberta" : "Paga",
                 transactions 
