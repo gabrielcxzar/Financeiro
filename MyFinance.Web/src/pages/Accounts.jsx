@@ -199,12 +199,12 @@ export default function Accounts() {
       {/* Listas */}
       {creditCards.length > 0 && (
         <>
-          <h3 style={ margin: '20px 0 16px', color: '#555' }>Cartões de Crédito</h3>
+          <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Cartões de Crédito</h3>
           <Row gutter={16}>{creditCards.map(renderCreditCard)}</Row>
         </>
       )}
 
-      <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Contas Bancrias</h3>
+      <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Contas Bancárias</h3>
       <Row gutter={16}>
         {[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}
       </Row>
