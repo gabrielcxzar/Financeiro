@@ -31,38 +31,36 @@ namespace MyFinance.API.Controllers
             foreach (var acc in accounts)
             {
                 decimal invoiceAmount = 0;
-                
+
                 if (acc.IsCreditCard)
                 {
-                    var today = DateTime.UtcNow; // UTC Agora
+                    var today = DateTime.UtcNow;
                     var closingDay = acc.ClosingDay ?? 1;
-                    
-                    // CORREÇÃO DE DATA UTC AQUI:
+
                     int daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
                     int safeClosingDay = Math.Min(closingDay, daysInMonth);
 
-                    // Cria a data de fechamento como UTC
                     var closeDate = new DateTime(today.Year, today.Month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-                    
-                    if (today.Day >= closingDay) 
+
+                    if (today.Day >= safeClosingDay)
                     {
                         closeDate = closeDate.AddMonths(1);
                     }
-                    
+
                     var startDate = closeDate.AddMonths(-1).AddDays(1);
 
                     invoiceAmount = await _context.Transactions
-                        .Where(t => t.AccountId == acc.Id && t.UserId == userId 
+                        .Where(t => t.AccountId == acc.Id && t.UserId == userId
                                     && t.Date >= startDate && t.Date <= closeDate)
                         .SumAsync(t => t.Type == "Expense" ? t.Amount : -t.Amount);
                 }
 
-                result.Add(new 
+                result.Add(new
                 {
                     acc.Id,
                     acc.Name,
                     acc.InitialBalance,
-                    CurrentBalance = acc.CurrentBalance, 
+                    CurrentBalance = acc.CurrentBalance,
                     InvoiceAmount = invoiceAmount,
                     acc.Type,
                     acc.IsCreditCard,
@@ -74,10 +72,6 @@ namespace MyFinance.API.Controllers
 
             return Ok(result);
         }
-
-        // POST, PUT e DELETE continuam iguais, mas vou reenviar para garantir que não falte nada.
-        // Se você já tem eles, só substitua o GetAccounts.
-        // Para facilitar, aqui está o arquivo TODO:
 
         [HttpPost]
         public async Task<ActionResult<Account>> PostAccount(Account account)
@@ -99,7 +93,7 @@ namespace MyFinance.API.Controllers
 
             if (existingAccount == null) return NotFound();
 
-            account.UserId = userId; 
+            account.UserId = userId;
             _context.Entry(account).State = EntityState.Modified;
 
             await _context.SaveChangesAsync();
@@ -115,7 +109,7 @@ namespace MyFinance.API.Controllers
 
             if (account == null) return NotFound();
 
-            var transactions = _context.Transactions.Where(t => t.AccountId == id);
+            var transactions = _context.Transactions.Where(t => t.AccountId == id && t.UserId == userId);
             _context.Transactions.RemoveRange(transactions);
 
             _context.Accounts.Remove(account);
@@ -123,21 +117,19 @@ namespace MyFinance.API.Controllers
 
             return NoContent();
         }
-        // POST: api/Accounts/adjust-balance
+
         [HttpPost("adjust-balance")]
         public async Task<IActionResult> AdjustBalance([FromBody] AdjustBalanceDto request)
         {
             var userId = GetUserId();
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId && a.UserId == userId);
 
-            if (account == null) return NotFound("Conta não encontrada");
+            if (account == null) return NotFound("Conta n�o encontrada");
 
-            // 1. Calcula a diferença necessária
             decimal diferenca = request.NewBalance - account.CurrentBalance;
 
-            if (diferenca == 0) return Ok(new { message = "Saldo já está correto." });
+            if (diferenca == 0) return Ok(new { message = "Saldo j� est� correto." });
 
-            // 2. Cria uma transação de ajuste para justificar a mudança
             var transaction = new Transaction
             {
                 UserId = userId,
@@ -147,12 +139,11 @@ namespace MyFinance.API.Controllers
                 Date = DateTime.UtcNow,
                 Paid = true,
                 Type = diferenca > 0 ? "Income" : "Expense",
-                CategoryId = null // Ou uma categoria "Ajustes" se preferir
+                CategoryId = null
             };
 
             _context.Transactions.Add(transaction);
 
-            // 3. Atualiza o saldo
             account.CurrentBalance = request.NewBalance;
             _context.Entry(account).State = EntityState.Modified;
 

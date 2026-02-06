@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using MyFinance.API.Models;
+using MyFinance.API.Data;
 using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
@@ -34,9 +34,6 @@ namespace MyFinance.API.Controllers
         {
             var userId = GetUserId();
 
-            // --- MÉTODO OTIMIZADO (.NET 8) ---
-            // Apaga direto no banco sem ler para a memória (evita erros de nulo)
-
             await _context.Transactions
                 .Where(t => t.UserId == userId)
                 .ExecuteDeleteAsync();
@@ -53,18 +50,15 @@ namespace MyFinance.API.Controllers
                 .Where(t => t.UserId == userId)
                 .ExecuteDeleteAsync();
 
-            // Mantemos as categorias, ou apagamos também? 
-            // Se quiser apagar categorias personalizadas, descomente:
-            /*
             await _context.Categories
                 .Where(t => t.UserId == userId)
                 .ExecuteDeleteAsync();
-            */
-            
-            // Como apagamos as contas, precisamos resetar o usuário para o estado inicial?
-            // Talvez seja legal recriar as categorias padrão aqui se tiver apagado.
 
-            return Ok(new { message = "Todos os dados foram apagados com sucesso." });
+            var defaults = DefaultCategories.Create(userId);
+            _context.Categories.AddRange(defaults);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Dados apagados e categorias resetadas para o padr�o." });
         }
     }
 }

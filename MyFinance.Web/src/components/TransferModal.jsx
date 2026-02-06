@@ -21,9 +21,7 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
   const loadAccounts = async () => {
     try {
       const response = await api.get('/accounts');
-      // Filtra apenas contas (não faz sentido transferir para cartão de crédito como saldo)
-      // A menos que seja pagamento de fatura, mas vamos manter simples por enquanto.
-      setAccounts(response.data.filter(a => !a.isCreditCard));
+      setAccounts(response.data);
     } catch (error) {
       message.error('Erro ao buscar contas');
     }
@@ -38,26 +36,29 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
       setLoading(true);
       try {
         await api.post('/transactions/transfer', {
-            fromAccountId: values.fromAccountId,
-            toAccountId: values.toAccountId,
-            amount: Number(values.amount),
-            date: values.date.toISOString()
+          fromAccountId: values.fromAccountId,
+          toAccountId: values.toAccountId,
+          amount: Number(values.amount),
+          date: values.date.toISOString()
         });
-        
-        message.success('Transferência realizada!');
+
+        message.success('Transfer�ncia realizada!');
         onSuccess();
         onClose();
       } catch (error) {
-        message.error('Erro na transferência');
+        message.error('Erro na transfer�ncia');
       } finally {
         setLoading(false);
       }
     });
   };
 
+  const fromAccounts = accounts.filter(a => !a.isCreditCard);
+  const toAccounts = accounts;
+
   return (
     <Modal
-      title={<><SwapOutlined /> Nova Transferência</>}
+      title={<><SwapOutlined /> Nova Transfer�ncia</>}
       open={visible}
       onOk={handleOk}
       onCancel={onClose}
@@ -65,7 +66,7 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
       okText="Transferir"
     >
       <Form form={form} layout="vertical">
-        
+
         <Form.Item name="date" label="Data" initialValue={dayjs()}>
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
@@ -75,20 +76,20 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
         </Form.Item>
 
         <div style={{ display: 'flex', gap: 16 }}>
-            <Form.Item name="fromAccountId" label="De (Origem)" style={{ flex: 1 }} rules={[{ required: true }]}>
-                <Select placeholder="Sai de...">
-                    {accounts.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                </Select>
-            </Form.Item>
+          <Form.Item name="fromAccountId" label="De (Origem)" style={{ flex: 1 }} rules={[{ required: true }]}>
+            <Select placeholder="Sai de...">
+              {fromAccounts.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
+            </Select>
+          </Form.Item>
 
-            <Form.Item name="toAccountId" label="Para (Destino)" style={{ flex: 1 }} rules={[{ required: true }]}>
-                <Select placeholder="Vai para...">
-                    {accounts.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                </Select>
-            </Form.Item>
+          <Form.Item name="toAccountId" label="Para (Destino)" style={{ flex: 1 }} rules={[{ required: true }]}>
+            <Select placeholder="Vai para...">
+              {toAccounts.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
+            </Select>
+          </Form.Item>
         </div>
 
       </Form>
     </Modal>
   );
-}   
+}

@@ -20,7 +20,6 @@ namespace MyFinance.API.Controllers
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // GET: api/Transactions
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Transaction>>> GetTransactions([FromQuery] int? month, [FromQuery] int? year)
         {
@@ -38,35 +37,26 @@ namespace MyFinance.API.Controllers
             return await query.OrderByDescending(t => t.Date).ToListAsync();
         }
 
-        // GET: api/Transactions/invoice
         [HttpGet("invoice")]
         public async Task<ActionResult<object>> GetInvoiceSummary([FromQuery] int accountId, [FromQuery] int month, [FromQuery] int year)
         {
             var userId = GetUserId();
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
-            
-            if (account == null || !account.IsCreditCard) return BadRequest("Conta inválida");
+
+            if (account == null || !account.IsCreditCard) return BadRequest("Conta inv�lida");
 
             int closingDay = account.ClosingDay ?? 1;
             int dueDay = account.DueDay ?? 10;
 
-            // 1. Define a Data de Fechamento (UTC)
             int daysInMonth = DateTime.DaysInMonth(year, month);
             int safeClosingDay = Math.Min(closingDay, daysInMonth);
             DateTime closeDate = new DateTime(year, month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-            
-            // 2. Define a Data de Abertura (Dia seguinte ao fechamento anterior)
+
             DateTime startDate = closeDate.AddMonths(-1).AddDays(1);
 
-            // 3. Define a Data de Vencimento (A Correção!)
             DateTime dueDate;
-            
-            // Regra: Se o dia do vencimento for MENOR que o fechamento (ex: Fecha 20, Vence 05), 
-            // então o vencimento é no mês seguinte.
-            // Caso contrário (ex: Fecha 20, Vence 27), é no mesmo mês.
             if (dueDay < closingDay)
             {
-                // Vence no mês seguinte
                 var nextMonthDate = closeDate.AddMonths(1);
                 int daysInNextMonth = DateTime.DaysInMonth(nextMonthDate.Year, nextMonthDate.Month);
                 int safeDueDay = Math.Min(dueDay, daysInNextMonth);
@@ -74,12 +64,10 @@ namespace MyFinance.API.Controllers
             }
             else
             {
-                // Vence no mesmo mês
                 int safeDueDay = Math.Min(dueDay, daysInMonth);
                 dueDate = new DateTime(year, month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
             }
 
-            // 4. Busca Transações
             var transactions = await _context.Transactions
                 .Include(t => t.Category)
                 .Where(t => t.AccountId == accountId && t.UserId == userId && t.Date >= startDate && t.Date <= closeDate)
@@ -88,32 +76,30 @@ namespace MyFinance.API.Controllers
 
             var total = transactions.Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount);
 
-            return new { 
+            return new
+            {
                 period = $"{startDate:dd/MM} a {closeDate:dd/MM}",
-                dueDate = dueDate, // Data calculada corretamente
+                dueDate = dueDate,
                 total,
                 status = total > 0 ? "Aberta" : "Paga",
-                transactions 
+                transactions
             };
         }
 
-        // POST: api/Transactions
         [HttpPost]
         public async Task<ActionResult<Transaction>> PostTransaction(Transaction transaction)
         {
             var userId = GetUserId();
             transaction.UserId = userId;
 
-            // Data UTC
             if (transaction.Date == default) transaction.Date = DateTime.UtcNow;
             else transaction.Date = transaction.Date.ToUniversalTime();
 
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
-            
-            int parcelas = transaction.Installments > 1 ? transaction.Installments : 1;
-            decimal valorParcela = transaction.Amount; // O front envia o valor da parcela
 
-            // --- GERA ID DO GRUPO DE PARCELAS ---
+            int parcelas = transaction.Installments > 1 ? transaction.Installments : 1;
+            decimal valorParcela = transaction.Amount;
+
             string? installmentId = null;
             if (parcelas > 1)
             {
@@ -122,18 +108,7 @@ namespace MyFinance.API.Controllers
 
             DateTime dataBase = transaction.Date;
 
-            // Lógica de Data do Cartão
-            if (account != null && account.IsCreditCard && account.ClosingDay.HasValue && account.DueDay.HasValue)
-            {
-                if (dataBase.Day >= account.ClosingDay.Value)
-                    dataBase = dataBase.AddMonths(1);
-                
-                try {
-                    dataBase = new DateTime(dataBase.Year, dataBase.Month, account.DueDay.Value, 12, 0, 0, DateTimeKind.Utc);
-                } catch {
-                    dataBase = new DateTime(dataBase.Year, dataBase.Month, 1, 12, 0, 0, DateTimeKind.Utc).AddMonths(1).AddDays(-1);
-                }
-            }
+            var created = new List<Transaction>();
 
             for (int i = 0; i < parcelas; i++)
             {
@@ -147,34 +122,29 @@ namespace MyFinance.API.Controllers
                     Amount = valorParcela,
                     Description = parcelas > 1 ? $"{transaction.Description} ({i + 1}/{parcelas})" : transaction.Description,
                     Date = dataBase.AddMonths(i).ToUniversalTime(),
-                    InstallmentId = installmentId // <--- Vínculo
+                    InstallmentId = installmentId
                 };
 
                 _context.Transactions.Add(novaTransacao);
+                created.Add(novaTransacao);
 
-                // ATUALIZAÇÃO DE SALDO
                 if (account != null)
                 {
-                    // Se for Cartão:
-                    // Expense (Compra) -> Diminui saldo (aumenta dívida negativa)
-                    // Income (Pagamento Fatura) -> Aumenta saldo (reduz dívida)
-                    
-                    // Se for Conta:
-                    // Expense -> Diminui saldo
-                    // Income -> Aumenta saldo
-                    
                     if (novaTransacao.Type == "Income") account.CurrentBalance += novaTransacao.Amount;
                     else account.CurrentBalance -= novaTransacao.Amount;
-                    
+
                     _context.Entry(account).State = EntityState.Modified;
                 }
             }
 
             await _context.SaveChangesAsync();
-            return CreatedAtAction("GetTransactions", new { id = transaction.Id }, transaction);
+
+            var first = created.FirstOrDefault();
+            if (first == null) return Ok();
+
+            return CreatedAtAction("GetTransactions", new { id = first.Id }, first);
         }
 
-        // PUT: api/Transactions/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutTransaction(int id, Transaction transaction)
         {
@@ -188,22 +158,25 @@ namespace MyFinance.API.Controllers
 
             transaction.UserId = userId;
             transaction.Date = transaction.Date.ToUniversalTime();
-            // Mantém o InstallmentId original para não quebrar a corrente
-            transaction.InstallmentId = oldTransaction.InstallmentId; 
+            transaction.InstallmentId = oldTransaction.InstallmentId;
 
-            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+            var oldAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == oldTransaction.AccountId && a.UserId == userId);
+            var newAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
 
-            if (account != null)
+            if (oldAccount != null)
             {
-                // Estorna valor antigo
-                if (oldTransaction.Type == "Income") account.CurrentBalance -= oldTransaction.Amount;
-                else account.CurrentBalance += oldTransaction.Amount;
+                if (oldTransaction.Type == "Income") oldAccount.CurrentBalance -= oldTransaction.Amount;
+                else oldAccount.CurrentBalance += oldTransaction.Amount;
 
-                // Aplica valor novo
-                if (transaction.Type == "Income") account.CurrentBalance += transaction.Amount;
-                else account.CurrentBalance -= transaction.Amount;
+                _context.Entry(oldAccount).State = EntityState.Modified;
+            }
 
-                _context.Entry(account).State = EntityState.Modified;
+            if (newAccount != null)
+            {
+                if (transaction.Type == "Income") newAccount.CurrentBalance += transaction.Amount;
+                else newAccount.CurrentBalance -= transaction.Amount;
+
+                _context.Entry(newAccount).State = EntityState.Modified;
             }
 
             _context.Entry(transaction).State = EntityState.Modified;
@@ -212,7 +185,6 @@ namespace MyFinance.API.Controllers
             return NoContent();
         }
 
-        // DELETE: api/Transactions/5?deleteAll=true
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTransaction(int id, [FromQuery] bool deleteAll = false)
         {
@@ -223,8 +195,6 @@ namespace MyFinance.API.Controllers
 
             List<Transaction> transactionsToDelete = new List<Transaction>();
 
-            // LÓGICA CORRIGIDA:
-            // Se tiver InstallmentId E o usuário pediu pra apagar tudo, apaga o grupo.
             if (deleteAll && !string.IsNullOrEmpty(transaction.InstallmentId))
             {
                 transactionsToDelete = await _context.Transactions
@@ -233,24 +203,20 @@ namespace MyFinance.API.Controllers
             }
             else
             {
-                // Senão, apaga só essa.
                 transactionsToDelete.Add(transaction);
             }
 
             foreach (var t in transactionsToDelete)
             {
-                // Estorno do Saldo (Crucial)
-                var account = await _context.Accounts.FindAsync(t.AccountId);
+                var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == t.AccountId && a.UserId == userId);
                 if (account != null)
                 {
-                    // Se for Receita (Income), tira do saldo.
-                    // Se for Despesa (Expense), devolve pro saldo.
                     if (t.Type == "Income") account.CurrentBalance -= t.Amount;
                     else account.CurrentBalance += t.Amount;
-                    
+
                     _context.Entry(account).State = EntityState.Modified;
                 }
-                
+
                 _context.Transactions.Remove(t);
             }
 
@@ -258,21 +224,18 @@ namespace MyFinance.API.Controllers
             return NoContent();
         }
 
-        // POST: api/Transactions/transfer
         [HttpPost("transfer")]
         public async Task<IActionResult> Transfer(TransferDto request)
         {
             var userId = GetUserId();
             var dateUtc = request.Date.ToUniversalTime();
 
-            // Lógica: Transferir da Conta X para Cartão Y = Pagar Fatura
-            
             var expense = new Transaction
             {
                 UserId = userId,
                 AccountId = request.FromAccountId,
                 Amount = request.Amount,
-                Description = $"Transferência para conta/cartão",
+                Description = "Transfer�ncia para conta/cart�o",
                 Type = "Expense",
                 Date = dateUtc,
                 Paid = true
@@ -283,28 +246,27 @@ namespace MyFinance.API.Controllers
                 UserId = userId,
                 AccountId = request.ToAccountId,
                 Amount = request.Amount,
-                Description = $"Recebido de transferência",
-                Type = "Income", // Isso aumenta o saldo do destino (ou abate a fatura)
+                Description = "Recebido de transfer�ncia",
+                Type = "Income",
                 Date = dateUtc,
                 Paid = true
             };
 
-            var fromAcc = await _context.Accounts.FindAsync(request.FromAccountId);
-            var toAcc = await _context.Accounts.FindAsync(request.ToAccountId);
+            var fromAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.FromAccountId && a.UserId == userId);
+            var toAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.ToAccountId && a.UserId == userId);
 
-            if (fromAcc == null || toAcc == null || fromAcc.UserId != userId || toAcc.UserId != userId)
-                return BadRequest("Contas inválidas");
+            if (fromAcc == null || toAcc == null)
+                return BadRequest("Contas inv�lidas");
 
-            // Atualiza Saldos
             fromAcc.CurrentBalance -= request.Amount;
             toAcc.CurrentBalance += request.Amount;
 
             _context.Transactions.Add(expense);
             _context.Transactions.Add(income);
-            
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Transferência/Pagamento realizado!" });
+            return Ok(new { message = "Transfer�ncia/Pagamento realizado!" });
         }
     }
 
