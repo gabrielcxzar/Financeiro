@@ -1,13 +1,13 @@
-/* Reset Básico para Desktop */
+/* Reset BÃ¡sico para Desktop */
 :root {
-  --primary-color: #1890ff; /* Azul padrão do Ant Design Enterprise */
+  --primary-color: #1890ff; /* Azul padrÃ£o do Ant Design Enterprise */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f0f2f5; /* Cor de fundo cinza claro padrão de dashboards */
+  background-color: #f0f2f5; /* Cor de fundo cinza claro padrÃ£o de dashboards */
 }
 
 /* Removemos a trava de largura (max-width) */

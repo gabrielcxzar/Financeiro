@@ -42,11 +42,11 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
           date: values.date.toISOString()
         });
 
-        message.success('Transferência realizada!');
+        message.success('TransferÃªncia realizada!');
         onSuccess();
         onClose();
       } catch (error) {
-        message.error('Erro na transferência');
+        message.error('Erro na transferÃªncia');
       } finally {
         setLoading(false);
       }
@@ -58,7 +58,7 @@ export default function TransferModal({ visible, onClose, onSuccess }) {
 
   return (
     <Modal
-      title={<><SwapOutlined /> Nova Transferência</>}
+      title={<><SwapOutlined /> Nova TransferÃªncia</>}
       open={visible}
       onOk={handleOk}
       onCancel={onClose}

@@ -37,7 +37,7 @@ export default function Accounts() {
   const handleDelete = async (id) => {
     try {
       await api.delete(`/accounts/${id}`);
-      message.success('Conta excluída!');
+      message.success('Conta excluÃ­da!');
       loadAccounts();
     } catch (error) {
       message.error('Erro ao excluir.');
@@ -70,10 +70,10 @@ export default function Accounts() {
     </Tooltip>,
     <Popconfirm
       title="Apagar conta?"
-      description="Isso apagará também o histórico."
+      description="Isso apagarÃ¡ tambÃ©m o histÃ³rico."
       onConfirm={() => handleDelete(account.id)}
       okText="Sim"
-      cancelText="Não"
+      cancelText="NÃ£o"
       key="delete"
     >
       <DeleteOutlined style={{ color: '#ff4d4f' }} />
@@ -149,7 +149,7 @@ export default function Accounts() {
                 size={["100%", 8]}
             />
             <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 8 }}>
-              Disponível: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
+              DisponÃ­vel: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
             </div>
           </div>
         </Card>
@@ -165,11 +165,11 @@ export default function Accounts() {
 
   return (
     <div>
-      {/* Cabeçalho */}
+      {/* CabeÃ§alho */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, background: '#fff', padding: '16px 24px', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
         <div>
             <h2 style={{ margin: 0, fontSize: 20 }}>Carteiras & Contas</h2>
-            <span style={{ color: '#888' }}>Gerencie onde seu dinheiro está guardado</span>
+            <span style={{ color: '#888' }}>Gerencie onde seu dinheiro estÃ¡ guardado</span>
         </div>
         
         <div style={{ display: 'flex', gap: 10 }}>
@@ -186,7 +186,7 @@ export default function Accounts() {
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>
           <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic title="Disponível (Giro)" value={totalChecking} formatter={(v) => formatMoney(v)} prefix={<BankOutlined />} valueStyle={{ fontWeight: 'bold', color: '#3f8600' }} />
+            <Statistic title="DisponÃ­vel (Giro)" value={totalChecking} formatter={(v) => formatMoney(v)} prefix={<BankOutlined />} valueStyle={{ fontWeight: 'bold', color: '#3f8600' }} />
           </Card>
         </Col>
         <Col span={12}>
@@ -199,12 +199,12 @@ export default function Accounts() {
       {/* Listas */}
       {creditCards.length > 0 && (
         <>
-          <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Cartões de Crédito</h3>
+          <h3 style={{ margin: '20px 0 16px', color: '#555' }}>CartÃµes de CrÃ©dito</h3>
           <Row gutter={16}>{creditCards.map(renderCreditCard)}</Row>
         </>
       )}
 
-      <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Contas Bancárias</h3>
+      <h3 style={{ margin: '20px 0 16px', color: '#555' }}>Contas BancÃ¡rias</h3>
       <Row gutter={16}>
         {[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}
       </Row>

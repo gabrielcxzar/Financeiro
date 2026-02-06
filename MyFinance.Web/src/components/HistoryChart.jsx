@@ -66,7 +66,7 @@ export default function HistoryChart({ transactions }) {
       datasets: [
         {
           type: 'line',
-          label: 'Saldo Líquido',
+          label: 'Saldo LÃ­quido',
           borderColor: '#1890ff',
           borderWidth: 2,
           fill: false,

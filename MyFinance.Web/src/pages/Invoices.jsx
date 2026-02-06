@@ -37,7 +37,7 @@ export default function Invoices() {
   };
 
   const items = Array.from({ length: 6 }).map((_, i) => {
-      const date = dayjs().add(i - 2, 'month'); // 2 meses atrás até 3 pra frente
+      const date = dayjs().add(i - 2, 'month'); // 2 meses atrÃ¡s atÃ© 3 pra frente
       return {
         key: date.format('YYYY-MM'),
         label: date.format('MMM/YY'),
@@ -47,7 +47,7 @@ export default function Invoices() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>Faturas do Cartão</h2>
+        <h2 style={{ margin: 0 }}>Faturas do CartÃ£o</h2>
         <Select 
             style={{ width: 200 }} 
             value={selectedCard} 
@@ -80,7 +80,7 @@ export default function Invoices() {
                                 renderItem={item => (
                                     <List.Item>
                                         <List.Item.Meta
-                                            avatar={<div style={{ width: 40, height: 40, background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💳</div>}
+                                            avatar={<div style={{ width: 40, height: 40, background: '#eee', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>ðŸ’³</div>}
                                             title={item.description}
                                             description={dayjs(item.date).format('DD/MM/YYYY')}
                                         />

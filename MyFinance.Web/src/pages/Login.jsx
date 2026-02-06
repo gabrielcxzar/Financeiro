@@ -27,7 +27,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       await api.post('/auth/register', values);
-      message.success('Cadastro realizado! Faça login agora.');
+      message.success('Cadastro realizado! FaÃ§a login agora.');
     } catch (error) {
       message.error('Erro ao cadastrar. Tente outro email.');
     } finally {
