@@ -15,7 +15,7 @@ export default function Profile() {
   const handleWipeData = async () => {
     try {
       await api.post('/users/wipe-data');
-      message.success('Dados apagados e categorias resetadas para o padrão.');
+      message.success('Dados apagados e categorias resetadas para o padro.');
       window.location.reload();
     } catch (error) {
       message.error('Erro ao apagar dados');
@@ -33,10 +33,10 @@ export default function Profile() {
       </Card>
 
       <Card title="Zona de Perigo" style={{ borderColor: '#ff4d4f' }}>
-        <p>Isso apagará todas as transações, contas, metas e recorrências. As categorias serão resetadas para o padrão.</p>
+        <p>Isso apagar todas as transaes, contas, metas e recorrências. As categorias sero resetadas para o padro.</p>
         <Popconfirm
           title="Tem certeza absoluta?"
-          description="Essa ação é irreversível."
+          description="Essa ao  irreversvel."
           onConfirm={handleWipeData}
           okText="Sim, apagar tudo"
           cancelText="Cancelar"

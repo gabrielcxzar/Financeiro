@@ -71,25 +71,25 @@ export default function Reports({ month, year }) {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 16, color: '#001529' }}>AnÃ¡lise de Despesas</h2>
+      <h2 style={{ marginBottom: 16, color: '#001529' }}>Anlise de Despesas</h2>
       
       {transactions.length === 0 ? (
-        <Empty description="Nenhuma transaÃ§Ã£o registrada" style={{ marginTop: 50 }} />
+        <Empty description="Nenhuma transação registrada" style={{ marginTop: 50 }} />
       ) : !chartData.hasData ? ( 
         <div style={{ textAlign: 'center', padding: 50, background: '#fff', borderRadius: 8 }}>
-            <Empty description="VocÃª ainda nÃ£o cadastrou Despesas." />
-            <p>Cadastre uma saÃ­da de dinheiro para ver o grÃ¡fico.</p>
+            <Empty description="Voc ainda no cadastrou Despesas." />
+            <p>Cadastre uma sada de dinheiro para ver o gráfico.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         
-          <Card title="EvoluÃ§Ã£o Financeira (MÃªs a MÃªs)" variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <Card title="Evoluo Financeira (Ms a Ms)" variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
              <HistoryChart transactions={transactions} />
           </Card>
 
           <Row gutter={24}>
             <Col span={12}>
-              <Card title="DistribuiÃ§Ã£o de Gastos" variant="borderless" style={{ height: '100%', minHeight: 400, borderRadius: 8 }}>
+              <Card title="Distribui o de Gastos" variant="borderless" style={{ height: '100%', minHeight: 400, borderRadius: 8 }}>
                 <div style={{ position: 'relative', height: 300, display: 'flex', justifyContent: 'center' }}>
                   <Doughnut 
                     data={chartData} 

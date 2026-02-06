@@ -9,18 +9,25 @@ export default function Home({ month, year }) {
   const [summary, setSummary] = useState({ total: 0, income: 0, expense: 0 });
   const [transactions, setTransactions] = useState([]);
   const [predictedFixed, setPredictedFixed] = useState(0);
+  const [projection, setProjection] = useState([]);
+  const [projectionStart, setProjectionStart] = useState(0);
   
   // Estado do Olhinho (Privacidade)
   const [visible, setVisible] = useState(true);
 
   // Helper para formatar ou esconder
   const formatMoney = (value) => {
-    if (!visible) return 'â€¢â€¢â€¢â€¢';
+    if (!visible) return '••••';
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
+  const formatMonthYear = (monthNum, yearNum) => {
+    const date = new Date(yearNum, monthNum - 1, 1);
+    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
   const columns = [
-    { title: 'DescriÃ§Ã£o', dataIndex: 'description', key: 'desc' },
+    { title: 'Descrição', dataIndex: 'description', key: 'desc' },
     { 
       title: 'Categoria', dataIndex: ['category', 'name'], key: 'cat',
       render: (text) => <Tag color="blue">{text || 'Geral'}</Tag>
@@ -49,19 +56,21 @@ export default function Home({ month, year }) {
     try {
       setLoading(true);
       
-      // 1. PrevisÃ£o Fixa
+      // 1. Previsão Fixa
       const recurringRes = await api.get('/recurring');
-      const totalFixas = recurringRes.data.reduce((acc, item) => acc + item.amount, 0);
+      const totalFixas = recurringRes.data
+        .filter(item => item.type === 'Expense')
+        .reduce((acc, item) => acc + item.amount, 0);
       setPredictedFixed(totalFixas);
 
       // 2. Saldo Real
       const accResponse = await api.get('/accounts');
       const contas = accResponse.data || [];
-      // Filtra: Soma apenas o que NÃƒO Ã© cartÃ£o de crÃ©dito
+      // Filtra: soma apenas o que NÃO é cartão de crédito
       const totalBalance = contas
         .filter(c => !c.isCreditCard) 
         .reduce((acc, conta) => acc + (conta.currentBalance || 0), 0);
-      // 3. TransaÃ§Ãµes do MÃªs
+      // 3. Transações do Mês
       const transResponse = await api.get(`/transactions?month=${month}&year=${year}`);
       const listaTransacoes = transResponse.data;
       
@@ -76,6 +85,12 @@ export default function Home({ month, year }) {
       setSummary({ total: totalBalance, income: totalIncome, expense: totalExpense });
       setTransactions(listaTransacoes);
 
+      // 4. Projeção para os próximos meses
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const projectionRes = await api.get(`/recurring/projection?months=6&startMonth=${nextMonth}&startYear=${nextYear}`);
+      setProjection(projectionRes.data.items || []);
+      setProjectionStart(projectionRes.data.startBalance ?? totalBalance);
     } catch (error) {
       console.error("Erro:", error);
       // message.error("Erro ao carregar dados"); // Opcional: comentei para evitar spam de erro
@@ -88,14 +103,14 @@ export default function Home({ month, year }) {
 
   return (
     <div>
-      {/* CARD DE PREVISÃƒO (PLANEJAMENTO) */}
+      {/* CARD DE PREVISÃO (PLANEJAMENTO) */}
       <Card variant="borderless" style={{ marginBottom: 24, background: '#fff7e6', borderColor: '#ffd591' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
                 <h3 style={{ margin: 0, color: '#d46b08' }}>Planejamento Mensal</h3>
-                <span>Despesas fixas cadastradas para este mÃªs: <b>{formatMoney(predictedFixed)}</b></span>
+                <span>Despesas fixas cadastradas para este mês: <b>{formatMoney(predictedFixed)}</b></span>
             </div>
-            {/* BotÃ£o de Olhinho */}
+            {/* Botão de Olhinho */}
             <Button 
                 type="text" 
                 icon={visible ? <EyeOutlined /> : <EyeInvisibleOutlined />} 
@@ -104,6 +119,26 @@ export default function Home({ month, year }) {
                 {visible ? 'Ocultar Valores' : 'Mostrar Valores'}
             </Button>
         </div>
+      </Card>
+
+      <Card variant="borderless" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>Projeção dos Próximos 6 Meses</h3>
+          <span style={{ color: '#888' }}>Saldo base: <b>{formatMoney(projectionStart)}</b></span>
+        </div>
+        <Table
+          dataSource={projection}
+          rowKey={(row) => `${row.year}-${row.month}`}
+          pagination={false}
+          size="small"
+          columns={[
+            { title: 'MÃªs', dataIndex: 'month', key: 'month', render: (_, row) => formatMonthYear(row.month, row.year) },
+            { title: 'Receitas', dataIndex: 'income', key: 'income', render: (v) => <span style={{ color: '#3f8600' }}>{formatMoney(v)}</span> },
+            { title: 'Despesas', dataIndex: 'expense', key: 'expense', render: (v) => <span style={{ color: '#cf1322' }}>{formatMoney(v)}</span> },
+            { title: 'Saldo LÃ­quido', dataIndex: 'net', key: 'net', render: (v) => <span style={{ fontWeight: 'bold' }}>{formatMoney(v)}</span> },
+            { title: 'Saldo Projetado', dataIndex: 'projectedBalance', key: 'projectedBalance', render: (v) => <span style={{ fontWeight: 'bold' }}>{formatMoney(v)}</span> },
+          ]}
+        />
       </Card>
 
       {/* KPIs */}
@@ -121,7 +156,7 @@ export default function Home({ month, year }) {
         <Col span={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #3f8600', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Receitas (Neste MÃªs)"
+              title="Receitas (Neste Mês)"
               value={summary.income}
               formatter={(value) => <span style={{ color: '#3f8600', fontSize: '24px' }}>{formatMoney(value)}</span>}
               prefix={<ArrowUpOutlined />}
@@ -131,7 +166,7 @@ export default function Home({ month, year }) {
         <Col span={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #cf1322', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Despesas (Neste MÃªs)"
+              title="Despesas (Neste Mês)"
               value={summary.expense}
               formatter={(value) => <span style={{ color: '#cf1322', fontSize: '24px' }}>{formatMoney(value)}</span>}
               prefix={<ArrowDownOutlined />}
@@ -140,7 +175,7 @@ export default function Home({ month, year }) {
         </Col>
       </Row>
 
-      {/* GRÃFICOS E TABELA */}
+      {/* GRÁFICOS E TABELA */}
       <Row gutter={24}>
         <Col span={14}>
           <Card title="Despesas por Categoria" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
@@ -149,7 +184,7 @@ export default function Home({ month, year }) {
         </Col>
 
         <Col span={10}>
-          <Card title="TransaÃ§Ãµes do MÃªs" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
+          <Card title="Transações do Mês" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
             <Table 
                 dataSource={transactions} 
                 columns={columns} 
