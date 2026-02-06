@@ -26,12 +26,12 @@ export const options = {
 };
 
 export default function DashboardCharts({ transactions }) {
-  // LÃ³gica Inteligente: Agrupa transaÃ§Ãµes por categoria
+  // Lgica Inteligente: Agrupa transaes por categoria
   const chartData = useMemo(() => {
     const categoryTotals = {};
 
     transactions.forEach(t => {
-      // SÃ³ queremos somar DESPESAS no grÃ¡fico
+      // Só queremos somar DESPESAS no gráfico
       if (t.type === 'Expense') {
         const catName = t.category?.name || 'Outros';
         // Soma acumulada
@@ -52,7 +52,7 @@ export default function DashboardCharts({ transactions }) {
         },
       ],
     };
-  }, [transactions]); // Recalcula sempre que as transaÃ§Ãµes mudarem
+  }, [transactions]); // Recalcula sempre que as transaes mudarem
 
   return (
     <div style={{ height: 300 }}>

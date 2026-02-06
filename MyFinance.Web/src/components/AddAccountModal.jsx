@@ -52,7 +52,7 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
 
   return (
     <Modal 
-        title={accountToEdit ? "Editar Conta" : "Nova Carteira / CartÃ£o"} 
+        title={accountToEdit ? "Editar Conta" : "Nova Carteira / Cartão"} 
         open={visible} 
         onOk={handleOk} 
         onCancel={onClose} 
@@ -60,11 +60,11 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
     >
       <Form form={form} layout="vertical" initialValues={{ type: 'Checking', initialBalance: 0 }}>
         
-        <Form.Item label="Ã‰ CartÃ£o de CrÃ©dito?">
-          <Switch checked={isCreditCard} onChange={setIsCreditCard} checkedChildren="Sim" unCheckedChildren="NÃ£o" />
+        <Form.Item label="É Cartão de Crédito?">
+          <Switch checked={isCreditCard} onChange={setIsCreditCard} checkedChildren="Sim" unCheckedChildren="Não" />
         </Form.Item>
 
-        <Form.Item name="name" label={isCreditCard ? "Apelido do CartÃ£o" : "Nome da Conta"} rules={[{ required: true }]}>
+        <Form.Item name="name" label={isCreditCard ? "Apelido do Cartão" : "Nome da Conta"} rules={[{ required: true }]}>
           <Input placeholder={isCreditCard ? "Ex: Nubank Platinum" : "Ex: Carteira, Banco..."} />
         </Form.Item>
 
@@ -91,7 +91,7 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
 
         {isCreditCard && (
           <>
-            <Form.Item name="creditLimit" label="Limite do CartÃ£o" rules={[{ required: true }]}>
+            <Form.Item name="creditLimit" label="Limite do Cartão" rules={[{ required: true }]}>
               <InputNumber 
                   style={{ width: '100%' }} 
                   prefix="R$" 

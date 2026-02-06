@@ -28,26 +28,26 @@ export default function Transactions({ month, year }) {
       const response = await api.get(`/transactions${query}`);
       setTransactions(response.data);
     } catch (error) {
-      message.error('Erro ao carregar transaÃ§Ãµes');
+      message.error('Erro ao carregar transaes');
     } finally {
       setLoading(false);
     }
   };
 
-  // LÃ³gica inteligente de exclusÃ£o
+  // Lgica inteligente de excluso
   const handleDelete = (record) => {
-      if (record.installmentId) { // <--- SÃ³ pergunta se tiver ID de grupo
+      if (record.installmentId) { // <--- Só pergunta se tiver ID de grupo
         Modal.confirm({
             title: 'Excluir Parcelamento',
-            content: 'Esta transaÃ§Ã£o faz parte de uma sÃ©rie. O que deseja fazer?',
+            content: 'Esta transação faz parte de uma série. O que deseja fazer?',
             okText: 'Apagar TODAS',
             cancelText: 'Apenas ESTA',
             okButtonProps: { danger: true },
-            onOk: () => executeDelete(record.id, true), // <--- TRUE = Apaga SÃ©rie
-            onCancel: () => executeDelete(record.id, false) // <--- FALSE = Apaga SÃ³ Essa
+            onOk: () => executeDelete(record.id, true), // <--- TRUE = Apaga Srie
+            onCancel: () => executeDelete(record.id, false) // <--- FALSE = Apaga Só Essa
         });
       } else {
-          // Se nÃ£o tiver ID (antigas), apaga direto sem perguntar
+          // Se no tiver ID (antigas), apaga direto sem perguntar
           executeDelete(record.id, false);
       }
   };
@@ -55,7 +55,7 @@ export default function Transactions({ month, year }) {
   const executeDelete = async (id, deleteAll) => {
     try {
       await api.delete(`/transactions/${id}?deleteAll=${deleteAll}`);
-      message.success('ExcluÃ­do com sucesso!');
+      message.success('Excludo com sucesso!');
       loadTransactions();
     } catch (error) {
       message.error('Erro ao excluir');
@@ -76,7 +76,7 @@ export default function Transactions({ month, year }) {
       sorter: (a, b) => new Date(a.date) - new Date(b.date),
     },
     {
-      title: 'DescriÃ§Ã£o',
+      title: 'Descrição',
       dataIndex: 'description',
       key: 'description',
     },
@@ -109,7 +109,7 @@ export default function Transactions({ month, year }) {
       )
     },
     {
-      title: 'AÃ§Ãµes',
+      title: 'Ações',
       key: 'action',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>

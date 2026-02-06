@@ -66,7 +66,7 @@ export default function Investments() {
         shares: Number(values.shares),
         avgPrice: Number(values.avgPrice)
       });
-      message.success('Posição salva');
+      message.success('Posi o salva');
       setIsModalOpen(false);
       loadHoldings();
     } catch (error) {
@@ -87,10 +87,10 @@ export default function Investments() {
   const fiiColumns = [
     { title: 'Ticker', dataIndex: 'ticker', key: 'ticker', render: (t) => <Tag>{t}</Tag> },
     { title: 'Cotas', dataIndex: 'shares', key: 'shares' },
-    { title: 'Preço Médio', dataIndex: 'avgPrice', key: 'avgPrice', render: (v) => formatMoney(v) },
-    { title: 'Anotações', dataIndex: 'notes', key: 'notes' },
+    { title: 'Preo Mdio', dataIndex: 'avgPrice', key: 'avgPrice', render: (v) => formatMoney(v) },
+    { title: 'Anota es', dataIndex: 'notes', key: 'notes' },
     {
-      title: 'Ações',
+      title: 'AÃ§Ãµes',
       key: 'actions',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
@@ -102,7 +102,7 @@ export default function Investments() {
   ];
 
   const tesouroColumns = useMemo(() => [
-    { title: 'Título', dataIndex: 'title', key: 'title' },
+    { title: 'Ttulo', dataIndex: 'title', key: 'title' },
     { title: 'Tipo', dataIndex: 'type', key: 'type' },
     { title: 'Taxa Compra', dataIndex: 'buyRate', key: 'buyRate', render: (v) => v != null ? `${v}%` : '-' },
     { title: 'Taxa Venda', dataIndex: 'sellRate', key: 'sellRate', render: (v) => v != null ? `${v}%` : '-' },
@@ -122,7 +122,7 @@ export default function Investments() {
             children: (
               <Card variant="borderless">
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span>Última data: <b>{tesouro.date || '-'}</b></span>
+                  <span>Ãšltima data: <b>{tesouro.date || '-'}</b></span>
                   <Button onClick={loadTesouro}>Atualizar</Button>
                 </div>
                 <Table
@@ -141,8 +141,8 @@ export default function Investments() {
             children: (
               <Card variant="borderless">
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span>Gerencie suas posições manualmente</span>
-                  <Button type="primary" onClick={() => openModal(null)}>Nova posição</Button>
+                  <span>Gerencie suas posi es manualmente</span>
+                  <Button type="primary" onClick={() => openModal(null)}>Nova posi o</Button>
                 </div>
                 <Table
                   dataSource={holdings}
@@ -171,10 +171,10 @@ export default function Investments() {
           <Form.Item name="shares" label="Quantidade de cotas" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} step={1} />
           </Form.Item>
-          <Form.Item name="avgPrice" label="Preço médio" rules={[{ required: true }]}>
+          <Form.Item name="avgPrice" label="Preo mdio" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} step={0.01} prefix="R$" />
           </Form.Item>
-          <Form.Item name="notes" label="Anotações">
+          <Form.Item name="notes" label="Anota es">
             <Input.TextArea rows={3} />
           </Form.Item>
         </Form>

@@ -16,12 +16,12 @@ export default function Budgets({ month, year }) {
 
   useEffect(() => {
     loadData();
-  }, [month, year]); // Recarrega se mudar o mÃªs no filtro global
+  }, [month, year]); // Recarrega se mudar o ms no filtro global
 
   const loadData = async () => {
     try {
       setLoading(true);
-      // Busca Metas, Categorias e TransaÃ§Ãµes do MÃªs
+      // Busca Metas, Categorias e Transações do Mês
       const [budgetsRes, catRes, transRes] = await Promise.all([
         api.get('/budgets'),
         api.get('/categories'),
@@ -57,9 +57,9 @@ export default function Budgets({ month, year }) {
     loadData();
   };
 
-  // FunÃ§Ã£o que calcula o progresso de cada meta
+  // Fun o que calcula o progresso de cada meta
   const renderBudgetCard = (budget) => {
-    // Soma gastos dessa categoria no mÃªs atual
+    // Soma gastos dessa categoria no mês atual
     const spent = transactions
         .filter(t => t.categoryId === budget.categoryId && t.type === 'Expense')
         .reduce((acc, t) => acc + t.amount, 0);
@@ -98,7 +98,7 @@ export default function Budgets({ month, year }) {
           
           <div style={{ marginTop: 16, textAlign: 'center' }}>
             {spent > budget.amount ? (
-                <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>VocÃª estourou R$ {formatMoney(spent - budget.amount)}!</span>
+                <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>Voc estourou R$ {formatMoney(spent - budget.amount)}!</span>
             ) : (
                 <span style={{ color: '#52c41a' }}>Resta R$ {formatMoney(budget.amount - spent)}</span>
             )}
@@ -111,7 +111,7 @@ export default function Budgets({ month, year }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>Metas de OrÃ§amento</h2>
+        <h2 style={{ margin: 0 }}>Metas de Orçamento</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
             Definir Meta
         </Button>
@@ -128,7 +128,7 @@ export default function Budgets({ month, year }) {
       <Modal title="Definir Meta de Gasto" open={isModalOpen} onOk={handleSave} onCancel={() => setIsModalOpen(false)}>
         <Form form={form} layout="vertical">
             <Form.Item name="categoryId" label="Categoria" rules={[{ required: true, message: 'Escolha uma categoria' }]}>
-                <Select placeholder="Ex: AlimentaÃ§Ã£o">
+                <Select placeholder="Ex: Alimenta o">
                     {categories.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
                 </Select>
             </Form.Item>

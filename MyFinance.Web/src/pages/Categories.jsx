@@ -49,8 +49,8 @@ export default function Categories() {
       message.success('Categoria removida');
       loadData();
     } catch (error) {
-      // O backend devolve 400 se tiver transaÃ§Ã£o vinculada
-      message.error('NÃ£o Ã© possÃ­vel apagar categoria em uso.');
+      // O backend devolve 400 se tiver transação vinculada
+      message.error('No  possvel apagar categoria em uso.');
     }
   };
 
@@ -79,7 +79,7 @@ export default function Categories() {
       ) 
     },
     { 
-        title: 'AÃ§Ãµes', 
+        title: 'Ações', 
         key: 'action',
         render: (_, rec) => (
             <Popconfirm title="Excluir categoria?" onConfirm={() => handleDelete(rec.id)}>
