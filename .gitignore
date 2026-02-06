@@ -1,0 +1,25 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Node
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# Vite / env
+**/.env
+
+# Logs
+**/logs/
+**/*.log
+
+# OS / IDE
+**/.DS_Store
+**/.idea/
+**/.vscode/
+
+# Database
+**/*.db
+**/*.db-shm
+**/*.db-wal

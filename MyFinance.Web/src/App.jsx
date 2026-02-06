@@ -11,13 +11,13 @@ import {
   TagsOutlined,
   LogoutOutlined,
   CreditCardOutlined,
-  UserOutlined
+  UserOutlined,
+  TrophyOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pt-br';
 
-// --- IMPORTAÇÕES DAS PÁGINAS ---
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Transactions from './pages/Transactions';
@@ -25,8 +25,9 @@ import Reports from './pages/Reports';
 import Accounts from './pages/Accounts';
 import Recurring from './pages/Recurring';
 import Categories from './pages/Categories';
-import Invoices from './pages/Invoices'; // <--- Tela de Faturas
-import Profile from './pages/Profile';     // <--- Tela de Perfil
+import Invoices from './pages/Invoices';
+import Profile from './pages/Profile';
+import Budgets from './pages/Budgets';
 import AddTransactionModal from './components/AddTransactionModal';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -42,7 +43,7 @@ const Logo = styled.div`
   color: #fff;
   letter-spacing: 1px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
-  
+
   svg {
     margin-right: 10px;
     font-size: 22px;
@@ -74,16 +75,17 @@ const App = () => {
 
   const items = [
     { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
-    { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
-    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cartão' }, // <--- NOVO
+    { key: '2', icon: <UnorderedListOutlined />, label: 'Transa??es' },
+    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cart?o' },
     { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
-    { key: '5', icon: <SyncOutlined />, label: 'Despesas Fixas' },
+    { key: '5', icon: <SyncOutlined />, label: 'Recorr?ncias' },
     { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
-    { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
+    { key: '7', icon: <TrophyOutlined />, label: 'Metas/Or?amentos' },
+    { key: '3', icon: <PieChartOutlined />, label: 'Relat?rios' },
     { type: 'divider' },
-    { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' }, // <--- NOVO
+    { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' },
     { type: 'divider' },
-    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
+    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transa??o' },
   ];
 
   const handleMenuClick = (e) => {
@@ -102,8 +104,9 @@ const App = () => {
       case '4': return <Accounts />;
       case '5': return <Recurring />;
       case '6': return <Categories />;
-      case '8': return <Invoices />; // <--- Tela Nova
-      case '9': return <Profile />;  // <--- Tela Nova
+      case '7': return <Budgets month={month} year={year} />;
+      case '8': return <Invoices />;
+      case '9': return <Profile />;
       default: return <Home month={month} year={year} />;
     }
   };
@@ -117,42 +120,42 @@ const App = () => {
         </Logo>
         <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} onClick={handleMenuClick} />
       </Sider>
-      
+
       <Layout style={{ overflowY: 'auto' }}>
         <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
-          <h2 style={{ margin: 0, color: '#001529' }}>Gestão Financeira</h2>
-          
+          <h2 style={{ margin: 0, color: '#001529' }}>Gest?o Financeira</h2>
+
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ color: '#888' }}>Período:</span>
-                <DatePicker 
-                    picker="month" 
-                    format="MMMM/YYYY"
-                    allowClear={false}
-                    value={selectedDate}
-                    onChange={(date) => setSelectedDate(date)}
-                    style={{ width: 150 }}
-                />
-             </div>
-             
-             <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
-                Sair
-             </Button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ color: '#888' }}>Per?odo:</span>
+              <DatePicker
+                picker="month"
+                format="MMMM/YYYY"
+                allowClear={false}
+                value={selectedDate}
+                onChange={(date) => setSelectedDate(date)}
+                style={{ width: 150 }}
+              />
+            </div>
+
+            <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+              Sair
+            </Button>
           </div>
         </Header>
-        
+
         <Content style={{ margin: '16px 16px' }}>
           <div style={{ padding: 24, minHeight: 360, background: colorBgContainer, borderRadius: borderRadiusLG }}>
             {renderContent()}
           </div>
         </Content>
         <Footer style={{ textAlign: 'center', color: '#888' }}>
-          MyFinance ©{new Date().getFullYear()}
+          MyFinance ?{new Date().getFullYear()}
         </Footer>
       </Layout>
 
-      <AddTransactionModal 
-        visible={isModalOpen} 
+      <AddTransactionModal
+        visible={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => setRefreshKey(old => old + 1)}
       />
