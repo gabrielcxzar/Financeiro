@@ -99,7 +99,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
 
   return (
     <Modal
-      title={transactionToEdit ? "Editar Lançamento" : "Novo Lançamento"}
+      title={transactionToEdit ? "Editar LanÃ§amento" : "Novo LanÃ§amento"}
       open={visible}
       onOk={handleOk}
       onCancel={onClose}
@@ -126,7 +126,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Col>
         </Row>
 
-        <Form.Item name="description" label="Descrição" rules={[{ required: true }]}>
+        <Form.Item name="description" label="DescriÃ§Ã£o" rules={[{ required: true }]}>
             <Input placeholder="Ex: Supermercado" />
         </Form.Item>
 
@@ -136,7 +136,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
                     <Select placeholder="Selecione">
                         {filteredCategories.map(c => (
                             <Option key={c.id} value={c.id}>
-                                <span style={{ color: c.color, marginRight: 8 }}>●</span> {c.name}
+                                <span style={{ color: c.color, marginRight: 8 }}>â—</span> {c.name}
                             </Option>
                         ))}
                     </Select>
@@ -147,7 +147,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
                     <Select placeholder="Selecione" onChange={handleAccountChange}>
                         {accounts.map(a => (
                             <Option key={a.id} value={a.id}>
-                                {a.isCreditCard ? `💳 ${a.name}` : `🏦 ${a.name}`}
+                                {a.isCreditCard ? `ðŸ’³ ${a.name}` : `ðŸ¦ ${a.name}`}
                             </Option>
                         ))}
                     </Select>
@@ -167,7 +167,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
                         decimalSeparator="," 
                         precision={2}
                         step={0.01}
-                        stringMode // Garante precisão
+                        stringMode // Garante precisÃ£o
                     />
                 </Form.Item>
             </Col>
@@ -181,7 +181,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             )}
 
             <Col span={isCreditCard ? 8 : 12}>
-                <Form.Item label="Situação">
+                <Form.Item label="SituaÃ§Ã£o">
                     <Switch 
                         checked={isPaid} 
                         onChange={setIsPaid} 

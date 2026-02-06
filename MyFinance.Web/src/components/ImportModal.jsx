@@ -48,7 +48,7 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
       onClose();
     } catch (error) {
       console.error(error);
-      message.error('Erro na importação. Verifique se o CSV é válido.');
+      message.error('Erro na importaÃ§Ã£o. Verifique se o CSV Ã© vÃ¡lido.');
     } finally {
       setUploading(false);
     }
@@ -59,11 +59,11 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
     beforeUpload: (file) => {
       const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
       if (!isCSV) {
-        message.error('Apenas arquivos CSV são permitidos!');
+        message.error('Apenas arquivos CSV sÃ£o permitidos!');
         return Upload.LIST_IGNORE;
       }
       setFileList([file]);
-      return false; // Impede upload automático (espera o botão)
+      return false; // Impede upload automÃ¡tico (espera o botÃ£o)
     },
     fileList,
   };
@@ -81,10 +81,10 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
       ]}
     >
       <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', marginBottom: 8 }}>Para qual conta esses dados vão?</label>
+        <label style={{ display: 'block', marginBottom: 8 }}>Para qual conta esses dados vÃ£o?</label>
         <Select 
             style={{ width: '100%' }} 
-            placeholder="Selecione a Conta ou Cartão"
+            placeholder="Selecione a Conta ou CartÃ£o"
             onChange={setSelectedAccount}
         >
             {accounts.map(acc => (

@@ -12,7 +12,7 @@ export default function Recurring() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
-  // Dados para o formulário
+  // Dados para o formulÃ¡rio
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [form] = Form.useForm();
@@ -58,7 +58,7 @@ export default function Recurring() {
     loadData();
   };
 
-  // BOTÃO MÁGICO: Gera as despesas para o mês atual
+  // BOTÃƒO MÃGICO: Gera as despesas para o mÃªs atual
   const handleGenerate = async () => {
     const today = new Date();
     const month = today.getMonth() + 1;
@@ -73,7 +73,7 @@ export default function Recurring() {
   };
 
   const columns = [
-    { title: 'Descrição', dataIndex: 'description', key: 'desc' },
+    { title: 'DescriÃ§Ã£o', dataIndex: 'description', key: 'desc' },
     { title: 'Dia', dataIndex: 'dayOfMonth', key: 'day', render: (d) => <Tag>Todo dia {d}</Tag> },
     { 
       title: 'Valor', 
@@ -82,9 +82,9 @@ export default function Recurring() {
     },
     { title: 'Conta', dataIndex: ['account', 'name'] },
     { 
-        title: 'Ações', 
+        title: 'AÃ§Ãµes', 
         render: (_, rec) => (
-            <Popconfirm title="Remover recorrência?" onConfirm={() => handleDelete(rec.id)}>
+            <Popconfirm title="Remover recorrÃªncia?" onConfirm={() => handleDelete(rec.id)}>
                 <Button danger icon={<DeleteOutlined />} type="text" />
             </Popconfirm>
         ) 
@@ -97,7 +97,7 @@ export default function Recurring() {
         <h2 style={{ margin: 0 }}>Despesas Fixas & Assinaturas</h2>
         <div style={{ display: 'flex', gap: 10 }}>
             <Button icon={<ThunderboltOutlined />} onClick={handleGenerate}>
-                Gerar neste Mês
+                Gerar neste MÃªs
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
                 Nova Fixa
@@ -112,7 +112,7 @@ export default function Recurring() {
       {/* Modal de Cadastro */}
       <Modal title="Nova Despesa Fixa" open={isModalOpen} onOk={handleSave} onCancel={() => setIsModalOpen(false)}>
         <Form form={form} layout="vertical" initialValues={{ type: 'Expense', dayOfMonth: 5 }}>
-            <Form.Item name="description" label="Descrição" rules={[{ required: true }]}>
+            <Form.Item name="description" label="DescriÃ§Ã£o" rules={[{ required: true }]}>
                 <Input placeholder="Ex: Netflix, Aluguel" />
             </Form.Item>
             
@@ -120,7 +120,7 @@ export default function Recurring() {
                 <Form.Item name="amount" label="Valor" style={{ flex: 1 }} rules={[{ required: true }]}>
                     <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} />
                 </Form.Item>
-                <Form.Item name="dayOfMonth" label="Dia do Mês" style={{ flex: 1 }} rules={[{ required: true }]}>
+                <Form.Item name="dayOfMonth" label="Dia do MÃªs" style={{ flex: 1 }} rules={[{ required: true }]}>
                     <InputNumber min={1} max={31} style={{ width: '100%' }} />
                 </Form.Item>
             </div>

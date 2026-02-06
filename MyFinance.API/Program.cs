@@ -38,6 +38,9 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+
 var key = Encoding.ASCII.GetBytes(builder.Configuration["AppSettings:Token"]!);
 builder.Services.AddAuthentication(x =>
 {
@@ -83,4 +86,33 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+await EnsureInvestmentsTableAsync(app);
+
 app.Run();
+
+static async Task EnsureInvestmentsTableAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+    const string tableSql = @"
+CREATE TABLE IF NOT EXISTS fii_holdings (
+    id SERIAL PRIMARY KEY,
+    ticker TEXT NOT NULL,
+    shares NUMERIC(18,4) NOT NULL,
+    avg_price NUMERIC(18,4) NOT NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    user_id INT NOT NULL
+);
+";
+
+    const string indexSql = @"
+CREATE UNIQUE INDEX IF NOT EXISTS ux_fii_holdings_user_ticker
+ON fii_holdings (user_id, ticker);
+";
+
+    await db.Database.ExecuteSqlRawAsync(tableSql);
+    await db.Database.ExecuteSqlRawAsync(indexSql);
+}

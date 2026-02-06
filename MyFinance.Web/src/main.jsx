@@ -1,9 +1,9 @@
 import React from 'react'
-import ReactDOM from 'react-dom/client' // Importação do React 18
+import ReactDOM from 'react-dom/client' // ImportaÃ§Ã£o do React 18
 import App from './App.jsx'
 import './index.css'
 
-// Importações do Ant Design Mobile e idioma
+// ImportaÃ§Ãµes do Ant Design Mobile e idioma
 import { ConfigProvider } from 'antd-mobile'
 import ptBR from 'antd-mobile/es/locales/pt-BR'
 

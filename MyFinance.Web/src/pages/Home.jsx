@@ -15,12 +15,12 @@ export default function Home({ month, year }) {
 
   // Helper para formatar ou esconder
   const formatMoney = (value) => {
-    if (!visible) return '••••';
+    if (!visible) return 'â€¢â€¢â€¢â€¢';
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   const columns = [
-    { title: 'Descrição', dataIndex: 'description', key: 'desc' },
+    { title: 'DescriÃ§Ã£o', dataIndex: 'description', key: 'desc' },
     { 
       title: 'Categoria', dataIndex: ['category', 'name'], key: 'cat',
       render: (text) => <Tag color="blue">{text || 'Geral'}</Tag>
@@ -49,7 +49,7 @@ export default function Home({ month, year }) {
     try {
       setLoading(true);
       
-      // 1. Previsão Fixa
+      // 1. PrevisÃ£o Fixa
       const recurringRes = await api.get('/recurring');
       const totalFixas = recurringRes.data.reduce((acc, item) => acc + item.amount, 0);
       setPredictedFixed(totalFixas);
@@ -57,11 +57,11 @@ export default function Home({ month, year }) {
       // 2. Saldo Real
       const accResponse = await api.get('/accounts');
       const contas = accResponse.data || [];
-      // Filtra: Soma apenas o que NÃO é cartão de crédito
+      // Filtra: Soma apenas o que NÃƒO Ã© cartÃ£o de crÃ©dito
       const totalBalance = contas
         .filter(c => !c.isCreditCard) 
         .reduce((acc, conta) => acc + (conta.currentBalance || 0), 0);
-      // 3. Transações do Mês
+      // 3. TransaÃ§Ãµes do MÃªs
       const transResponse = await api.get(`/transactions?month=${month}&year=${year}`);
       const listaTransacoes = transResponse.data;
       
@@ -88,14 +88,14 @@ export default function Home({ month, year }) {
 
   return (
     <div>
-      {/* CARD DE PREVISÃO (PLANEJAMENTO) */}
+      {/* CARD DE PREVISÃƒO (PLANEJAMENTO) */}
       <Card variant="borderless" style={{ marginBottom: 24, background: '#fff7e6', borderColor: '#ffd591' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
                 <h3 style={{ margin: 0, color: '#d46b08' }}>Planejamento Mensal</h3>
-                <span>Despesas fixas cadastradas para este mês: <b>{formatMoney(predictedFixed)}</b></span>
+                <span>Despesas fixas cadastradas para este mÃªs: <b>{formatMoney(predictedFixed)}</b></span>
             </div>
-            {/* Botão de Olhinho */}
+            {/* BotÃ£o de Olhinho */}
             <Button 
                 type="text" 
                 icon={visible ? <EyeOutlined /> : <EyeInvisibleOutlined />} 
@@ -121,7 +121,7 @@ export default function Home({ month, year }) {
         <Col span={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #3f8600', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Receitas (Neste Mês)"
+              title="Receitas (Neste MÃªs)"
               value={summary.income}
               formatter={(value) => <span style={{ color: '#3f8600', fontSize: '24px' }}>{formatMoney(value)}</span>}
               prefix={<ArrowUpOutlined />}
@@ -131,7 +131,7 @@ export default function Home({ month, year }) {
         <Col span={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #cf1322', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Despesas (Neste Mês)"
+              title="Despesas (Neste MÃªs)"
               value={summary.expense}
               formatter={(value) => <span style={{ color: '#cf1322', fontSize: '24px' }}>{formatMoney(value)}</span>}
               prefix={<ArrowDownOutlined />}
@@ -140,7 +140,7 @@ export default function Home({ month, year }) {
         </Col>
       </Row>
 
-      {/* GRÁFICOS E TABELA */}
+      {/* GRÃFICOS E TABELA */}
       <Row gutter={24}>
         <Col span={14}>
           <Card title="Despesas por Categoria" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
@@ -149,7 +149,7 @@ export default function Home({ month, year }) {
         </Col>
 
         <Col span={10}>
-          <Card title="Transações do Mês" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
+          <Card title="TransaÃ§Ãµes do MÃªs" variant="borderless" style={{ minHeight: 400, borderRadius: 8 }}>
             <Table 
                 dataSource={transactions} 
                 columns={columns} 

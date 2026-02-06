@@ -12,7 +12,8 @@ import {
   LogoutOutlined,
   CreditCardOutlined,
   UserOutlined,
-  TrophyOutlined
+  TrophyOutlined,
+  RiseOutlined
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -28,6 +29,7 @@ import Categories from './pages/Categories';
 import Invoices from './pages/Invoices';
 import Profile from './pages/Profile';
 import Budgets from './pages/Budgets';
+import Investments from './pages/Investments';
 import AddTransactionModal from './components/AddTransactionModal';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -81,6 +83,7 @@ const App = () => {
     { key: '5', icon: <SyncOutlined />, label: 'Recorr?ncias' },
     { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
     { key: '7', icon: <TrophyOutlined />, label: 'Metas/Or?amentos' },
+    { key: '10', icon: <RiseOutlined />, label: 'Investimentos' },
     { key: '3', icon: <PieChartOutlined />, label: 'Relat?rios' },
     { type: 'divider' },
     { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' },
@@ -107,6 +110,7 @@ const App = () => {
       case '7': return <Budgets month={month} year={year} />;
       case '8': return <Invoices />;
       case '9': return <Profile />;
+      case '10': return <Investments />;
       default: return <Home month={month} year={year} />;
     }
   };

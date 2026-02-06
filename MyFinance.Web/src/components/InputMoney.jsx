@@ -8,7 +8,7 @@ export default function InputMoney(props) {
       style={{ width: '100%', ...props.style }}
       prefix="R$"
       decimalSeparator=","
-      // Garante que o ponto de milhar apareça e a vírgula funcione
+      // Garante que o ponto de milhar apareÃ§a e a vÃ­rgula funcione
       formatter={(value) => 
         `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
       }
