@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,29 +12,13 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export const options = {
-  responsive: true,
-  maintainAspectRatio: false, // Permite ajustar altura livremente
-  plugins: {
-    legend: { position: 'bottom' },
-    title: { display: false },
-  },
-  scales: {
-    y: { beginAtZero: true },
-    x: { grid: { display: false } }
-  }
-};
-
-export default function DashboardCharts({ transactions }) {
-  // Lgica Inteligente: Agrupa transaes por categoria
+export default function DashboardCharts({ transactions, compact = false }) {
   const chartData = useMemo(() => {
     const categoryTotals = {};
 
-    transactions.forEach(t => {
-      // Só queremos somar DESPESAS no gráfico
+    transactions.forEach((t) => {
       if (t.type === 'Expense') {
         const catName = t.category?.name || 'Outros';
-        // Soma acumulada
         categoryTotals[catName] = (categoryTotals[catName] || 0) + t.amount;
       }
     });
@@ -45,17 +29,40 @@ export default function DashboardCharts({ transactions }) {
         {
           label: 'Despesas (R$)',
           data: Object.values(categoryTotals),
-          backgroundColor: 'rgba(24, 144, 255, 0.6)', // Azul bonito
+          backgroundColor: 'rgba(24, 144, 255, 0.6)',
           borderColor: 'rgba(24, 144, 255, 1)',
           borderWidth: 1,
           borderRadius: 4,
         },
       ],
     };
-  }, [transactions]); // Recalcula sempre que as transaes mudarem
+  }, [transactions]);
+
+  const options = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: compact ? 'top' : 'bottom' },
+        title: { display: false },
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: {
+          grid: { display: false },
+          ticks: {
+            autoSkip: true,
+            maxRotation: compact ? 35 : 0,
+            minRotation: compact ? 25 : 0,
+          },
+        },
+      },
+    }),
+    [compact],
+  );
 
   return (
-    <div style={{ height: 300 }}>
+    <div style={{ height: compact ? 260 : 300 }}>
       <Bar options={options} data={chartData} />
     </div>
   );

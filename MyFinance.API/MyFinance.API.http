@@ -1,6 +1,7 @@
-@MyFinance.API_HostAddress = http://localhost:5050
+@Finflow.API_HostAddress = http://localhost:5050
 
-GET {{MyFinance.API_HostAddress}}/weatherforecast/
+GET {{Finflow.API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+

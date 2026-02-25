@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Menu, theme, DatePicker, Button } from 'antd';
+﻿import React, { useState } from 'react';
+import { Layout, Menu, theme, DatePicker, Button, Grid, Drawer } from 'antd';
 import {
   HomeOutlined,
   UnorderedListOutlined,
@@ -12,7 +12,8 @@ import {
   CreditCardOutlined,
   UserOutlined,
   TrophyOutlined,
-  RiseOutlined
+  RiseOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -32,6 +33,7 @@ import Investments from './pages/Investments';
 import AddTransactionModal from './components/AddTransactionModal';
 
 const { Header, Content, Footer, Sider } = Layout;
+const { useBreakpoint } = Grid;
 
 const Logo = styled.div`
   height: 64px;
@@ -70,6 +72,92 @@ const HeaderMark = styled.img`
   object-fit: contain;
 `;
 
+const ContentWrap = styled.div`
+  padding: 24px;
+  min-height: 360px;
+
+  @media (max-width: 992px) {
+    padding: 16px;
+  }
+
+  @media (max-width: 576px) {
+    padding: 12px;
+  }
+`;
+
+const InnerBrandBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(31, 140, 255, 0.08), rgba(77, 217, 255, 0.04));
+  border: 1px solid rgba(31, 140, 255, 0.12);
+`;
+
+const InnerBrandMain = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const InnerBrandMark = styled.img`
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+`;
+
+const InnerBrandTitle = styled.div`
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+
+  strong {
+    color: #12315f;
+    font-family: 'Sora', 'Manrope', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+  }
+
+  span {
+    color: #5f6d82;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+`;
+
+const menuItems = [
+  { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
+  { key: '2', icon: <UnorderedListOutlined />, label: 'Transacoes' },
+  { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cartao' },
+  { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
+  { key: '5', icon: <SyncOutlined />, label: 'Recorrencias' },
+  { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
+  { key: '7', icon: <TrophyOutlined />, label: 'Metas/Orcamentos' },
+  { key: '10', icon: <RiseOutlined />, label: 'Investimentos' },
+  { key: '3', icon: <PieChartOutlined />, label: 'Relatorios' },
+  { type: 'divider' },
+  { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' },
+  { type: 'divider' },
+  { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transacao' },
+];
+
+const pageNames = {
+  '1': 'Dashboard',
+  '2': 'Transacoes',
+  '3': 'Relatorios',
+  '4': 'Contas e Carteiras',
+  '5': 'Recorrencias',
+  '6': 'Categorias',
+  '7': 'Metas e Orcamentos',
+  '8': 'Faturas',
+  '9': 'Perfil',
+  '10': 'Investimentos',
+};
+
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [collapsed, setCollapsed] = useState(false);
@@ -77,6 +165,10 @@ const App = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const screens = useBreakpoint();
+  const isMobile = !screens.lg;
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -88,29 +180,16 @@ const App = () => {
     setIsAuthenticated(false);
   };
 
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
-  }
-
-  const items = [
-    { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
-    { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
-    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cartão' },
-    { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
-    { key: '5', icon: <SyncOutlined />, label: 'Recorrências' },
-    { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
-    { key: '7', icon: <TrophyOutlined />, label: 'Metas/Orçamentos' },
-    { key: '10', icon: <RiseOutlined />, label: 'Investimentos' },
-    { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
-    { type: 'divider' },
-    { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' },
-    { type: 'divider' },
-    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
-  ];
-
   const handleMenuClick = (e) => {
-    if (e.key === 'add') setIsModalOpen(true);
-    else setActiveKey(e.key);
+    if (e.key === 'add') {
+      setIsModalOpen(true);
+    } else {
+      setActiveKey(e.key);
+    }
+
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
   };
 
   const renderContent = () => {
@@ -118,70 +197,192 @@ const App = () => {
     const year = selectedDate.year();
 
     switch (activeKey) {
-      case '1': return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
-      case '2': return <Transactions key={`${month}-${year}`} month={month} year={year} />;
-      case '3': return <Reports month={month} year={year} />;
-      case '4': return <Accounts />;
-      case '5': return <Recurring />;
-      case '6': return <Categories />;
-      case '7': return <Budgets month={month} year={year} />;
-      case '8': return <Invoices />;
-      case '9': return <Profile />;
-      case '10': return <Investments />;
-      default: return <Home month={month} year={year} />;
+      case '1':
+        return <Home key={`${month}-${year}-${refreshKey}`} month={month} year={year} />;
+      case '2':
+        return <Transactions key={`${month}-${year}`} month={month} year={year} />;
+      case '3':
+        return <Reports month={month} year={year} />;
+      case '4':
+        return <Accounts />;
+      case '5':
+        return <Recurring />;
+      case '6':
+        return <Categories />;
+      case '7':
+        return <Budgets month={month} year={year} />;
+      case '8':
+        return <Invoices />;
+      case '9':
+        return <Profile />;
+      case '10':
+        return <Investments />;
+      default:
+        return <Home month={month} year={year} />;
     }
   };
 
-  return (
-    <Layout style={{ height: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
-        <Logo>
-          <LogoMark src="/brand-mark.svg" alt="MyFinance" />
-          {!collapsed && <LogoText>MyFinance</LogoText>}
-        </Logo>
-        <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} onClick={handleMenuClick} />
-      </Sider>
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
 
-      <Layout style={{ overflowY: 'auto' }}>
-        <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
-          <HeaderTitle>
+  const sideMenu = (
+    <Menu
+      theme="dark"
+      selectedKeys={[activeKey]}
+      mode="inline"
+      items={menuItems}
+      onClick={handleMenuClick}
+    />
+  );
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      {!isMobile ? (
+        <Sider
+          width={248}
+          collapsible
+          collapsed={collapsed}
+          onCollapse={(value) => setCollapsed(value)}
+          breakpoint="lg"
+        >
+          <Logo>
+            <LogoMark src="/brand-mark.svg" alt="Finflow" />
+            {!collapsed && <LogoText>Finflow</LogoText>}
+          </Logo>
+          {sideMenu}
+        </Sider>
+      ) : (
+        <Drawer
+          placement="left"
+          open={isMobile && mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          width={264}
+          bodyStyle={{ padding: 0, background: '#001529' }}
+          styles={{ header: { display: 'none' } }}
+        >
+          <Logo>
+            <LogoMark src="/brand-mark.svg" alt="Finflow" />
+            <LogoText>Finflow</LogoText>
+          </Logo>
+          {sideMenu}
+        </Drawer>
+      )}
+
+      <Layout style={{ minWidth: 0, overflowY: 'auto' }}>
+        <Header
+          style={{
+            padding: isMobile ? '10px 12px' : '0 24px',
+            height: 'auto',
+            minHeight: 64,
+            background: colorBgContainer,
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: isMobile ? 10 : 16,
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            width: '100%',
+            borderBottom: '1px solid #f0f3f8',
+          }}
+        >
+          <HeaderTitle style={{ minWidth: 0 }}>
+            {isMobile && (
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Abrir menu"
+              />
+            )}
             <HeaderMark src="/brand-mark.svg" alt="" aria-hidden="true" />
-            <h2 style={{ margin: 0, color: '#001529' }}>Gestão Financeira</h2>
+            <h2
+              style={{
+                margin: 0,
+                color: '#001529',
+                fontSize: isMobile ? 20 : 26,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              Gestao Financeira
+            </h2>
           </HeaderTitle>
 
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ color: '#888' }}>Período:</span>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'flex-end',
+              gap: isMobile ? 8 : 16,
+              alignItems: 'center',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center',
+                padding: '6px 10px',
+                borderRadius: 999,
+                background: '#f5f8ff',
+              }}
+            >
+              <span style={{ color: '#5d6a82', fontSize: 12, fontWeight: 600 }}>Periodo:</span>
               <DatePicker
                 picker="month"
                 format="MMMM/YYYY"
                 allowClear={false}
                 value={selectedDate}
                 onChange={(date) => setSelectedDate(date)}
-                style={{ width: 150 }}
+                style={{ width: isMobile ? 122 : 150 }}
               />
             </div>
 
             <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
-              Sair
+              {!isMobile && 'Sair'}
             </Button>
           </div>
         </Header>
 
-        <Content style={{ margin: '16px 16px' }}>
-          <div style={{ padding: 24, minHeight: 360, background: colorBgContainer, borderRadius: borderRadiusLG }}>
+        <Content style={{ margin: isMobile ? '10px' : '16px' }}>
+          <ContentWrap style={{ background: colorBgContainer, borderRadius: borderRadiusLG }}>
+            <InnerBrandBar>
+              <InnerBrandMain>
+                <InnerBrandMark src="/brand-mark.svg" alt="" aria-hidden="true" />
+                <InnerBrandTitle>
+                  <strong>Finflow</strong>
+                  <span>{pageNames[activeKey] || 'Painel'}</span>
+                </InnerBrandTitle>
+              </InnerBrandMain>
+              {!isMobile && (
+                <span style={{ color: '#6f7c92', fontSize: 12, fontWeight: 700 }}>
+                  Planejamento e controle
+                </span>
+              )}
+            </InnerBrandBar>
             {renderContent()}
-          </div>
+          </ContentWrap>
         </Content>
-        <Footer style={{ textAlign: 'center', color: '#888' }}>
-          MyFinance {new Date().getFullYear()}
+
+        <Footer
+          style={{
+            textAlign: 'center',
+            color: '#888',
+            padding: isMobile ? '12px 8px' : '24px 50px',
+          }}
+        >
+          Finflow {new Date().getFullYear()}
         </Footer>
       </Layout>
 
       <AddTransactionModal
         visible={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={() => setRefreshKey(old => old + 1)}
+        onSuccess={() => setRefreshKey((old) => old + 1)}
       />
     </Layout>
   );
