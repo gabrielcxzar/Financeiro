@@ -9,6 +9,8 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 var renderPort = Environment.GetEnvironmentVariable("PORT");
+var shouldRunSchemaBootstrap = builder.Configuration.GetValue<bool?>("RunSchemaBootstrap")
+    ?? builder.Environment.IsDevelopment();
 
 if (!string.IsNullOrWhiteSpace(renderPort))
 {
@@ -52,7 +54,11 @@ var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnec
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
         defaultConnection,
-        npgsql => npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)
+        npgsql =>
+        {
+            npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+            npgsql.CommandTimeout(30);
+        }
     ));
 
 builder.Services.AddMemoryCache();
@@ -103,7 +109,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-StartSchemaBootstrapInBackground(app);
+if (shouldRunSchemaBootstrap)
+{
+    StartSchemaBootstrapInBackground(app);
+}
+else
+{
+    app.Logger.LogInformation("Schema bootstrap disabled for this environment.");
+}
 
 app.Run();
 
