@@ -8,6 +8,17 @@ using System.Text;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
+var renderPort = Environment.GetEnvironmentVariable("PORT");
+
+if (!string.IsNullOrWhiteSpace(renderPort))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+}
+else
+{
+    // Local/containers sem PORT injetada.
+    builder.WebHost.UseUrls("http://0.0.0.0:10000");
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -92,9 +103,27 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-await EnsureDatabaseSchemaAsync(app);
+StartSchemaBootstrapInBackground(app);
 
 app.Run();
+
+static void StartSchemaBootstrapInBackground(WebApplication app)
+{
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await EnsureDatabaseSchemaAsync(app);
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "Schema bootstrap failed in background.");
+            }
+        });
+    });
+}
 
 static async Task EnsureDatabaseSchemaAsync(WebApplication app)
 {
