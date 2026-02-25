@@ -86,7 +86,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-await EnsureInvestmentsTableAsync(app);
+//await EnsureInvestmentsTableAsync(app);
 
 app.Run();
 
