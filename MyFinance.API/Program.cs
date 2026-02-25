@@ -35,13 +35,21 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não configurada.");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        defaultConnection,
+        npgsql => npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)
+    ));
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 
-var key = Encoding.ASCII.GetBytes(builder.Configuration["AppSettings:Token"]!);
+var token = builder.Configuration["AppSettings:Token"]
+    ?? throw new InvalidOperationException("AppSettings:Token não configurada.");
+var key = Encoding.ASCII.GetBytes(token);
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -86,16 +94,16 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-//await EnsureInvestmentsTableAsync(app);
+await EnsureDatabaseSchemaAsync(app);
 
 app.Run();
 
-static async Task EnsureInvestmentsTableAsync(WebApplication app)
+static async Task EnsureDatabaseSchemaAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-    const string tableSql = @"
+    const string fiiTableSql = @"
 CREATE TABLE IF NOT EXISTS fii_holdings (
     id SERIAL PRIMARY KEY,
     ticker TEXT NOT NULL,
@@ -108,11 +116,83 @@ CREATE TABLE IF NOT EXISTS fii_holdings (
 );
 ";
 
-    const string indexSql = @"
+    const string fiiIndexSql = @"
 CREATE UNIQUE INDEX IF NOT EXISTS ux_fii_holdings_user_ticker
 ON fii_holdings (user_id, ticker);
 ";
 
-    await db.Database.ExecuteSqlRawAsync(tableSql);
-    await db.Database.ExecuteSqlRawAsync(indexSql);
+    const string recurringTableSql = @"
+CREATE TABLE IF NOT EXISTS recurring_transactions (
+    id SERIAL PRIMARY KEY,
+    description VARCHAR(100) NOT NULL,
+    amount NUMERIC(18,2) NOT NULL,
+    type VARCHAR(10) NOT NULL,
+    day_of_month INT NOT NULL,
+    category_id INT NULL,
+    account_id INT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    user_id INT NULL
+);
+";
+
+    const string recurringCompatSql = @"
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'categoryid'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'category_id'
+    ) THEN
+        ALTER TABLE recurring_transactions RENAME COLUMN categoryid TO category_id;
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'accountid'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'account_id'
+    ) THEN
+        ALTER TABLE recurring_transactions RENAME COLUMN accountid TO account_id;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'day_of_month'
+    ) THEN
+        ALTER TABLE recurring_transactions ADD COLUMN day_of_month INT NOT NULL DEFAULT 1;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'active'
+    ) THEN
+        ALTER TABLE recurring_transactions ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'recurring_transactions' AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE recurring_transactions ADD COLUMN user_id INT NULL;
+    END IF;
+END $$;
+";
+
+    const string recurringIndexesSql = @"
+CREATE INDEX IF NOT EXISTS ix_recurring_transactions_user_id
+ON recurring_transactions (user_id);
+
+CREATE INDEX IF NOT EXISTS ix_recurring_transactions_user_active
+ON recurring_transactions (user_id, active);
+";
+
+    await db.Database.ExecuteSqlRawAsync(fiiTableSql);
+    await db.Database.ExecuteSqlRawAsync(fiiIndexSql);
+    await db.Database.ExecuteSqlRawAsync(recurringTableSql);
+    await db.Database.ExecuteSqlRawAsync(recurringCompatSql);
+    await db.Database.ExecuteSqlRawAsync(recurringIndexesSql);
 }

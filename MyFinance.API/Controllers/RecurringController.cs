@@ -34,6 +34,9 @@ namespace MyFinance.API.Controllers
         [HttpPost]
         public async Task<ActionResult<RecurringTransaction>> PostRecurring(RecurringTransaction recurring)
         {
+            if (!recurring.AccountId.HasValue)
+                return BadRequest("Conta obrigatória.");
+
             recurring.UserId = GetUserId();
             _context.RecurringTransactions.Add(recurring);
             await _context.SaveChangesAsync();
@@ -66,6 +69,10 @@ namespace MyFinance.API.Controllers
 
             foreach (var rule in rules)
             {
+                if (!rule.AccountId.HasValue)
+                    continue;
+
+                var accountId = rule.AccountId.Value;
                 int daysInMonth = DateTime.DaysInMonth(year, month);
                 int day = Math.Min(rule.DayOfMonth, daysInMonth);
 
@@ -76,7 +83,7 @@ namespace MyFinance.API.Controllers
                     t.Description == rule.Description &&
                     t.Amount == rule.Amount &&
                     t.Type == rule.Type &&
-                    t.AccountId == rule.AccountId &&
+                    t.AccountId == accountId &&
                     t.CategoryId == rule.CategoryId &&
                     t.Date.Month == month &&
                     t.Date.Year == year
@@ -91,7 +98,7 @@ namespace MyFinance.API.Controllers
                         Amount = rule.Amount,
                         Type = rule.Type,
                         CategoryId = rule.CategoryId,
-                        AccountId = rule.AccountId,
+                        AccountId = accountId,
                         Date = targetDate,
                         Paid = false
                     };
@@ -99,7 +106,7 @@ namespace MyFinance.API.Controllers
                     _context.Transactions.Add(newTrans);
                     count++;
 
-                    var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == rule.AccountId && a.UserId == userId);
+                    var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
                     if (account != null)
                     {
                         if (newTrans.Type == "Income") account.CurrentBalance += newTrans.Amount;
@@ -111,7 +118,7 @@ namespace MyFinance.API.Controllers
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { message = $"{count} transa??es geradas." });
+            return Ok(new { message = $"{count} transações geradas." });
         }
 
         [HttpGet("projection")]

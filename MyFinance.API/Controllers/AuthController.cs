@@ -25,8 +25,13 @@ namespace MyFinance.API.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<User>> Register(UserDto request)
         {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+                return BadRequest("Email e senha são obrigatórios.");
+
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
-                return BadRequest("Email j? cadastrado.");
+                return BadRequest("Email já cadastrado.");
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
 
             var user = new User
             {
@@ -42,7 +47,9 @@ namespace MyFinance.API.Controllers
             _context.Categories.AddRange(defaultCategories);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Usu?rio e categorias criados com sucesso!" });
+            await tx.CommitAsync();
+
+            return Ok(new { message = "Usuário e categorias criados com sucesso!" });
         }
 
         [HttpPost("login")]
@@ -51,7 +58,7 @@ namespace MyFinance.API.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return BadRequest("Email ou senha inv?lidos.");
+                return BadRequest("Email ou senha inválidos.");
 
             string token = CreateToken(user);
             return Ok(new { token, name = user.Name });
@@ -67,7 +74,7 @@ namespace MyFinance.API.Controllers
 
             var tokenKey = _configuration.GetSection("AppSettings:Token").Value;
             if (string.IsNullOrEmpty(tokenKey))
-                throw new Exception("Chave do Token n?o configurada no appsettings.json");
+                throw new Exception("Chave do token não configurada em AppSettings:Token.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);

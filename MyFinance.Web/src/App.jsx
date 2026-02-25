@@ -5,7 +5,6 @@ import {
   UnorderedListOutlined,
   PieChartOutlined,
   PlusCircleOutlined,
-  WalletOutlined,
   BankOutlined,
   SyncOutlined,
   TagsOutlined,
@@ -40,17 +39,35 @@ const Logo = styled.div`
   align-items: center;
   justify-content: center;
   background: #001529;
-  font-size: 18px;
-  font-weight: bold;
-  color: #fff;
-  letter-spacing: 1px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+`;
 
-  svg {
-    margin-right: 10px;
-    font-size: 22px;
-    color: #1890ff;
-  }
+const LogoMark = styled.img`
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(10, 143, 255, 0.35));
+`;
+
+const LogoText = styled.span`
+  margin-left: 10px;
+  color: #f4f8ff;
+  font-family: 'Sora', 'Manrope', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+`;
+
+const HeaderTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const HeaderMark = styled.img`
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 `;
 
 const App = () => {
@@ -77,18 +94,18 @@ const App = () => {
 
   const items = [
     { key: '1', icon: <HomeOutlined />, label: 'Dashboard' },
-    { key: '2', icon: <UnorderedListOutlined />, label: 'Transa??es' },
-    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cart?o' },
+    { key: '2', icon: <UnorderedListOutlined />, label: 'Transações' },
+    { key: '8', icon: <CreditCardOutlined />, label: 'Faturas do Cartão' },
     { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
-    { key: '5', icon: <SyncOutlined />, label: 'Recorr?ncias' },
+    { key: '5', icon: <SyncOutlined />, label: 'Recorrências' },
     { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
-    { key: '7', icon: <TrophyOutlined />, label: 'Metas/Or?amentos' },
+    { key: '7', icon: <TrophyOutlined />, label: 'Metas/Orçamentos' },
     { key: '10', icon: <RiseOutlined />, label: 'Investimentos' },
-    { key: '3', icon: <PieChartOutlined />, label: 'Relat?rios' },
+    { key: '3', icon: <PieChartOutlined />, label: 'Relatórios' },
     { type: 'divider' },
     { key: '9', icon: <UserOutlined />, label: 'Meu Perfil' },
     { type: 'divider' },
-    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transa??o' },
+    { key: 'add', icon: <PlusCircleOutlined style={{ color: '#52c41a' }} />, label: 'Nova Transação' },
   ];
 
   const handleMenuClick = (e) => {
@@ -119,19 +136,22 @@ const App = () => {
     <Layout style={{ height: '100vh' }}>
       <Sider collapsible collapsed={collapsed} onCollapse={(value) => setCollapsed(value)}>
         <Logo>
-          <WalletOutlined />
-          {!collapsed && 'MyFinance'}
+          <LogoMark src="/brand-mark.svg" alt="MyFinance" />
+          {!collapsed && <LogoText>MyFinance</LogoText>}
         </Logo>
         <Menu theme="dark" defaultSelectedKeys={['1']} mode="inline" items={items} onClick={handleMenuClick} />
       </Sider>
 
       <Layout style={{ overflowY: 'auto' }}>
         <Header style={{ padding: '0 24px', background: colorBgContainer, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
-          <h2 style={{ margin: 0, color: '#001529' }}>Gest?o Financeira</h2>
+          <HeaderTitle>
+            <HeaderMark src="/brand-mark.svg" alt="" aria-hidden="true" />
+            <h2 style={{ margin: 0, color: '#001529' }}>Gestão Financeira</h2>
+          </HeaderTitle>
 
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ color: '#888' }}>Per?odo:</span>
+              <span style={{ color: '#888' }}>Período:</span>
               <DatePicker
                 picker="month"
                 format="MMMM/YYYY"
@@ -154,7 +174,7 @@ const App = () => {
           </div>
         </Content>
         <Footer style={{ textAlign: 'center', color: '#888' }}>
-          MyFinance ?{new Date().getFullYear()}
+          MyFinance {new Date().getFullYear()}
         </Footer>
       </Layout>
 
