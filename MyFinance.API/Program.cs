@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
 using MyFinance.API.Data;
+using System.Text;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -14,7 +14,7 @@ builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "MyFinance.API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Finflow.API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "Insira o token JWT assim: Bearer {seu_token}",
@@ -30,13 +30,13 @@ builder.Services.AddSwaggerGen(c =>
             {
                 Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
-            new string[] {}
+            Array.Empty<string>()
         }
     });
 });
 
 var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection não configurada.");
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection nao configurada.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -48,7 +48,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 
 var token = builder.Configuration["AppSettings:Token"]
-    ?? throw new InvalidOperationException("AppSettings:Token não configurada.");
+    ?? throw new InvalidOperationException("AppSettings:Token nao configurada.");
+
 var key = Encoding.ASCII.GetBytes(token);
 builder.Services.AddAuthentication(x =>
 {
@@ -70,14 +71,13 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        builder =>
-        {
-            builder
-                .AllowAnyOrigin()
-                .AllowAnyMethod()
-                .AllowAnyHeader();
-        });
+    options.AddPolicy("AllowAll", cors =>
+    {
+        cors
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
 });
 
 var app = builder.Build();
@@ -86,9 +86,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
-
 app.UseCors("AllowAll");
-
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -102,6 +100,9 @@ static async Task EnsureDatabaseSchemaAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("SchemaBootstrap");
 
     const string fiiTableSql = @"
 CREATE TABLE IF NOT EXISTS fii_holdings (
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS fii_holdings (
 ";
 
     const string fiiIndexSql = @"
-CREATE UNIQUE INDEX IF NOT EXISTS ux_fii_holdings_user_ticker
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ux_fii_holdings_user_ticker
 ON fii_holdings (user_id, ticker);
 ";
 
@@ -182,17 +183,54 @@ BEGIN
 END $$;
 ";
 
-    const string recurringIndexesSql = @"
-CREATE INDEX IF NOT EXISTS ix_recurring_transactions_user_id
+    const string recurringIndexUserSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_recurring_transactions_user_id
 ON recurring_transactions (user_id);
+";
 
-CREATE INDEX IF NOT EXISTS ix_recurring_transactions_user_active
+    const string recurringIndexUserActiveSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_recurring_transactions_user_active
 ON recurring_transactions (user_id, active);
 ";
 
-    await db.Database.ExecuteSqlRawAsync(fiiTableSql);
-    await db.Database.ExecuteSqlRawAsync(fiiIndexSql);
-    await db.Database.ExecuteSqlRawAsync(recurringTableSql);
-    await db.Database.ExecuteSqlRawAsync(recurringCompatSql);
-    await db.Database.ExecuteSqlRawAsync(recurringIndexesSql);
+    var originalTimeout = db.Database.GetCommandTimeout();
+    db.Database.SetCommandTimeout(TimeSpan.FromMinutes(3));
+
+    try
+    {
+        logger.LogInformation("Running schema bootstrap...");
+
+        // Required schema pieces for core endpoints.
+        await db.Database.ExecuteSqlRawAsync(fiiTableSql);
+        await db.Database.ExecuteSqlRawAsync(recurringTableSql);
+        await db.Database.ExecuteSqlRawAsync(recurringCompatSql);
+
+        // Optional/index steps should not crash the API on deploy.
+        await ExecuteOptionalSqlAsync(db, fiiIndexSql, logger, "fii unique index");
+        await ExecuteOptionalSqlAsync(db, recurringIndexUserSql, logger, "recurring user index");
+        await ExecuteOptionalSqlAsync(db, recurringIndexUserActiveSql, logger, "recurring user-active index");
+
+        logger.LogInformation("Schema bootstrap finished.");
+    }
+    finally
+    {
+        db.Database.SetCommandTimeout(originalTimeout);
+    }
 }
+
+static async Task ExecuteOptionalSqlAsync(
+    AppDbContext db,
+    string sql,
+    ILogger logger,
+    string operationName)
+{
+    try
+    {
+        await db.Database.ExecuteSqlRawAsync(sql);
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Schema bootstrap skipped optional step: {Operation}", operationName);
+    }
+}
+

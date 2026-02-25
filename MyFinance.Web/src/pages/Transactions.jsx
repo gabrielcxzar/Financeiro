@@ -1,21 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Modal, message, Card, Tooltip } from 'antd';
+﻿import React, { useEffect, useState } from 'react';
+import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid } from 'antd';
 import { DeleteOutlined, EditOutlined, CloudUploadOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import ImportModal from '../components/ImportModal';
 import api from '../services/api';
 
-const formatMoney = (value) => {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
+const { useBreakpoint } = Grid;
+const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function Transactions({ month, year }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  const screens = useBreakpoint();
+  const isCompact = !screens.md;
 
   useEffect(() => {
     loadTransactions();
@@ -27,39 +28,38 @@ export default function Transactions({ month, year }) {
       const query = month && year ? `?month=${month}&year=${year}` : '';
       const response = await api.get(`/transactions${query}`);
       setTransactions(response.data);
-    } catch (error) {
-      message.error('Erro ao carregar transaes');
+    } catch {
+      message.error('Erro ao carregar transacoes');
     } finally {
       setLoading(false);
     }
   };
 
-  // Lgica inteligente de excluso
-  const handleDelete = (record) => {
-      if (record.installmentId) { // <--- Só pergunta se tiver ID de grupo
-        Modal.confirm({
-            title: 'Excluir Parcelamento',
-            content: 'Esta transação faz parte de uma série. O que deseja fazer?',
-            okText: 'Apagar TODAS',
-            cancelText: 'Apenas ESTA',
-            okButtonProps: { danger: true },
-            onOk: () => executeDelete(record.id, true), // <--- TRUE = Apaga Srie
-            onCancel: () => executeDelete(record.id, false) // <--- FALSE = Apaga Só Essa
-        });
-      } else {
-          // Se no tiver ID (antigas), apaga direto sem perguntar
-          executeDelete(record.id, false);
-      }
-  };
-
   const executeDelete = async (id, deleteAll) => {
     try {
       await api.delete(`/transactions/${id}?deleteAll=${deleteAll}`);
-      message.success('Excludo com sucesso!');
+      message.success('Excluido com sucesso!');
       loadTransactions();
-    } catch (error) {
+    } catch {
       message.error('Erro ao excluir');
     }
+  };
+
+  const handleDelete = (record) => {
+    if (record.installmentId) {
+      Modal.confirm({
+        title: 'Excluir parcelamento',
+        content: 'Esta transacao faz parte de uma serie. O que deseja fazer?',
+        okText: 'Apagar TODAS',
+        cancelText: 'Apenas ESTA',
+        okButtonProps: { danger: true },
+        onOk: () => executeDelete(record.id, true),
+        onCancel: () => executeDelete(record.id, false),
+      });
+      return;
+    }
+
+    executeDelete(record.id, false);
   };
 
   const handleEdit = (record) => {
@@ -76,7 +76,7 @@ export default function Transactions({ month, year }) {
       sorter: (a, b) => new Date(a.date) - new Date(b.date),
     },
     {
-      title: 'Descrição',
+      title: 'Descricao',
       dataIndex: 'description',
       key: 'description',
     },
@@ -102,32 +102,24 @@ export default function Transactions({ month, year }) {
       title: 'Status',
       dataIndex: 'paid',
       key: 'paid',
-      render: (paid) => (
-          <Tag color={paid ? 'green' : 'orange'}>
-              {paid ? 'Pago' : 'Pendente'}
-          </Tag>
-      )
+      render: (paid) => <Tag color={paid ? 'green' : 'orange'}>{paid ? 'Pago' : 'Pendente'}</Tag>,
     },
     {
-      title: 'Ações',
+      title: 'Acoes',
       key: 'action',
+      fixed: isCompact ? undefined : 'right',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
-            <Tooltip title="Editar">
-                <Button 
-                    type="text" 
-                    icon={<EditOutlined style={{ color: '#1890ff' }} />} 
-                    onClick={() => handleEdit(record)} 
-                />
-            </Tooltip>
-            <Tooltip title="Excluir">
-                <Button 
-                    type="text" 
-                    danger 
-                    icon={<DeleteOutlined />} 
-                    onClick={() => handleDelete(record)} 
-                />
-            </Tooltip>
+          <Tooltip title="Editar">
+            <Button
+              type="text"
+              icon={<EditOutlined style={{ color: '#1890ff' }} />}
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Excluir">
+            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+          </Tooltip>
         </div>
       ),
     },
@@ -135,38 +127,50 @@ export default function Transactions({ month, year }) {
 
   return (
     <div>
-       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Extrato Completo</h2>
-          <Button icon={<CloudUploadOutlined />} onClick={() => setIsImportOpen(true)}>
-              Importar CSV
-          </Button>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <h2 style={{ margin: 0 }}>Extrato Completo</h2>
+        <Button
+          icon={<CloudUploadOutlined />}
+          onClick={() => setIsImportOpen(true)}
+          block={isCompact}
+          style={isCompact ? { width: '100%' } : undefined}
+        >
+          Importar CSV
+        </Button>
       </div>
 
-       <Card variant="borderless" style={{ borderRadius: 8 }}>
-          <Table 
-            dataSource={transactions} 
-            columns={columns} 
-            rowKey="id"
-            loading={loading}
-            pagination={{ pageSize: 10 }}
-          />
-       </Card>
-
-       <AddTransactionModal 
-           visible={isModalOpen}
-           transactionToEdit={editingItem}
-           onClose={() => {
-               setIsModalOpen(false);
-               setEditingItem(null);
-           }}
-           onSuccess={loadTransactions} 
-       />
-
-       <ImportModal 
-          visible={isImportOpen}
-          onClose={() => setIsImportOpen(false)}
-          onSuccess={loadTransactions}
+      <Card variant="borderless" style={{ borderRadius: 8 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
+        <Table
+          dataSource={transactions}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: isCompact ? 8 : 10 }}
+          size={isCompact ? 'small' : 'middle'}
+          scroll={{ x: 860 }}
         />
+      </Card>
+
+      <AddTransactionModal
+        visible={isModalOpen}
+        transactionToEdit={editingItem}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSuccess={loadTransactions}
+      />
+
+      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={loadTransactions} />
     </div>
   );
 }

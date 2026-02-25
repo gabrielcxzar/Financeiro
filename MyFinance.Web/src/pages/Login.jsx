@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card, Form, Input, Button, Typography, message, Tabs } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import api from '../services/api';
@@ -17,7 +17,7 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('userName', data.name);
       message.success(`Bem-vindo, ${data.name}!`);
       onLoginSuccess();
-    } catch (error) {
+    } catch {
       message.error('Email ou senha incorretos.');
     } finally {
       setLoading(false);
@@ -28,8 +28,8 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       await api.post('/auth/register', values);
-      message.success('Cadastro realizado! Faça login agora.');
-    } catch (error) {
+      message.success('Cadastro realizado! Faca login agora.');
+    } catch {
       message.error('Erro ao cadastrar. Tente outro email.');
     } finally {
       setLoading(false);
@@ -46,13 +46,18 @@ export default function Login({ onLoginSuccess }) {
             <Input prefix={<UserOutlined />} placeholder="Email" size="large" autoComplete="email" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: 'Insira sua senha.' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="Senha" size="large" autoComplete="current-password" />
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Senha"
+              size="large"
+              autoComplete="current-password"
+            />
           </Form.Item>
           <Button type="primary" htmlType="submit" block size="large" loading={loading} className="login-submit">
             Entrar
           </Button>
         </Form>
-      )
+      ),
     },
     {
       key: '2',
@@ -66,29 +71,32 @@ export default function Login({ onLoginSuccess }) {
             <Input prefix={<MailOutlined />} placeholder="Email" size="large" autoComplete="email" />
           </Form.Item>
           <Form.Item name="password" rules={[{ required: true, message: 'Crie uma senha.' }]}>
-            <Input.Password prefix={<LockOutlined />} placeholder="Senha" size="large" autoComplete="new-password" />
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Senha"
+              size="large"
+              autoComplete="new-password"
+            />
           </Form.Item>
           <Button type="primary" htmlType="submit" block size="large" loading={loading} className="login-submit">
             Criar conta
           </Button>
         </Form>
-      )
-    }
+      ),
+    },
   ];
 
   return (
     <div className="login-shell">
       <div className="login-layout">
         <aside className="login-brand-panel">
-          <img src="/brand-mark.svg" alt="MyFinance" className="login-brand-logo" />
-          <h1>MyFinance</h1>
-          <p>
-            Gestão financeira com visão de fluxo mensal, recorrências e metas em um único painel.
-          </p>
+          <img src="/brand-mark.svg" alt="Finflow" className="login-brand-logo" />
+          <h1>Finflow</h1>
+          <p>Gestao financeira com visao de fluxo mensal, recorrencias e metas em um unico painel.</p>
           <ul className="login-brand-list">
-            <li>Projeção dos próximos meses</li>
-            <li>Controle de contas e cartões</li>
-            <li>Relatórios para decisões rápidas</li>
+            <li>Projecao dos proximos meses</li>
+            <li>Controle de contas e cartoes</li>
+            <li>Relatorios para decisoes rapidas</li>
           </ul>
         </aside>
 
@@ -97,7 +105,9 @@ export default function Login({ onLoginSuccess }) {
             <div className="login-card-header">
               <img src="/brand-mark.svg" alt="" aria-hidden="true" className="login-card-logo" />
               <div>
-                <Title level={2} className="login-title">Acesse sua conta</Title>
+                <Title level={2} className="login-title">
+                  Acesse sua conta
+                </Title>
                 <p className="login-subtitle">Continue de onde parou no seu planejamento.</p>
               </div>
             </div>

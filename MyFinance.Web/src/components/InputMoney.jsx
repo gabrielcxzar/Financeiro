@@ -8,13 +8,11 @@ export default function InputMoney(props) {
       style={{ width: '100%', ...props.style }}
       prefix="R$"
       decimalSeparator=","
-      // Garante que o ponto de milhar aparea e a vrgula funcione
+      // Garante separador de milhar e decimal no padrao brasileiro
       formatter={(value) => 
         `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
       }
-      parser={(value) => 
-        value?.replace(/\R\$\s?|(\.*)/g, '').replace(',', '.')
-      }
+      parser={(value) => value?.replace(/R\$\s?|\./g, '').replace(',', '.')}
       precision={2}
     />
   );

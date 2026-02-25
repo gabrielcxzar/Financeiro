@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,34 +9,32 @@ import {
   Legend,
   PointElement,
   LineElement,
-  LineController, // <--- Faltava este cara!
-  BarController   // <--- E este
+  LineController,
+  BarController,
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 
-// Registra TUDO
 ChartJS.register(
   CategoryScale,
   LinearScale,
   BarElement,
   PointElement,
   LineElement,
-  LineController, // <--- Registra aqui
-  BarController,  // <--- E aqui
+  LineController,
+  BarController,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
-export default function HistoryChart({ transactions }) {
-  
+export default function HistoryChart({ transactions, compact = false }) {
   const chartData = useMemo(() => {
     const groups = {};
 
-    transactions.forEach(t => {
+    transactions.forEach((t) => {
       const date = new Date(t.date);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
+
       if (!groups[key]) {
         groups[key] = { income: 0, expense: 0, balance: 0, label: key };
       }
@@ -51,22 +49,22 @@ export default function HistoryChart({ transactions }) {
 
     const sortedKeys = Object.keys(groups).sort();
 
-    const labels = sortedKeys.map(key => {
+    const labels = sortedKeys.map((key) => {
       const [year, month] = key.split('-');
       const date = new Date(year, month - 1);
       return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
     });
 
-    const dataIncome = sortedKeys.map(k => groups[k].income);
-    const dataExpense = sortedKeys.map(k => groups[k].expense);
-    const dataBalance = sortedKeys.map(k => groups[k].balance);
+    const dataIncome = sortedKeys.map((k) => groups[k].income);
+    const dataExpense = sortedKeys.map((k) => groups[k].expense);
+    const dataBalance = sortedKeys.map((k) => groups[k].balance);
 
     return {
       labels,
       datasets: [
         {
           type: 'line',
-          label: 'Saldo Lquido',
+          label: 'Saldo Liquido',
           borderColor: '#1890ff',
           borderWidth: 2,
           fill: false,
@@ -75,7 +73,7 @@ export default function HistoryChart({ transactions }) {
           pointBackgroundColor: '#fff',
           pointBorderColor: '#1890ff',
           pointRadius: 4,
-          order: 1
+          order: 1,
         },
         {
           type: 'bar',
@@ -83,7 +81,7 @@ export default function HistoryChart({ transactions }) {
           backgroundColor: 'rgba(63, 134, 0, 0.6)',
           data: dataIncome,
           borderRadius: 4,
-          order: 2
+          order: 2,
         },
         {
           type: 'bar',
@@ -91,50 +89,60 @@ export default function HistoryChart({ transactions }) {
           backgroundColor: 'rgba(207, 19, 34, 0.6)',
           data: dataExpense,
           borderRadius: 4,
-          order: 3
+          order: 3,
         },
       ],
     };
   }, [transactions]);
 
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    plugins: {
-      legend: { position: 'top' },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y);
-            }
-            return label;
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: '#f0f0f0' }
+  const options = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
       },
-      x: {
-        grid: { display: false }
-      }
-    },
-  };
+      plugins: {
+        legend: { position: compact ? 'bottom' : 'top' },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              let label = context.dataset.label || '';
+              if (label) {
+                label += ': ';
+              }
+              if (context.parsed.y !== null) {
+                label += new Intl.NumberFormat('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                }).format(context.parsed.y);
+              }
+              return label;
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f0f0f0' },
+        },
+        x: {
+          grid: { display: false },
+          ticks: {
+            maxRotation: compact ? 35 : 0,
+            minRotation: compact ? 20 : 0,
+          },
+        },
+      },
+    }),
+    [compact],
+  );
 
   return (
-    <div style={{ height: 350, width: '100%' }}>
-      <Chart type='bar' data={chartData} options={options} />
+    <div style={{ height: compact ? 280 : 350, width: '100%' }}>
+      <Chart type="bar" data={chartData} options={options} />
     </div>
   );
 }

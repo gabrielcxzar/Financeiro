@@ -1,13 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { Table, Button, Card, Tag, message, Modal, Form, Input, Radio, Popconfirm, ColorPicker } from 'antd';
+﻿import React, { useEffect, useState } from 'react';
+import {
+  Table,
+  Button,
+  Card,
+  Tag,
+  message,
+  Modal,
+  Form,
+  Input,
+  Radio,
+  Popconfirm,
+  ColorPicker,
+  Grid,
+} from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../services/api';
+
+const { useBreakpoint } = Grid;
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
+
+  const screens = useBreakpoint();
+  const isCompact = !screens.md;
 
   useEffect(() => {
     loadData();
@@ -20,6 +38,7 @@ export default function Categories() {
       setCategories(response.data);
     } catch (error) {
       console.error(error);
+      message.error('Erro ao carregar categorias.');
     } finally {
       setLoading(false);
     }
@@ -36,7 +55,7 @@ export default function Categories() {
       setIsModalOpen(false);
       form.resetFields();
       loadData();
-    } catch (error) {
+    } catch {
       message.error('Erro ao salvar.');
     }
   };
@@ -46,9 +65,8 @@ export default function Categories() {
       await api.delete(`/categories/${id}`);
       message.success('Categoria removida.');
       loadData();
-    } catch (error) {
-      // O backend devolve 400 se tiver transação vinculada.
-      message.error('Não é possível apagar categoria em uso.');
+    } catch {
+      message.error('Nao e possivel apagar categoria em uso.');
     }
   };
 
@@ -58,58 +76,71 @@ export default function Categories() {
       dataIndex: 'color',
       key: 'color',
       width: 80,
-      render: (color) => <div style={{ width: 24, height: 24, borderRadius: 4, background: color || '#ccc' }} />
+      render: (color) => <div style={{ width: 24, height: 24, borderRadius: 4, background: color || '#ccc' }} />,
     },
     {
       title: 'Nome',
       dataIndex: 'name',
       key: 'name',
-      render: (text) => <strong>{text}</strong>
+      render: (text) => <strong>{text}</strong>,
     },
     {
       title: 'Tipo',
       dataIndex: 'type',
       key: 'type',
-      render: (type) => (
-        <Tag color={type === 'Income' ? 'green' : 'red'}>
-          {type === 'Income' ? 'Receita' : 'Despesa'}
-        </Tag>
-      )
+      render: (type) => <Tag color={type === 'Income' ? 'green' : 'red'}>{type === 'Income' ? 'Receita' : 'Despesa'}</Tag>,
     },
     {
-      title: 'Ações',
+      title: 'Acoes',
       key: 'action',
       render: (_, rec) => (
         <Popconfirm title="Excluir categoria?" onConfirm={() => handleDelete(rec.id)}>
           <Button danger icon={<DeleteOutlined />} type="text" />
         </Popconfirm>
-      )
-    }
+      ),
+    },
   ];
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          marginBottom: 16,
+          gap: 12,
+        }}
+      >
         <h2 style={{ margin: 0 }}>Categorias</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} block={isCompact}>
           Nova Categoria
         </Button>
       </div>
 
-      <Card bordered={false} style={{ borderRadius: 8 }}>
+      <Card bordered={false} style={{ borderRadius: 8 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
         <Table
           dataSource={categories}
           columns={columns}
           rowKey="id"
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={{ pageSize: isCompact ? 8 : 10 }}
+          size={isCompact ? 'small' : 'middle'}
+          scroll={{ x: 620 }}
         />
       </Card>
 
-      <Modal title="Nova Categoria" open={isModalOpen} onOk={handleSave} onCancel={() => setIsModalOpen(false)}>
+      <Modal
+        title="Nova Categoria"
+        open={isModalOpen}
+        onOk={handleSave}
+        onCancel={() => setIsModalOpen(false)}
+        width={isCompact ? 'calc(100vw - 20px)' : 520}
+        destroyOnClose
+      >
         <Form form={form} layout="vertical" initialValues={{ type: 'Expense', color: '#1677ff' }}>
           <Form.Item name="name" label="Nome" rules={[{ required: true, message: 'Digite o nome' }]}>
-            <Input placeholder="Ex: Moto, Assinaturas..." />
+            <Input placeholder="Ex: Moradia, Assinaturas..." />
           </Form.Item>
 
           <Form.Item name="type" label="Tipo">
@@ -119,7 +150,7 @@ export default function Categories() {
             </Radio.Group>
           </Form.Item>
 
-          <Form.Item name="color" label="Cor da Etiqueta" rules={[{ required: true }]}>
+          <Form.Item name="color" label="Cor da etiqueta" rules={[{ required: true }]}>
             <ColorPicker showText />
           </Form.Item>
         </Form>
