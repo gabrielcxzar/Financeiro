@@ -1,16 +1,44 @@
-/* Reset Básico para Desktop */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+
 :root {
-  --primary-color: #1890ff; /* Azul padrão do Ant Design Enterprise */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mf-navy-900: #04142d;
+  --mf-navy-700: #0b2a57;
+  --mf-blue-500: #1f8cff;
+  --mf-cyan-400: #4dd9ff;
+  --mf-surface: #f4f7fb;
+  --mf-text: #10254a;
+  --mf-muted: #5d6a82;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f0f2f5; /* Cor de fundo cinza claro padrão de dashboards */
+  min-height: 100vh;
+  background:
+    radial-gradient(45rem 25rem at -8% 0%, rgba(77, 217, 255, 0.12), transparent 62%),
+    radial-gradient(40rem 22rem at 108% 100%, rgba(31, 140, 255, 0.13), transparent 60%),
+    var(--mf-surface);
+  color: var(--mf-text);
 }
 
-/* Removemos a trava de largura (max-width) */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Sora', 'Manrope', sans-serif;
+  letter-spacing: -0.02em;
+}
+
 #root {
   min-height: 100vh;
 }
