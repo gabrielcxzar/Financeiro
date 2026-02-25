@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Col, Row, Statistic, Table, Tag, Button, Grid } from 'antd';
+import { Card, Col, Row, Statistic, Table, Tag, Button, Grid, message } from 'antd';
 import {
   ArrowUpOutlined,
   ArrowDownOutlined,
@@ -72,19 +72,22 @@ export default function Home({ month, year }) {
     try {
       setLoading(true);
 
-      const recurringRes = await api.get('/recurring');
+      const [recurringRes, accResponse, transResponse] = await Promise.all([
+        api.get('/recurring'),
+        api.get('/accounts'),
+        api.get(`/transactions?month=${month}&year=${year}`),
+      ]);
+
       const totalFixas = recurringRes.data
         .filter((item) => item.type === 'Expense')
         .reduce((acc, item) => acc + item.amount, 0);
       setPredictedFixed(totalFixas);
 
-      const accResponse = await api.get('/accounts');
       const contas = accResponse.data || [];
       const totalBalance = contas
         .filter((c) => !c.isCreditCard)
         .reduce((acc, conta) => acc + (conta.currentBalance || 0), 0);
 
-      const transResponse = await api.get(`/transactions?month=${month}&year=${year}`);
       const listaTransacoes = transResponse.data;
 
       let totalIncome = 0;
@@ -107,6 +110,7 @@ export default function Home({ month, year }) {
       setProjectionStart(projectionRes.data.startBalance ?? totalBalance);
     } catch (error) {
       console.error('Erro ao carregar dashboard:', error);
+      message.error(error?.message || 'Nao foi possivel carregar o dashboard.');
     } finally {
       setLoading(false);
     }
