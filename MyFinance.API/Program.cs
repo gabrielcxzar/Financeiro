@@ -48,7 +48,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var defaultConnection = "Host=aws-1-us-east-2.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.cjyumxatyfvlwgwuwohu;Password=Pipoca3261.;Pooling=false;CommandTimeout=300;";
+var defaultConnection = "Host=aws-1-us-east-2.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.cjyumxatyfvlwgwuwohu;Password=SKvxAbHvUcBeWejU;Pooling=false;CommandTimeout=300;";
 
 void ConfigureDatabase(DbContextOptionsBuilder options) =>
     options.UseNpgsql(
