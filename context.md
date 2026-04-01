@@ -4,7 +4,7 @@
 
 Finflow e uma aplicacao full stack para gestao financeira pessoal, com:
 
-- Front-end React hospedado na Vercel.
+- Front-end React hospedado no Render.
 - Back-end ASP.NET Core 8 hospedado no Render.
 - Banco PostgreSQL hospedado no Supabase.
 
@@ -12,7 +12,7 @@ O front-end consome exclusivamente a API HTTP do back-end. O banco nao e acessad
 
 ## Topologia dos ambientes
 
-### 1. Front-end na Vercel
+### 1. Front-end no Render
 
 - Stack: React 18, Vite, Ant Design, styled-components, axios, Chart.js.
 - Ponto de entrada: `MyFinance.Web/src/main.jsx`.
@@ -52,7 +52,7 @@ Responsabilidades:
 
 ## Fluxo de comunicacao
 
-1. O usuario acessa o front-end na Vercel.
+1. O usuario acessa o front-end no Render.
 2. O front-end chama a API no Render via `axios`.
 3. No login, a API gera um JWT e devolve `token` e `name`.
 4. O front-end salva o token em `localStorage`.
@@ -181,13 +181,13 @@ Configurado globalmente em `MyFinance.API/Program.cs` com politica aplicada por 
 
 Origem atualmente permitida:
 
-- `https://financeiro-roan.vercel.app`
+- `https://financeiro-02r7.onrender.com`
 
 ## Dependencias externas relevantes
 
 - Supabase PostgreSQL para persistencia.
 - Dataset do Tesouro Transparente para taxas de investimento.
-- Vercel para hospedagem do front-end.
+- Render para hospedagem do front-end.
 - Render para hospedagem da API.
 
 ## Riscos operacionais atuais observados
@@ -196,4 +196,3 @@ Origem atualmente permitida:
 - O front-end depende de `localStorage` para sessao, sem refresh token.
 - O endpoint de investimentos depende de um CSV externo e pode falhar por indisponibilidade da origem.
 - Nao existe, no estado atual do repositiorio, uma suite de testes automatizados integrada ao pipeline.
-
