@@ -21,14 +21,15 @@ namespace MyFinance.API.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<RecurringTransaction>>> GetRecurrings()
+        public async Task<ActionResult<IEnumerable<RecurringTransaction>>> GetRecurrings(CancellationToken cancellationToken)
         {
             var userId = GetUserId();
             return await _context.RecurringTransactions
+                .AsNoTracking()
                 .Include(r => r.Category)
                 .Include(r => r.Account)
                 .Where(r => r.Active && r.UserId == userId)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
         }
 
         [HttpPost]
@@ -122,19 +123,25 @@ namespace MyFinance.API.Controllers
         }
 
         [HttpGet("projection")]
-        public async Task<IActionResult> GetProjection([FromQuery] int months = 6, [FromQuery] int? startMonth = null, [FromQuery] int? startYear = null)
+        public async Task<IActionResult> GetProjection(
+            [FromQuery] int months = 6,
+            [FromQuery] int? startMonth = null,
+            [FromQuery] int? startYear = null,
+            CancellationToken cancellationToken = default)
         {
             if (months < 1) months = 1;
             if (months > 36) months = 36;
 
             var userId = GetUserId();
             var rules = await _context.RecurringTransactions
+                .AsNoTracking()
                 .Where(r => r.Active && r.UserId == userId)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var accounts = await _context.Accounts
+                .AsNoTracking()
                 .Where(a => a.UserId == userId && !a.IsCreditCard)
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
             var startingBalance = accounts.Sum(a => a.CurrentBalance);
 

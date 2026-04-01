@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Col, Row, Statistic, Table, Tag, Button, Grid, message } from 'antd';
 import {
   ArrowUpOutlined,
@@ -16,7 +16,8 @@ const { useBreakpoint } = Grid;
 export default function Home({ month, year }) {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ total: 0, income: 0, expense: 0 });
-  const [transactions, setTransactions] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [categorySummary, setCategorySummary] = useState([]);
   const [predictedFixed, setPredictedFixed] = useState(0);
   const [projection, setProjection] = useState([]);
   const [projectionStart, setProjectionStart] = useState(0);
@@ -68,57 +69,52 @@ export default function Home({ month, year }) {
     },
   ];
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const [recurringRes, accResponse, transResponse] = await Promise.all([
-        api.get('/recurring'),
-        api.get('/accounts'),
-        api.get(`/transactions?month=${month}&year=${year}`),
-      ]);
-
-      const totalFixas = recurringRes.data
-        .filter((item) => item.type === 'Expense')
-        .reduce((acc, item) => acc + item.amount, 0);
-      setPredictedFixed(totalFixas);
-
-      const contas = accResponse.data || [];
-      const totalBalance = contas
-        .filter((c) => !c.isCreditCard)
-        .reduce((acc, conta) => acc + (conta.currentBalance || 0), 0);
-
-      const listaTransacoes = transResponse.data;
-
-      let totalIncome = 0;
-      let totalExpense = 0;
-
-      listaTransacoes.forEach((t) => {
-        if (t.type === 'Income') totalIncome += t.amount;
-        else totalExpense += t.amount;
-      });
-
-      setSummary({ total: totalBalance, income: totalIncome, expense: totalExpense });
-      setTransactions(listaTransacoes);
-
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      const projectionRes = await api.get(
-        `/recurring/projection?months=6&startMonth=${nextMonth}&startYear=${nextYear}`,
-      );
-      setProjection(projectionRes.data.items || []);
-      setProjectionStart(projectionRes.data.startBalance ?? totalBalance);
-    } catch (error) {
-      console.error('Erro ao carregar dashboard:', error);
-      message.error(error?.message || 'Nao foi possivel carregar o dashboard.');
-    } finally {
-      setLoading(false);
-    }
-  }, [month, year]);
-
   useEffect(() => {
+    const controller = new AbortController();
+    let isActive = true;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+
+        const response = await api.get(`/dashboard/summary?month=${month}&year=${year}`, {
+          signal: controller.signal,
+        });
+
+        if (!isActive) return;
+
+        const payload = response.data || {};
+        const apiSummary = payload.summary || {};
+
+        setPredictedFixed(apiSummary.predictedFixed || 0);
+        setSummary({
+          total: apiSummary.total || 0,
+          income: apiSummary.income || 0,
+          expense: apiSummary.expense || 0,
+        });
+        setRecentTransactions(payload.recentTransactions || []);
+        setCategorySummary(payload.categorySummary || []);
+        setProjection(payload.projection?.items || []);
+        setProjectionStart(payload.projection?.startBalance ?? apiSummary.total ?? 0);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+
+        console.error('Erro ao carregar dashboard:', error);
+        message.error(error?.message || 'Nao foi possivel carregar o dashboard. Tente novamente.');
+      } finally {
+        if (isActive) {
+          setLoading(false);
+        }
+      }
+    };
+
     fetchData();
-  }, [fetchData]);
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [month, year]);
 
   if (loading) return <BrandLoading text="Carregando painel financeiro..." />;
 
@@ -272,7 +268,7 @@ export default function Home({ month, year }) {
             variant="borderless"
             style={{ minHeight: isCompact ? 340 : 400, borderRadius: 8 }}
           >
-            <DashboardCharts transactions={transactions} compact={isCompact} />
+            <DashboardCharts categorySummary={categorySummary} compact={isCompact} />
           </Card>
         </Col>
 
@@ -283,7 +279,7 @@ export default function Home({ month, year }) {
             style={{ minHeight: isCompact ? 340 : 400, borderRadius: 8 }}
           >
             <Table
-              dataSource={transactions}
+              dataSource={recentTransactions}
               columns={columns}
               pagination={{ pageSize: isCompact ? 4 : 5 }}
               size={isCompact ? 'small' : 'middle'}

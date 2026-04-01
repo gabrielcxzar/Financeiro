@@ -18,6 +18,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.code === 'ERR_CANCELED') {
+      return Promise.reject(error);
+    }
+
     if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
       return Promise.reject(new Error('Timeout de conexao com a API. Tente novamente.'));
     }

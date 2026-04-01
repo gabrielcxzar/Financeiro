@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { Card, Select, Tabs, List, Tag, Statistic, Grid } from 'antd';
+import { Card, Select, Tabs, List, Tag, Statistic, Grid, message } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
 
@@ -16,11 +16,32 @@ export default function Invoices() {
   const isCompact = !screens.md;
 
   useEffect(() => {
-    api.get('/accounts').then((res) => {
-      const c = res.data.filter((a) => a.isCreditCard);
-      setCards(c);
-      if (c.length > 0) setSelectedCard(c[0].id);
-    });
+    let cancelled = false;
+
+    const loadCards = async () => {
+      try {
+        const res = await api.get('/accounts');
+        if (cancelled) return;
+
+        const c = res.data.filter((a) => a.isCreditCard);
+        setCards(c);
+        if (c.length > 0) {
+          setSelectedCard(c[0].id);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Erro ao carregar cartoes para faturas:', error);
+          message.error('Nao foi possivel carregar os cartoes.');
+          setCards([]);
+        }
+      }
+    };
+
+    loadCards();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -36,8 +57,10 @@ export default function Invoices() {
         if (!cancelled) {
           setInvoiceData(response.data);
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          console.error('Erro ao carregar dados da fatura:', error);
+          message.error('Nao foi possivel carregar a fatura selecionada.');
           setInvoiceData({ total: 0, dueDate: dayjs().toISOString(), transactions: [] });
         }
       }
