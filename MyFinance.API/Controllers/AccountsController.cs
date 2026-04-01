@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Authorization;
+ï»¿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyFinance.API.Data;
 using MyFinance.API.Models;
 using System.Security.Claims;
 
@@ -21,54 +22,79 @@ namespace MyFinance.API.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetAccounts()
+        public async Task<ActionResult<IEnumerable<object>>> GetAccounts(CancellationToken cancellationToken)
         {
             var userId = GetUserId();
-            var accounts = await _context.Accounts.Where(a => a.UserId == userId).ToListAsync();
+            var accounts = await _context.Accounts
+                .AsNoTracking()
+                .Where(a => a.UserId == userId)
+                .ToListAsync(cancellationToken);
 
-            var result = new List<object>();
+            var creditCardAccounts = accounts.Where(a => a.IsCreditCard).ToList();
+            var invoiceTotals = new Dictionary<int, decimal>();
 
-            foreach (var acc in accounts)
+            if (creditCardAccounts.Count > 0)
             {
-                decimal invoiceAmount = 0;
+                var today = DateTime.UtcNow;
+                var ranges = new List<CardInvoiceRange>();
 
-                if (acc.IsCreditCard)
+                foreach (var account in creditCardAccounts)
                 {
-                    var today = DateTime.UtcNow;
-                    var closingDay = acc.ClosingDay ?? 1;
-
-                    int daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
-                    int safeClosingDay = Math.Min(closingDay, daysInMonth);
+                    var closingDay = account.ClosingDay ?? 1;
+                    var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+                    var safeClosingDay = Math.Min(closingDay, daysInMonth);
 
                     var closeDate = new DateTime(today.Year, today.Month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-
                     if (today.Day >= safeClosingDay)
                     {
                         closeDate = closeDate.AddMonths(1);
                     }
 
                     var startDate = closeDate.AddMonths(-1).AddDays(1);
-
-                    invoiceAmount = await _context.Transactions
-                        .Where(t => t.AccountId == acc.Id && t.UserId == userId
-                                    && t.Date >= startDate && t.Date <= closeDate)
-                        .SumAsync(t => t.Type == "Expense" ? t.Amount : -t.Amount);
+                    ranges.Add(new CardInvoiceRange(account.Id, startDate, closeDate));
                 }
 
-                result.Add(new
-                {
-                    acc.Id,
-                    acc.Name,
-                    acc.InitialBalance,
-                    CurrentBalance = acc.CurrentBalance,
-                    InvoiceAmount = invoiceAmount,
-                    acc.Type,
-                    acc.IsCreditCard,
-                    acc.CreditLimit,
-                    acc.ClosingDay,
-                    acc.DueDay
-                });
+                var minStartDate = ranges.Min(r => r.StartDate);
+                var maxCloseDate = ranges.Max(r => r.CloseDate);
+                var cardIds = ranges.Select(r => r.AccountId).ToList();
+
+                var transactions = await _context.Transactions
+                    .AsNoTracking()
+                    .Where(t =>
+                        t.UserId == userId &&
+                        cardIds.Contains(t.AccountId) &&
+                        t.Date >= minStartDate &&
+                        t.Date <= maxCloseDate)
+                    .Select(t => new
+                    {
+                        t.AccountId,
+                        t.Date,
+                        t.Type,
+                        t.Amount
+                    })
+                    .ToListAsync(cancellationToken);
+
+                invoiceTotals = ranges.ToDictionary(
+                    range => range.AccountId,
+                    range => transactions
+                        .Where(t => t.AccountId == range.AccountId && t.Date >= range.StartDate && t.Date <= range.CloseDate)
+                        .Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount)
+                );
             }
+
+            var result = accounts.Select(acc => new
+            {
+                acc.Id,
+                acc.Name,
+                acc.InitialBalance,
+                CurrentBalance = acc.CurrentBalance,
+                InvoiceAmount = invoiceTotals.GetValueOrDefault(acc.Id, 0m),
+                acc.Type,
+                acc.IsCreditCard,
+                acc.CreditLimit,
+                acc.ClosingDay,
+                acc.DueDay
+            });
 
             return Ok(result);
         }
@@ -124,11 +150,11 @@ namespace MyFinance.API.Controllers
             var userId = GetUserId();
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId && a.UserId == userId);
 
-            if (account == null) return NotFound("Conta não encontrada");
+            if (account == null) return NotFound("Conta nao encontrada");
 
             decimal diferenca = request.NewBalance - account.CurrentBalance;
 
-            if (diferenca == 0) return Ok(new { message = "Saldo já está correto." });
+            if (diferenca == 0) return Ok(new { message = "Saldo ja esta correto." });
 
             var transaction = new Transaction
             {
@@ -151,6 +177,8 @@ namespace MyFinance.API.Controllers
 
             return Ok(new { message = "Saldo ajustado com sucesso!", newBalance = account.CurrentBalance });
         }
+
+        private sealed record CardInvoiceRange(int AccountId, DateTime StartDate, DateTime CloseDate);
 
         public class AdjustBalanceDto
         {

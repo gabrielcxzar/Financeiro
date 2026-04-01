@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+ï»¿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
@@ -21,20 +21,26 @@ namespace MyFinance.API.Controllers
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Transaction>>> GetTransactions([FromQuery] int? month, [FromQuery] int? year)
+        public async Task<ActionResult<IEnumerable<Transaction>>> GetTransactions(
+            [FromQuery] int? month,
+            [FromQuery] int? year,
+            CancellationToken cancellationToken)
         {
             var userId = GetUserId();
             var query = _context.Transactions
+                .AsNoTracking()
                 .Where(t => t.UserId == userId)
                 .Include(t => t.Category)
                 .AsQueryable();
 
             if (month.HasValue && year.HasValue)
             {
-                query = query.Where(t => t.Date.Month == month && t.Date.Year == year);
+                var startDate = new DateTime(year.Value, month.Value, 1, 0, 0, 0, DateTimeKind.Utc);
+                var endDate = startDate.AddMonths(1);
+                query = query.Where(t => t.Date >= startDate && t.Date < endDate);
             }
 
-            return await query.OrderByDescending(t => t.Date).ToListAsync();
+            return await query.OrderByDescending(t => t.Date).ToListAsync(cancellationToken);
         }
 
         [HttpGet("invoice")]
@@ -43,7 +49,7 @@ namespace MyFinance.API.Controllers
             var userId = GetUserId();
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
 
-            if (account == null || !account.IsCreditCard) return BadRequest("Conta inválida");
+            if (account == null || !account.IsCreditCard) return BadRequest("Conta invalida");
 
             int closingDay = account.ClosingDay ?? 1;
             int dueDay = account.DueDay ?? 10;
@@ -235,7 +241,7 @@ namespace MyFinance.API.Controllers
                 UserId = userId,
                 AccountId = request.FromAccountId,
                 Amount = request.Amount,
-                Description = "Transferência para conta/cartão",
+                Description = "Transferencia para conta/cartao",
                 Type = "Expense",
                 Date = dateUtc,
                 Paid = true
@@ -246,7 +252,7 @@ namespace MyFinance.API.Controllers
                 UserId = userId,
                 AccountId = request.ToAccountId,
                 Amount = request.Amount,
-                Description = "Recebido de transferência",
+                Description = "Recebido de transferencia",
                 Type = "Income",
                 Date = dateUtc,
                 Paid = true
@@ -256,7 +262,7 @@ namespace MyFinance.API.Controllers
             var toAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.ToAccountId && a.UserId == userId);
 
             if (fromAcc == null || toAcc == null)
-                return BadRequest("Contas inválidas");
+                return BadRequest("Contas invalidas");
 
             fromAcc.CurrentBalance -= request.Amount;
             toAcc.CurrentBalance += request.Amount;
@@ -266,7 +272,7 @@ namespace MyFinance.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Transferência/Pagamento realizado!" });
+            return Ok(new { message = "Transferencia/Pagamento realizado!" });
         }
     }
 

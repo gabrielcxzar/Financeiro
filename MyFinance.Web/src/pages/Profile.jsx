@@ -9,7 +9,27 @@ export default function Profile() {
   const [user, setUser] = useState({ name: '', email: '' });
 
   useEffect(() => {
-    api.get('/users/me').then((res) => setUser(res.data));
+    let cancelled = false;
+
+    const loadUser = async () => {
+      try {
+        const res = await api.get('/users/me');
+        if (!cancelled) {
+          setUser(res.data);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Erro ao carregar perfil do usuario:', error);
+          message.error('Nao foi possivel carregar os dados do perfil.');
+        }
+      }
+    };
+
+    loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleWipeData = async () => {

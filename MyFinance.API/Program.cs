@@ -51,7 +51,7 @@ builder.Services.AddSwaggerGen(c =>
 var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection nao configurada.");
 
-builder.Services.AddDbContext<AppDbContext>(options =>
+void ConfigureDatabase(DbContextOptionsBuilder options) =>
     options.UseNpgsql(
         defaultConnection,
         npgsql =>
@@ -59,7 +59,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             npgsql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
             npgsql.CommandTimeout(30);
         }
-    ));
+    );
+
+builder.Services.AddDbContext<AppDbContext>(ConfigureDatabase);
+builder.Services.AddDbContextFactory<AppDbContext>(ConfigureDatabase);
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
@@ -91,9 +94,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", cors =>
     {
         cors
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader();
+            .WithOrigins("https://financeiro-roan.vercel.app")
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .WithHeaders("Content-Type", "Authorization");
     });
 });
 

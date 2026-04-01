@@ -12,23 +12,14 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-export default function DashboardCharts({ transactions, compact = false }) {
+export default function DashboardCharts({ categorySummary = [], compact = false }) {
   const chartData = useMemo(() => {
-    const categoryTotals = {};
-
-    transactions.forEach((t) => {
-      if (t.type === 'Expense') {
-        const catName = t.category?.name || 'Outros';
-        categoryTotals[catName] = (categoryTotals[catName] || 0) + t.amount;
-      }
-    });
-
     return {
-      labels: Object.keys(categoryTotals),
+      labels: categorySummary.map((item) => item.name),
       datasets: [
         {
           label: 'Despesas (R$)',
-          data: Object.values(categoryTotals),
+          data: categorySummary.map((item) => item.total),
           backgroundColor: 'rgba(24, 144, 255, 0.6)',
           borderColor: 'rgba(24, 144, 255, 1)',
           borderWidth: 1,
@@ -36,7 +27,7 @@ export default function DashboardCharts({ transactions, compact = false }) {
         },
       ],
     };
-  }, [transactions]);
+  }, [categorySummary]);
 
   const options = useMemo(
     () => ({
