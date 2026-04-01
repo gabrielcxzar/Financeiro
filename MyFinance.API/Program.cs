@@ -94,7 +94,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", cors =>
     {
         cors
-            .WithOrigins("https://financeiro-roan.vercel.app")
+            .WithOrigins("https://financeiro-02r7.onrender.com")
             .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .WithHeaders("Content-Type", "Authorization");
     });

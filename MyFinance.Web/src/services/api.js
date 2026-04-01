@@ -3,7 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   // Se tiver VITE_API_URL, usa ela. Senao, usa localhost.
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5050/api',
-  timeout: 20000,
+  timeout: 60000,
 });
 
 // Interceptor: Antes de cada requisicao, cola o token

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Data;
 using MyFinance.API.Models;
+using System.Diagnostics;
 using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
@@ -13,10 +14,14 @@ namespace MyFinance.API.Controllers
     public class DashboardSummaryController : ControllerBase
     {
         private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
+        private readonly ILogger<DashboardSummaryController> _logger;
 
-        public DashboardSummaryController(IDbContextFactory<AppDbContext> dbContextFactory)
+        public DashboardSummaryController(
+            IDbContextFactory<AppDbContext> dbContextFactory,
+            ILogger<DashboardSummaryController> logger)
         {
             _dbContextFactory = dbContextFactory;
+            _logger = logger;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -37,16 +42,37 @@ namespace MyFinance.API.Controllers
             var userId = GetUserId();
             var startDate = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
             var endDate = startDate.AddMonths(1);
+            var totalStopwatch = Stopwatch.StartNew();
+            var stepStopwatch = Stopwatch.StartNew();
 
-            var accountsTask = GetAccountsSnapshotAsync(userId, cancellationToken);
-            var transactionsTask = GetMonthlyTransactionsAsync(userId, startDate, endDate, cancellationToken);
-            var recurringTask = GetRecurringExpensesAsync(userId, cancellationToken);
+            _logger.LogInformation(
+                "Dashboard summary started. UserId: {UserId}, Month: {Month}, Year: {Year}",
+                userId,
+                month,
+                year);
 
-            await Task.WhenAll(accountsTask, transactionsTask, recurringTask);
+            var accounts = await GetAccountsSnapshotAsync(userId, cancellationToken);
+            _logger.LogInformation(
+                "Dashboard summary accounts query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
+                stepStopwatch.ElapsedMilliseconds,
+                userId,
+                accounts.Count);
 
-            var accounts = accountsTask.Result;
-            var transactions = transactionsTask.Result;
-            var recurringRules = recurringTask.Result;
+            stepStopwatch.Restart();
+            var transactions = await GetMonthlyTransactionsAsync(userId, startDate, endDate, cancellationToken);
+            _logger.LogInformation(
+                "Dashboard summary transactions query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
+                stepStopwatch.ElapsedMilliseconds,
+                userId,
+                transactions.Count);
+
+            stepStopwatch.Restart();
+            var recurringRules = await GetRecurringExpensesAsync(userId, cancellationToken);
+            _logger.LogInformation(
+                "Dashboard summary recurring query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
+                stepStopwatch.ElapsedMilliseconds,
+                userId,
+                recurringRules.Count);
 
             var totalBalance = accounts
                 .Where(a => !a.IsCreditCard)
@@ -85,6 +111,14 @@ namespace MyFinance.API.Controllers
                 projection,
                 DateTime.UtcNow
             );
+
+            totalStopwatch.Stop();
+            _logger.LogInformation(
+                "Dashboard summary finished in {ElapsedMs} ms. UserId: {UserId}, Month: {Month}, Year: {Year}",
+                totalStopwatch.ElapsedMilliseconds,
+                userId,
+                month,
+                year);
 
             return Ok(payload);
         }
