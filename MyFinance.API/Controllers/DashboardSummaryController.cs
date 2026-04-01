@@ -13,14 +13,14 @@ namespace MyFinance.API.Controllers
     [Authorize]
     public class DashboardSummaryController : ControllerBase
     {
-        private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
+        private readonly AppDbContext _context;
         private readonly ILogger<DashboardSummaryController> _logger;
 
         public DashboardSummaryController(
-            IDbContextFactory<AppDbContext> dbContextFactory,
+            AppDbContext context,
             ILogger<DashboardSummaryController> logger)
         {
-            _dbContextFactory = dbContextFactory;
+            _context = context;
             _logger = logger;
         }
 
@@ -51,7 +51,7 @@ namespace MyFinance.API.Controllers
                 month,
                 year);
 
-            var accounts = await GetAccountsSnapshotAsync(userId, cancellationToken);
+            var accounts = await GetAccountsSnapshotAsync(_context, userId, cancellationToken);
             _logger.LogInformation(
                 "Dashboard summary accounts query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -59,7 +59,7 @@ namespace MyFinance.API.Controllers
                 accounts.Count);
 
             stepStopwatch.Restart();
-            var transactions = await GetMonthlyTransactionsAsync(userId, startDate, endDate, cancellationToken);
+            var transactions = await GetMonthlyTransactionsAsync(_context, userId, startDate, endDate, cancellationToken);
             _logger.LogInformation(
                 "Dashboard summary transactions query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -67,7 +67,7 @@ namespace MyFinance.API.Controllers
                 transactions.Count);
 
             stepStopwatch.Restart();
-            var recurringRules = await GetRecurringExpensesAsync(userId, cancellationToken);
+            var recurringRules = await GetRecurringRulesAsync(_context, userId, cancellationToken);
             _logger.LogInformation(
                 "Dashboard summary recurring query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -123,10 +123,11 @@ namespace MyFinance.API.Controllers
             return Ok(payload);
         }
 
-        private async Task<List<AccountSnapshotDto>> GetAccountsSnapshotAsync(int userId, CancellationToken cancellationToken)
+        private static async Task<List<AccountSnapshotDto>> GetAccountsSnapshotAsync(
+            AppDbContext db,
+            int userId,
+            CancellationToken cancellationToken)
         {
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
             var accounts = await db.Accounts
                 .AsNoTracking()
                 .Where(a => a.UserId == userId)
@@ -200,14 +201,13 @@ namespace MyFinance.API.Controllers
                 .ToList();
         }
 
-        private async Task<List<TransactionSummaryDto>> GetMonthlyTransactionsAsync(
+        private static async Task<List<TransactionSummaryDto>> GetMonthlyTransactionsAsync(
+            AppDbContext db,
             int userId,
             DateTime startDate,
             DateTime endDate,
             CancellationToken cancellationToken)
         {
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
             return await db.Transactions
                 .AsNoTracking()
                 .Include(t => t.Category)
@@ -230,10 +230,11 @@ namespace MyFinance.API.Controllers
                 .ToListAsync(cancellationToken);
         }
 
-        private async Task<List<RecurringRuleDto>> GetRecurringExpensesAsync(int userId, CancellationToken cancellationToken)
+        private static async Task<List<RecurringRuleDto>> GetRecurringRulesAsync(
+            AppDbContext db,
+            int userId,
+            CancellationToken cancellationToken)
         {
-            await using var db = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-
             return await db.RecurringTransactions
                 .AsNoTracking()
                 .Where(r => r.Active && r.UserId == userId)
