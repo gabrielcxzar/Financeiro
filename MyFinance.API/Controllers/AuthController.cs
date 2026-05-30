@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MyFinance.API.Data;
@@ -26,12 +26,10 @@ namespace MyFinance.API.Controllers
         public async Task<ActionResult<User>> Register(UserDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest("Email e senha são obrigatórios.");
+                return BadRequest("Email e senha sao obrigatorios.");
 
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
-                return BadRequest("Email já cadastrado.");
-
-            await using var tx = await _context.Database.BeginTransactionAsync();
+                return BadRequest("Email ja cadastrado.");
 
             var user = new User
             {
@@ -40,16 +38,22 @@ namespace MyFinance.API.Controllers
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await using var tx = await _context.Database.BeginTransactionAsync();
 
-            var defaultCategories = DefaultCategories.Create(user.Id);
-            _context.Categories.AddRange(defaultCategories);
-            await _context.SaveChangesAsync();
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
 
-            await tx.CommitAsync();
+                var defaultCategories = DefaultCategories.Create(user.Id);
+                _context.Categories.AddRange(defaultCategories);
+                await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Usuário e categorias criados com sucesso!" });
+                await tx.CommitAsync();
+            });
+
+            return Ok(new { message = "Usuario e categorias criados com sucesso!" });
         }
 
         [HttpPost("login")]
@@ -58,7 +62,7 @@ namespace MyFinance.API.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return BadRequest("Email ou senha inválidos.");
+                return BadRequest("Email ou senha invalidos.");
 
             string token = CreateToken(user);
             return Ok(new { token, name = user.Name });
@@ -74,7 +78,7 @@ namespace MyFinance.API.Controllers
 
             var tokenKey = _configuration.GetSection("AppSettings:Token").Value;
             if (string.IsNullOrEmpty(tokenKey))
-                throw new Exception("Chave do token não configurada em AppSettings:Token.");
+                throw new Exception("Chave do token nao configurada em AppSettings:Token.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
