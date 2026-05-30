@@ -25,6 +25,9 @@ namespace MyFinance.API.Controllers
         [HttpPost("register")]
         public async Task<ActionResult<User>> Register(UserDto request)
         {
+            request.Email = request.Email.Trim().ToLowerInvariant();
+            request.Name = request.Name.Trim();
+
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest("Email e senha sao obrigatorios.");
 
@@ -59,6 +62,7 @@ namespace MyFinance.API.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(UserDto request)
         {
+            request.Email = request.Email.Trim().ToLowerInvariant();
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))

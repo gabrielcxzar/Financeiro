@@ -102,7 +102,23 @@ namespace MyFinance.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Account>> PostAccount(Account account)
         {
+            if (string.IsNullOrWhiteSpace(account.Name))
+                return BadRequest("Nome da conta e obrigatorio.");
+
             account.UserId = GetUserId();
+
+            if (account.IsCreditCard)
+            {
+                account.Type = "Checking";
+                account.InitialBalance = 0;
+            }
+            else
+            {
+                account.CreditLimit = null;
+                account.ClosingDay = null;
+                account.DueDay = null;
+            }
+
             _context.Accounts.Add(account);
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetAccounts", new { id = account.Id }, account);
@@ -114,13 +130,30 @@ namespace MyFinance.API.Controllers
             var userId = GetUserId();
             if (id != account.Id) return BadRequest();
 
-            var existingAccount = await _context.Accounts.AsNoTracking()
+            var existingAccount = await _context.Accounts
                 .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
 
             if (existingAccount == null) return NotFound();
 
-            account.UserId = userId;
-            _context.Entry(account).State = EntityState.Modified;
+            if (string.IsNullOrWhiteSpace(account.Name))
+                return BadRequest("Nome da conta e obrigatorio.");
+
+            existingAccount.Name = account.Name;
+            existingAccount.Type = account.IsCreditCard ? "Checking" : account.Type;
+            existingAccount.IsCreditCard = account.IsCreditCard;
+
+            if (account.IsCreditCard)
+            {
+                existingAccount.CreditLimit = account.CreditLimit;
+                existingAccount.ClosingDay = account.ClosingDay;
+                existingAccount.DueDay = account.DueDay;
+            }
+            else
+            {
+                existingAccount.CreditLimit = null;
+                existingAccount.ClosingDay = null;
+                existingAccount.DueDay = null;
+            }
 
             await _context.SaveChangesAsync();
             return NoContent();
