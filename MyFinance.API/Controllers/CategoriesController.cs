@@ -51,7 +51,7 @@ namespace MyFinance.API.Controllers
 
             if (category == null) return NotFound();
 
-            bool hasTransactions = await _context.Transactions.AnyAsync(t => t.CategoryId == id);
+            bool hasTransactions = await _context.Transactions.AnyAsync(t => t.CategoryId == id && t.UserId == userId);
             if (hasTransactions) return BadRequest("Categoria em uso.");
 
             _context.Categories.Remove(category);

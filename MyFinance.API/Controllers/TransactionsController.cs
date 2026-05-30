@@ -102,6 +102,8 @@ namespace MyFinance.API.Controllers
             else transaction.Date = transaction.Date.ToUniversalTime();
 
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+            if (account == null)
+                return BadRequest("Conta invalida.");
 
             int parcelas = transaction.Installments > 1 ? transaction.Installments : 1;
             decimal valorParcela = transaction.Amount;
@@ -134,13 +136,10 @@ namespace MyFinance.API.Controllers
                 _context.Transactions.Add(novaTransacao);
                 created.Add(novaTransacao);
 
-                if (account != null)
-                {
-                    if (novaTransacao.Type == "Income") account.CurrentBalance += novaTransacao.Amount;
-                    else account.CurrentBalance -= novaTransacao.Amount;
+                if (novaTransacao.Type == "Income") account.CurrentBalance += novaTransacao.Amount;
+                else account.CurrentBalance -= novaTransacao.Amount;
 
-                    _context.Entry(account).State = EntityState.Modified;
-                }
+                _context.Entry(account).State = EntityState.Modified;
             }
 
             await _context.SaveChangesAsync();
@@ -168,6 +167,8 @@ namespace MyFinance.API.Controllers
 
             var oldAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == oldTransaction.AccountId && a.UserId == userId);
             var newAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+            if (newAccount == null)
+                return BadRequest("Conta invalida.");
 
             if (oldAccount != null)
             {
