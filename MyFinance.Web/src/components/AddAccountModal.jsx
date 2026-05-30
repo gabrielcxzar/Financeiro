@@ -31,11 +31,9 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
       const values = await form.validateFields();
       setLoading(true);
 
-      const payload = {
+      const basePayload = {
         ...values,
-        id: accountToEdit ? accountToEdit.id : 0,
-        initialBalance: Number(values.initialBalance || 0),
-        currentBalance: accountToEdit ? accountToEdit.currentBalance : Number(values.initialBalance || 0),
+        initialBalance: accountToEdit ? Number(accountToEdit.initialBalance || 0) : Number(values.initialBalance || 0),
         type: isCreditCard ? 'Checking' : values.type,
         isCreditCard,
         creditLimit: Number(values.creditLimit || 0),
@@ -44,17 +42,28 @@ export default function AddAccountModal({ visible, onClose, onSuccess, accountTo
       };
 
       if (accountToEdit) {
+        const payload = {
+          ...basePayload,
+          id: accountToEdit.id,
+          currentBalance: Number(accountToEdit.currentBalance || 0),
+        };
+
         await api.put(`/accounts/${accountToEdit.id}`, payload);
         message.success('Conta atualizada!');
       } else {
+        const payload = {
+          ...basePayload,
+          currentBalance: isCreditCard ? 0 : Number(values.initialBalance || 0),
+        };
+
         await api.post('/accounts', payload);
         message.success('Conta criada!');
       }
 
       onSuccess();
       onClose();
-    } catch {
-      message.error('Erro ao salvar conta');
+    } catch (error) {
+      message.error(error?.message || 'Erro ao salvar conta');
     } finally {
       setLoading(false);
     }

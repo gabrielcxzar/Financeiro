@@ -31,6 +31,7 @@ import Profile from './pages/Profile';
 import Budgets from './pages/Budgets';
 import Investments from './pages/Investments';
 import AddTransactionModal from './components/AddTransactionModal';
+import { authExpiredEvent } from './services/api';
 
 const { Header, Content, Footer, Sider } = Layout;
 const { useBreakpoint } = Grid;
@@ -179,6 +180,15 @@ const App = () => {
     localStorage.removeItem('userName');
     setIsAuthenticated(false);
   };
+
+  React.useEffect(() => {
+    const handleAuthExpired = () => {
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener(authExpiredEvent, handleAuthExpired);
+    return () => window.removeEventListener(authExpiredEvent, handleAuthExpired);
+  }, []);
 
   const handleMenuClick = (e) => {
     if (e.key === 'add') {
