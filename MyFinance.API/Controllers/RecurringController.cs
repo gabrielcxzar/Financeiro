@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using MyFinance.API.Data;
 using MyFinance.API.Models;
 using System.Security.Claims;
 
@@ -36,9 +37,20 @@ namespace MyFinance.API.Controllers
         public async Task<ActionResult<RecurringTransaction>> PostRecurring(RecurringTransaction recurring)
         {
             if (!recurring.AccountId.HasValue)
-                return BadRequest("Conta obrigatória.");
+                return BadRequest("Conta ou cartao obrigatorio.");
 
-            recurring.UserId = GetUserId();
+            var userId = GetUserId();
+            var account = await _context.Accounts
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == recurring.AccountId.Value && a.UserId == userId);
+
+            if (account == null)
+                return BadRequest("Conta ou cartao invalido.");
+
+            if (account.IsCreditCard && recurring.Type != "Expense")
+                return BadRequest("Recorrencias de cartao devem ser despesas.");
+
+            recurring.UserId = userId;
             _context.RecurringTransactions.Add(recurring);
             await _context.SaveChangesAsync();
             return CreatedAtAction("GetRecurrings", new { id = recurring.Id }, recurring);
@@ -74,6 +86,13 @@ namespace MyFinance.API.Controllers
                     continue;
 
                 var accountId = rule.AccountId.Value;
+                var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
+                if (account == null)
+                    continue;
+
+                if (account.IsCreditCard && rule.Type != "Expense")
+                    continue;
+
                 int daysInMonth = DateTime.DaysInMonth(year, month);
                 int day = Math.Min(rule.DayOfMonth, daysInMonth);
 
@@ -90,36 +109,32 @@ namespace MyFinance.API.Controllers
                     t.Date.Year == year
                 );
 
-                if (!exists)
+                if (exists)
+                    continue;
+
+                var newTrans = new Transaction
                 {
-                    var newTrans = new Transaction
-                    {
-                        UserId = userId,
-                        Description = rule.Description,
-                        Amount = rule.Amount,
-                        Type = rule.Type,
-                        CategoryId = rule.CategoryId,
-                        AccountId = accountId,
-                        Date = targetDate,
-                        Paid = false
-                    };
+                    UserId = userId,
+                    Description = rule.Description,
+                    Amount = rule.Amount,
+                    Type = rule.Type,
+                    CategoryId = rule.CategoryId,
+                    AccountId = accountId,
+                    Date = targetDate,
+                    Paid = false
+                };
 
-                    _context.Transactions.Add(newTrans);
-                    count++;
+                _context.Transactions.Add(newTrans);
+                count++;
 
-                    var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
-                    if (account != null)
-                    {
-                        if (newTrans.Type == "Income") account.CurrentBalance += newTrans.Amount;
-                        else account.CurrentBalance -= newTrans.Amount;
+                if (newTrans.Type == "Income") account.CurrentBalance += newTrans.Amount;
+                else account.CurrentBalance -= newTrans.Amount;
 
-                        _context.Entry(account).State = EntityState.Modified;
-                    }
-                }
+                _context.Entry(account).State = EntityState.Modified;
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { message = $"{count} transações geradas." });
+            return Ok(new { message = $"{count} transacoes geradas." });
         }
 
         [HttpGet("projection")]

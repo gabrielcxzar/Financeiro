@@ -35,7 +35,7 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
 
   const handleUpload = async () => {
     if (!selectedAccount) return message.error('Selecione uma conta de destino!');
-    if (fileList.length === 0) return message.error('Selecione um arquivo CSV!');
+    if (fileList.length === 0) return message.error('Selecione um arquivo CSV ou XLSX!');
 
     const formData = new FormData();
     formData.append('file', fileList[0]);
@@ -60,9 +60,15 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
   const uploadProps = {
     onRemove: () => setFileList([]),
     beforeUpload: (file) => {
-      const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv');
-      if (!isCSV) {
-        message.error('Apenas arquivos CSV sao permitidos!');
+      const fileName = file.name.toLowerCase();
+      const isSupported =
+        file.type === 'text/csv' ||
+        fileName.endsWith('.csv') ||
+        fileName.endsWith('.xlsx') ||
+        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      if (!isSupported) {
+        message.error('Apenas arquivos CSV ou XLSX sao permitidos!');
         return Upload.LIST_IGNORE;
       }
       setFileList([file]);
@@ -73,7 +79,7 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
 
   return (
     <Modal
-      title="Importar Extrato / Fatura (CSV)"
+      title="Importar Extrato / Fatura"
       open={visible}
       onCancel={onClose}
       width={isCompact ? 'calc(100vw - 20px)' : 560}
@@ -114,8 +120,8 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
         <p className="ant-upload-drag-icon">
           <InboxOutlined />
         </p>
-        <p className="ant-upload-text">Clique ou arraste o arquivo CSV aqui</p>
-        <p className="ant-upload-hint">Suporta arquivos exportados do Nubank (Extrato ou Fatura).</p>
+        <p className="ant-upload-text">Clique ou arraste o arquivo CSV ou XLSX aqui</p>
+        <p className="ant-upload-hint">Suporta arquivos exportados do Nubank para extrato ou fatura.</p>
       </Dragger>
     </Modal>
   );

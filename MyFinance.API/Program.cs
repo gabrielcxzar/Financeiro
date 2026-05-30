@@ -48,7 +48,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var defaultConnection = "Host=aws-1-us-east-2.pooler.supabase.com;Port=6543;Database=postgres;Username=postgres.cjyumxatyfvlwgwuwohu;Password=SKvxAbHvUcBeWejU;Pooling=true;Max Auto Prepare=0;target_session_attrs=read-write;";
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection nao configurada.");
 
 void ConfigureDatabase(DbContextOptionsBuilder options) =>
     options.UseNpgsql(
@@ -92,10 +93,26 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", cors =>
     {
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()
+            ?.Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .ToArray();
+
+        if (allowedOrigins is { Length: > 0 })
+        {
+            cors
+                .WithOrigins(allowedOrigins)
+                .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .WithHeaders("Content-Type", "Authorization");
+
+            return;
+        }
+
         cors
-            .WithOrigins("https://financeiro-02r7.onrender.com")
-            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-            .WithHeaders("Content-Type", "Authorization");
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
