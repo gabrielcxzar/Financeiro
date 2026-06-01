@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid } from 'antd';
-import { DeleteOutlined, EditOutlined, CloudUploadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, CloudUploadOutlined, PlusOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import ImportModal from '../components/ImportModal';
 import api from '../services/api';
@@ -138,14 +138,28 @@ export default function Transactions({ month, year }) {
         }}
       >
         <h2 style={{ margin: 0 }}>Extrato Completo</h2>
-        <Button
-          icon={<CloudUploadOutlined />}
-          onClick={() => setIsImportOpen(true)}
-          block={isCompact}
-          style={isCompact ? { width: '100%' } : undefined}
-        >
-          Importar CSV
-        </Button>
+        <div style={{ display: 'flex', gap: 10, width: isCompact ? '100%' : 'auto', flexWrap: 'wrap' }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditingItem(null);
+              setIsModalOpen(true);
+            }}
+            block={isCompact}
+            style={isCompact ? { width: '100%' } : undefined}
+          >
+            Nova Transacao
+          </Button>
+          <Button
+            icon={<CloudUploadOutlined />}
+            onClick={() => setIsImportOpen(true)}
+            block={isCompact}
+            style={isCompact ? { width: '100%' } : undefined}
+          >
+            Importar CSV
+          </Button>
+        </div>
       </div>
 
       <Card variant="borderless" style={{ borderRadius: 8 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
