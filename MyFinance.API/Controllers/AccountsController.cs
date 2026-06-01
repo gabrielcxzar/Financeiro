@@ -100,17 +100,29 @@ namespace MyFinance.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Account>> PostAccount(Account account)
+        public async Task<ActionResult<Account>> PostAccount([FromBody] UpsertAccountDto request)
         {
-            if (string.IsNullOrWhiteSpace(account.Name))
+            if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest("Nome da conta e obrigatorio.");
 
-            account.UserId = GetUserId();
+            var account = new Account
+            {
+                UserId = GetUserId(),
+                Name = request.Name.Trim(),
+                Type = request.Type,
+                IsCreditCard = request.IsCreditCard,
+                InitialBalance = request.InitialBalance,
+                CurrentBalance = request.InitialBalance,
+                CreditLimit = request.CreditLimit,
+                ClosingDay = request.ClosingDay,
+                DueDay = request.DueDay
+            };
 
             if (account.IsCreditCard)
             {
                 account.Type = "Checking";
                 account.InitialBalance = 0;
+                account.CurrentBalance = 0;
             }
             else
             {
@@ -125,28 +137,27 @@ namespace MyFinance.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAccount(int id, Account account)
+        public async Task<IActionResult> PutAccount(int id, [FromBody] UpsertAccountDto request)
         {
             var userId = GetUserId();
-            if (id != account.Id) return BadRequest();
 
             var existingAccount = await _context.Accounts
                 .FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId);
 
             if (existingAccount == null) return NotFound();
 
-            if (string.IsNullOrWhiteSpace(account.Name))
+            if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest("Nome da conta e obrigatorio.");
 
-            existingAccount.Name = account.Name;
-            existingAccount.Type = account.IsCreditCard ? "Checking" : account.Type;
-            existingAccount.IsCreditCard = account.IsCreditCard;
+            existingAccount.Name = request.Name.Trim();
+            existingAccount.Type = request.IsCreditCard ? "Checking" : request.Type;
+            existingAccount.IsCreditCard = request.IsCreditCard;
 
-            if (account.IsCreditCard)
+            if (request.IsCreditCard)
             {
-                existingAccount.CreditLimit = account.CreditLimit;
-                existingAccount.ClosingDay = account.ClosingDay;
-                existingAccount.DueDay = account.DueDay;
+                existingAccount.CreditLimit = request.CreditLimit;
+                existingAccount.ClosingDay = request.ClosingDay;
+                existingAccount.DueDay = request.DueDay;
             }
             else
             {
@@ -217,6 +228,17 @@ namespace MyFinance.API.Controllers
         {
             public int AccountId { get; set; }
             public decimal NewBalance { get; set; }
+        }
+
+        public class UpsertAccountDto
+        {
+            public string Name { get; set; } = string.Empty;
+            public string Type { get; set; } = "Checking";
+            public decimal InitialBalance { get; set; }
+            public bool IsCreditCard { get; set; }
+            public decimal? CreditLimit { get; set; }
+            public int? ClosingDay { get; set; }
+            public int? DueDay { get; set; }
         }
     }
 }

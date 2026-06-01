@@ -93,20 +93,26 @@ namespace MyFinance.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Transaction>> PostTransaction(Transaction transaction)
+        public async Task<ActionResult<Transaction>> PostTransaction([FromBody] UpsertTransactionDto request)
         {
             var userId = GetUserId();
-            transaction.UserId = userId;
+            if (string.IsNullOrWhiteSpace(request.Description))
+                return BadRequest("Descricao obrigatoria.");
+            if (request.Amount <= 0)
+                return BadRequest("Valor deve ser maior que zero.");
+            if (request.AccountId <= 0)
+                return BadRequest("Conta invalida.");
+            if (request.CategoryId <= 0)
+                return BadRequest("Categoria invalida.");
 
-            if (transaction.Date == default) transaction.Date = DateTime.UtcNow;
-            else transaction.Date = transaction.Date.ToUniversalTime();
+            var transactionDate = request.Date == default ? DateTime.UtcNow : request.Date.ToUniversalTime();
 
-            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId && a.UserId == userId);
             if (account == null)
                 return BadRequest("Conta invalida.");
 
-            int parcelas = transaction.Installments > 1 ? transaction.Installments : 1;
-            decimal valorParcela = transaction.Amount;
+            int parcelas = request.Installments > 1 ? request.Installments : 1;
+            decimal valorParcela = request.Amount;
 
             string? installmentId = null;
             if (parcelas > 1)
@@ -114,7 +120,7 @@ namespace MyFinance.API.Controllers
                 installmentId = Guid.NewGuid().ToString();
             }
 
-            DateTime dataBase = transaction.Date;
+            DateTime dataBase = transactionDate;
 
             var created = new List<Transaction>();
 
@@ -123,12 +129,12 @@ namespace MyFinance.API.Controllers
                 var novaTransacao = new Transaction
                 {
                     UserId = userId,
-                    CategoryId = transaction.CategoryId,
-                    AccountId = transaction.AccountId,
-                    Type = transaction.Type,
-                    Paid = transaction.Paid,
+                    CategoryId = request.CategoryId,
+                    AccountId = request.AccountId,
+                    Type = request.Type,
+                    Paid = request.Paid,
                     Amount = valorParcela,
-                    Description = parcelas > 1 ? $"{transaction.Description} ({i + 1}/{parcelas})" : transaction.Description,
+                    Description = parcelas > 1 ? $"{request.Description} ({i + 1}/{parcelas})" : request.Description,
                     Date = dataBase.AddMonths(i).ToUniversalTime(),
                     InstallmentId = installmentId
                 };
@@ -151,19 +157,36 @@ namespace MyFinance.API.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTransaction(int id, Transaction transaction)
+        public async Task<IActionResult> PutTransaction(int id, [FromBody] UpsertTransactionDto request)
         {
             var userId = GetUserId();
-            if (id != transaction.Id) return BadRequest();
+            if (string.IsNullOrWhiteSpace(request.Description))
+                return BadRequest("Descricao obrigatoria.");
+            if (request.Amount <= 0)
+                return BadRequest("Valor deve ser maior que zero.");
+            if (request.AccountId <= 0)
+                return BadRequest("Conta invalida.");
+            if (request.CategoryId <= 0)
+                return BadRequest("Categoria invalida.");
 
             var oldTransaction = await _context.Transactions.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
             if (oldTransaction == null) return NotFound();
 
-            transaction.UserId = userId;
-            transaction.Date = transaction.Date.ToUniversalTime();
-            transaction.InstallmentId = oldTransaction.InstallmentId;
+            var transaction = new Transaction
+            {
+                Id = id,
+                UserId = userId,
+                CategoryId = request.CategoryId,
+                AccountId = request.AccountId,
+                Type = request.Type,
+                Paid = request.Paid,
+                Amount = request.Amount,
+                Description = request.Description,
+                Date = request.Date.ToUniversalTime(),
+                InstallmentId = oldTransaction.InstallmentId
+            };
 
             var oldAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == oldTransaction.AccountId && a.UserId == userId);
             var newAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
@@ -235,6 +258,9 @@ namespace MyFinance.API.Controllers
         public async Task<IActionResult> Transfer(TransferDto request)
         {
             var userId = GetUserId();
+            if (request.Amount <= 0) return BadRequest("Valor invalido.");
+            if (request.FromAccountId <= 0 || request.ToAccountId <= 0 || request.FromAccountId == request.ToAccountId)
+                return BadRequest("Contas invalidas");
             var dateUtc = request.Date.ToUniversalTime();
 
             var expense = new Transaction
@@ -283,5 +309,17 @@ namespace MyFinance.API.Controllers
         public int ToAccountId { get; set; }
         public decimal Amount { get; set; }
         public DateTime Date { get; set; }
+    }
+
+    public class UpsertTransactionDto
+    {
+        public string Description { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Type { get; set; } = "Expense";
+        public int CategoryId { get; set; }
+        public int AccountId { get; set; }
+        public DateTime Date { get; set; }
+        public bool Paid { get; set; }
+        public int Installments { get; set; } = 1;
     }
 }
