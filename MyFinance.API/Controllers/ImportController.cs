@@ -43,6 +43,10 @@ namespace MyFinance.API.Controllers
         {
             if (file == null || file.Length == 0)
                 return BadRequest("Nenhum arquivo enviado.");
+            if (accountId <= 0)
+                return BadRequest("Conta invalida.");
+            if (file.Length > 10 * 1024 * 1024)
+                return BadRequest("Arquivo muito grande. Limite de 10MB.");
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (extension is not ".csv" and not ".xlsx")

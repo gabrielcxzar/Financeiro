@@ -34,6 +34,16 @@ namespace MyFinance.API.Controllers
         public async Task<ActionResult<Budget>> PostBudget(Budget budget)
         {
             var userId = GetUserId();
+            if (budget.CategoryId <= 0)
+                return BadRequest("Categoria invalida.");
+            if (budget.Amount <= 0)
+                return BadRequest("Valor da meta deve ser maior que zero.");
+
+            var categoryExists = await _context.Categories
+                .AnyAsync(c => c.Id == budget.CategoryId && c.UserId == userId);
+            if (!categoryExists)
+                return BadRequest("Categoria nao encontrada para este usuario.");
+
             budget.UserId = userId;
 
             // Verifica se já existe meta para essa categoria (evita duplicata)

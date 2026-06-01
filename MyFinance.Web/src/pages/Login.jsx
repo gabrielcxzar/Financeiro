@@ -17,8 +17,8 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('userName', data.name);
       message.success(`Bem-vindo, ${data.name}!`);
       onLoginSuccess();
-    } catch {
-      message.error('Email ou senha incorretos.');
+    } catch (error) {
+      message.error(error?.message || 'Email ou senha incorretos.');
     } finally {
       setLoading(false);
     }
@@ -29,8 +29,8 @@ export default function Login({ onLoginSuccess }) {
     try {
       await api.post('/auth/register', values);
       message.success('Cadastro realizado! Faca login agora.');
-    } catch {
-      message.error('Erro ao cadastrar. Tente outro email.');
+    } catch (error) {
+      message.error(error?.message || 'Erro ao cadastrar. Tente outro email.');
     } finally {
       setLoading(false);
     }
