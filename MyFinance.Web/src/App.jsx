@@ -255,6 +255,13 @@ const App = () => {
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
           breakpoint="lg"
+          style={{
+            position: 'sticky',
+            top: 0,
+            height: '100vh',
+            overflow: 'auto',
+            left: 0,
+          }}
         >
           <Logo>
             <LogoMark src="/brand-mark.svg" alt="Finflow" />
@@ -279,7 +286,7 @@ const App = () => {
         </Drawer>
       )}
 
-      <Layout style={{ minWidth: 0, overflowY: 'auto' }}>
+      <Layout style={{ minWidth: 0 }}>
         <Header
           style={{
             padding: isMobile ? '10px 12px' : '0 24px',
