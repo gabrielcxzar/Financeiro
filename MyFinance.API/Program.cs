@@ -62,7 +62,6 @@ void ConfigureDatabase(DbContextOptionsBuilder options) =>
     );
 
 builder.Services.AddDbContext<AppDbContext>(ConfigureDatabase);
-builder.Services.AddDbContextFactory<AppDbContext>(ConfigureDatabase);
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
@@ -178,6 +177,65 @@ CREATE TABLE IF NOT EXISTS fii_holdings (
 );
 ";
 
+    const string usersTableSql = @"
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL
+);
+";
+
+    const string categoriesTableSql = @"
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    icon TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '',
+    user_id INT NOT NULL
+);
+";
+
+    const string accountsTableSql = @"
+CREATE TABLE IF NOT EXISTS accounts (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    initialbalance NUMERIC(18,2) NOT NULL DEFAULT 0,
+    currentbalance NUMERIC(18,2) NOT NULL DEFAULT 0,
+    type TEXT NOT NULL DEFAULT 'Checking',
+    is_credit_card BOOLEAN NOT NULL DEFAULT FALSE,
+    closing_day INT NULL,
+    due_day INT NULL,
+    credit_limit NUMERIC(18,2) NULL,
+    user_id INT NOT NULL
+);
+";
+
+    const string transactionsTableSql = @"
+CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    description TEXT NOT NULL,
+    amount NUMERIC(18,2) NOT NULL,
+    date TIMESTAMPTZ NOT NULL,
+    type TEXT NOT NULL,
+    paid BOOLEAN NOT NULL DEFAULT FALSE,
+    categoryid INT NULL,
+    accountid INT NOT NULL,
+    user_id INT NOT NULL,
+    installment_id TEXT NULL
+);
+";
+
+    const string budgetsTableSql = @"
+CREATE TABLE IF NOT EXISTS budgets (
+    id SERIAL PRIMARY KEY,
+    amount NUMERIC(18,2) NOT NULL,
+    category_id INT NOT NULL,
+    user_id INT NOT NULL
+);
+";
+
     const string fiiIndexSql = @"
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ux_fii_holdings_user_ticker
 ON fii_holdings (user_id, ticker);
@@ -254,6 +312,133 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_recurring_transactions_user_active
 ON recurring_transactions (user_id, active);
 ";
 
+    const string usersEmailIndexSql = @"
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ux_users_email
+ON users (email);
+";
+
+    const string categoriesUserIndexSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_categories_user_id
+ON categories (user_id);
+";
+
+    const string accountsUserIndexSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_accounts_user_id
+ON accounts (user_id);
+";
+
+    const string transactionsUserIndexSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_transactions_user_id
+ON transactions (user_id);
+";
+
+    const string transactionsAccountIndexSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_transactions_accountid
+ON transactions (accountid);
+";
+
+    const string budgetsUserIndexSql = @"
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_budgets_user_id
+ON budgets (user_id);
+";
+
+    const string accountsCompatSql = @"
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'is_credit_card'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN is_credit_card BOOLEAN NOT NULL DEFAULT FALSE;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'closing_day'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN closing_day INT NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'due_day'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN due_day INT NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'credit_limit'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN credit_limit NUMERIC(18,2) NULL;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'accounts' AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE accounts ADD COLUMN user_id INT NOT NULL DEFAULT 0;
+    END IF;
+END $$;
+";
+
+    const string categoriesCompatSql = @"
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'categories' AND column_name = 'icon'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN icon TEXT NOT NULL DEFAULT '';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'categories' AND column_name = 'color'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN color TEXT NOT NULL DEFAULT '';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'categories' AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE categories ADD COLUMN user_id INT NOT NULL DEFAULT 0;
+    END IF;
+END $$;
+";
+
+    const string transactionsCompatSql = @"
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'transactions' AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE transactions ADD COLUMN user_id INT NOT NULL DEFAULT 0;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'transactions' AND column_name = 'installment_id'
+    ) THEN
+        ALTER TABLE transactions ADD COLUMN installment_id TEXT NULL;
+    END IF;
+END $$;
+";
+
+    const string budgetsCompatSql = @"
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'budgets' AND column_name = 'user_id'
+    ) THEN
+        ALTER TABLE budgets ADD COLUMN user_id INT NOT NULL DEFAULT 0;
+    END IF;
+END $$;
+";
+
     var originalTimeout = db.Database.GetCommandTimeout();
     db.Database.SetCommandTimeout(TimeSpan.FromMinutes(3));
 
@@ -261,12 +446,29 @@ ON recurring_transactions (user_id, active);
     {
         logger.LogInformation("Running schema bootstrap...");
 
-        // Required schema pieces for core endpoints.
+        // Core schema needed for a first deploy on a clean Postgres database.
+        await db.Database.ExecuteSqlRawAsync(usersTableSql);
+        await db.Database.ExecuteSqlRawAsync(categoriesTableSql);
+        await db.Database.ExecuteSqlRawAsync(accountsTableSql);
+        await db.Database.ExecuteSqlRawAsync(transactionsTableSql);
+        await db.Database.ExecuteSqlRawAsync(budgetsTableSql);
         await db.Database.ExecuteSqlRawAsync(fiiTableSql);
         await db.Database.ExecuteSqlRawAsync(recurringTableSql);
+
+        // Compatibility upgrades for older databases that predate newer fields.
+        await db.Database.ExecuteSqlRawAsync(accountsCompatSql);
+        await db.Database.ExecuteSqlRawAsync(categoriesCompatSql);
+        await db.Database.ExecuteSqlRawAsync(transactionsCompatSql);
+        await db.Database.ExecuteSqlRawAsync(budgetsCompatSql);
         await db.Database.ExecuteSqlRawAsync(recurringCompatSql);
 
         // Optional/index steps should not crash the API on deploy.
+        await ExecuteOptionalSqlAsync(db, usersEmailIndexSql, logger, "users email unique index");
+        await ExecuteOptionalSqlAsync(db, categoriesUserIndexSql, logger, "categories user index");
+        await ExecuteOptionalSqlAsync(db, accountsUserIndexSql, logger, "accounts user index");
+        await ExecuteOptionalSqlAsync(db, transactionsUserIndexSql, logger, "transactions user index");
+        await ExecuteOptionalSqlAsync(db, transactionsAccountIndexSql, logger, "transactions account index");
+        await ExecuteOptionalSqlAsync(db, budgetsUserIndexSql, logger, "budgets user index");
         await ExecuteOptionalSqlAsync(db, fiiIndexSql, logger, "fii unique index");
         await ExecuteOptionalSqlAsync(db, recurringIndexUserSql, logger, "recurring user index");
         await ExecuteOptionalSqlAsync(db, recurringIndexUserActiveSql, logger, "recurring user-active index");
