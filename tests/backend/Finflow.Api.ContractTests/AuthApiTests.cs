@@ -40,6 +40,7 @@ public class AuthApiTests
     public async Task Login_WithValidCredentials_ReturnsToken()
     {
         var api = new FinflowApiClient();
+        using var _ = await api.CreateAuthenticatedClientAsync();
         using var client = api.CreateAnonymousClient();
         var settings = TestSettings.Load();
 
