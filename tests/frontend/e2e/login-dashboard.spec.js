@@ -21,7 +21,7 @@ test.describe('Login e Dashboard', () => {
     await page.getByPlaceholder('Senha').fill(password);
     await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await expect(page.getByText('Dashboard')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole('main').getByText('Dashboard')).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('Planejamento Mensal')).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('Projecao dos proximos 6 meses')).toBeVisible({ timeout: 20000 });
     await expect(page.getByText('Timeout de conexao com a API')).toHaveCount(0);

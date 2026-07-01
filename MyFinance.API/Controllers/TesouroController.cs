@@ -13,14 +13,23 @@ namespace MyFinance.API.Controllers
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IMemoryCache _cache;
+        private readonly ILogger<TesouroController> _logger;
 
         private const string CacheKey = "tesouro_latest";
-        private const string DatasetUrl = "https://www.tesourotransparente.gov.br/ckan/dataset/7e6d8dbf-9446-478d-b8a0-1d8f75a9f2f4/resource/8a6f1769-0b72-4a59-8d34-5db7e9b8a6f6/download/PrecoTaxaTesouroDireto.csv";
+        private static readonly string[] DatasetUrls =
+        {
+            "https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv",
+            "https://www.tesourotransparente.gov.br/ckan/dataset/taxas-dos-titulos-ofertados-pelo-tesouro-direto/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/precotaxatesourodireto.csv"
+        };
 
-        public TesouroController(IHttpClientFactory httpClientFactory, IMemoryCache cache)
+        public TesouroController(
+            IHttpClientFactory httpClientFactory,
+            IMemoryCache cache,
+            ILogger<TesouroController> logger)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
+            _logger = logger;
         }
 
         [HttpGet("latest")]
@@ -32,7 +41,7 @@ namespace MyFinance.API.Controllers
             }
 
             var client = _httpClientFactory.CreateClient();
-            using var stream = await client.GetStreamAsync(DatasetUrl);
+            await using var stream = await OpenDatasetStreamAsync(client);
             using var reader = new StreamReader(stream, Encoding.UTF8, true);
 
             string? headerLine = await reader.ReadLineAsync();
@@ -52,7 +61,7 @@ namespace MyFinance.API.Controllers
             int idxSellPrice = FindHeaderIndex(headers, new[] { "pu venda", "preco venda", "preco_venda" });
 
             if (idxDate < 0 || idxTitle < 0)
-                return BadRequest("Cabeçalhos inesperados no CSV do Tesouro.");
+                return BadRequest("CabeÃ§alhos inesperados no CSV do Tesouro.");
 
             DateTime? latestDate = null;
             var rows = new List<object>();
@@ -103,6 +112,30 @@ namespace MyFinance.API.Controllers
 
             _cache.Set(CacheKey, payload, TimeSpan.FromMinutes(60));
             return Ok(payload);
+        }
+
+        private async Task<Stream> OpenDatasetStreamAsync(HttpClient client)
+        {
+            Exception? lastError = null;
+
+            foreach (var datasetUrl in DatasetUrls)
+            {
+                try
+                {
+                    var response = await client.GetAsync(datasetUrl, HttpCompletionOption.ResponseHeadersRead);
+                    response.EnsureSuccessStatusCode();
+                    return await response.Content.ReadAsStreamAsync();
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    _logger.LogWarning(ex, "Failed to fetch Tesouro dataset from {DatasetUrl}", datasetUrl);
+                }
+            }
+
+            throw new InvalidOperationException(
+                "Nao foi possivel obter o dataset do Tesouro Direto a partir das URLs configuradas.",
+                lastError);
         }
 
         private static char DetectDelimiter(string line)

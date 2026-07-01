@@ -63,8 +63,23 @@ internal sealed class FinflowApiClient
         if (registerResponse.StatusCode != HttpStatusCode.OK &&
             registerResponse.StatusCode != HttpStatusCode.BadRequest)
         {
+            // Another test process may have created the shared test user first.
+            // Retry the login path before treating this as a real registration failure.
+            var retryLogin = await client.PostAsJsonAsync("auth/login", new
+            {
+                email = _settings.Email,
+                password = _settings.Password
+            });
+
+            if (retryLogin.IsSuccessStatusCode)
+            {
+                return await ExtractTokenAsync(retryLogin);
+            }
+
             var body = await registerResponse.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Falha ao registrar usuario de teste. Status: {registerResponse.StatusCode}. Body: {body}");
+            var retryBody = await retryLogin.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(
+                $"Falha ao registrar usuario de teste. Status: {registerResponse.StatusCode}. Body: {body}. Retry login status: {retryLogin.StatusCode}. Retry body: {retryBody}");
         }
 
         var secondLogin = await client.PostAsJsonAsync("auth/login", new
