@@ -169,6 +169,8 @@ namespace MyFinance.API.Controllers
                 return await UpdateInstallmentSeriesAsync(oldTransaction, request, userId);
             }
 
+            var preservedDescription = ResolveSingleInstallmentDescription(oldTransaction, request);
+
             var transaction = new Transaction
             {
                 Id = id,
@@ -178,7 +180,7 @@ namespace MyFinance.API.Controllers
                 Type = request.Type,
                 Paid = request.Paid,
                 Amount = request.Amount,
-                Description = request.Description,
+                Description = preservedDescription,
                 Date = request.Date.ToUniversalTime(),
                 InstallmentId = oldTransaction.InstallmentId,
                 IsTransfer = oldTransaction.IsTransfer,
@@ -190,6 +192,7 @@ namespace MyFinance.API.Controllers
             if (newAccount == null)
                 return BadRequest("Conta invalida.");
 
+            DetachTrackedTransaction(transaction.Id);
             _context.Entry(transaction).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
@@ -470,6 +473,17 @@ namespace MyFinance.API.Controllers
             return sourceAccount.IsCreditCard ? "Pagamento de fatura" : "Recebido de transferencia";
         }
 
+        private void DetachTrackedTransaction(int transactionId)
+        {
+            var trackedEntry = _context.ChangeTracker.Entries<Transaction>()
+                .FirstOrDefault(entry => entry.Entity.Id == transactionId);
+
+            if (trackedEntry != null)
+            {
+                trackedEntry.State = EntityState.Detached;
+            }
+        }
+
         private static InstallmentPlan ResolveInstallmentPlan(UpsertTransactionDto request)
         {
             var fallbackTotal = request.Installments > 1 ? request.Installments : 1;
@@ -499,6 +513,25 @@ namespace MyFinance.API.Controllers
             return totalInstallments > 1
                 ? $"{description} ({installmentNumber}/{totalInstallments})"
                 : description;
+        }
+
+        private static string ResolveSingleInstallmentDescription(Transaction originalTransaction, UpsertTransactionDto request)
+        {
+            var currentInfo = ParseInstallmentInfo(originalTransaction.Description);
+            if (currentInfo == null || string.IsNullOrWhiteSpace(originalTransaction.InstallmentId))
+            {
+                return request.Description;
+            }
+
+            return BuildInstallmentDescription(
+                StripInstallmentSuffix(request.Description),
+                currentInfo.Current,
+                currentInfo.Total);
+        }
+
+        private static string StripInstallmentSuffix(string description)
+        {
+            return Regex.Replace(description, @"\s*\(\d+/\d+\)\s*$", string.Empty).Trim();
         }
 
         private static InstallmentInfo? ParseInstallmentInfo(string description)

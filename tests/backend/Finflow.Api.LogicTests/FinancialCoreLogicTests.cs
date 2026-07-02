@@ -352,6 +352,56 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task EditingSingleInstallment_UpdatesOnlyCurrentParcel_AndPreservesSuffix()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (_, card, expenseCategory, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var transactions = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(transactions);
+        var originalDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        await transactions.PostTransaction(new UpsertTransactionDto
+        {
+            Description = "Curso de pilotagem",
+            Amount = 50m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = originalDate,
+            InstallmentNumber = 3,
+            TotalInstallments = 6
+        });
+
+        var anchor = await db.Transactions.SingleAsync(t => t.Description == "Curso de pilotagem (3/6)");
+        var updateResult = await transactions.PutTransaction(anchor.Id, new UpsertTransactionDto
+        {
+            Id = anchor.Id,
+            Description = "Curso de pilotagem ajustado",
+            Amount = 82m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = originalDate.AddDays(1),
+            ApplyToSeries = false
+        });
+
+        Assert.IsType<NoContentResult>(updateResult);
+
+        var updated = await db.Transactions
+            .Where(t => t.AccountId == card.Id)
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        Assert.Equal(4, updated.Count);
+        Assert.Contains(updated, t => t.Description == "Curso de pilotagem ajustado (3/6)" && t.Amount == 82m && t.Date == originalDate.AddDays(1));
+        Assert.Contains(updated, t => t.Description == "Curso de pilotagem (4/6)" && t.Amount == 50m);
+        Assert.Contains(updated, t => t.Description == "Curso de pilotagem (5/6)" && t.Amount == 50m);
+        Assert.Contains(updated, t => t.Description == "Curso de pilotagem (6/6)" && t.Amount == 50m);
+    }
+
+    [Fact]
     public async Task RecurringFuture_AppearsInProjection_ButNotInRealBalance_AndDoesNotDuplicateGeneration()
     {
         var (db, finance) = TestContextFactory.Create();
