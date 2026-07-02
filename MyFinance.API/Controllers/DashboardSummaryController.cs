@@ -143,6 +143,32 @@ namespace MyFinance.API.Controllers
                 .OrderByDescending(g => g.Total)
                 .ToList();
 
+            stepStopwatch.Restart();
+            var essentialBudgets = await _context.Budgets
+                .AsNoTracking()
+                .Where(b => b.UserId == userId && b.Month == month && b.Year == year && b.IsEssential)
+                .ToListAsync(cancellationToken);
+            var goals = await _context.FinancialGoals
+                .AsNoTracking()
+                .Where(g => g.UserId == userId)
+                .ToListAsync(cancellationToken);
+            var activeGoals = goals
+                .Where(g => g.Status == "Active")
+                .ToList();
+            _logger.LogInformation(
+                "Dashboard summary planning data completed in {ElapsedMs} ms. UserId: {UserId}, Budgets: {BudgetCount}, Goals: {GoalCount}",
+                stepStopwatch.ElapsedMilliseconds,
+                userId,
+                essentialBudgets.Count,
+                activeGoals.Count);
+
+            var freeToSpend = BuildFreeToSpendSummary(
+                snapshot,
+                essentialBudgets,
+                activeGoals,
+                month,
+                year);
+
             var nextMonth = month == 12 ? 1 : month + 1;
             var nextYear = month == 12 ? year + 1 : year;
             var projection = _financialSnapshotService.BuildProjection(
@@ -169,7 +195,8 @@ namespace MyFinance.API.Controllers
                     normalizedProjectedCardLiability,
                     netWorth,
                     pendingNetWorth,
-                    projectedNetWorth),
+                    projectedNetWorth,
+                    freeToSpend.FreeToSpendAmount),
                 transactions,
                 transactions.Take(5).ToList(),
                 snapshot.Accounts
@@ -202,6 +229,7 @@ namespace MyFinance.API.Controllers
                         item.TransferImpact,
                         item.Net,
                         item.ProjectedBalance)).ToList()),
+                freeToSpend,
                 DateTime.UtcNow
             );
 
@@ -225,6 +253,7 @@ namespace MyFinance.API.Controllers
             List<AccountSnapshotDto> Cards,
             List<CategorySummaryDto> CategorySummary,
             ProjectionDto Projection,
+            FreeToSpendDto FreeToSpend,
             DateTime GeneratedAtUtc
         );
 
@@ -240,7 +269,8 @@ namespace MyFinance.API.Controllers
             decimal ProjectedCardLiability,
             decimal NetWorth,
             decimal PendingNetWorth,
-            decimal ProjectedNetWorth);
+            decimal ProjectedNetWorth,
+            decimal FreeToSpend);
 
         public sealed record AccountSnapshotDto(
             int Id,
@@ -291,5 +321,164 @@ namespace MyFinance.API.Controllers
             decimal Net,
             decimal ProjectedBalance
         );
+
+        [HttpGet("free-to-spend")]
+        public async Task<IActionResult> GetFreeToSpend([FromQuery] int month, [FromQuery] int year, CancellationToken cancellationToken)
+        {
+            if (month < 1 || month > 12)
+            {
+                return BadRequest("Mes invalido.");
+            }
+
+            if (year < 2000 || year > 2100)
+            {
+                return BadRequest("Ano invalido.");
+            }
+
+            var userId = GetUserId();
+            var snapshot = await _financialSnapshotService.BuildUserSnapshotAsync(userId, DateTime.UtcNow, cancellationToken);
+            var essentialBudgets = await _context.Budgets
+                .AsNoTracking()
+                .Where(b => b.UserId == userId && b.Month == month && b.Year == year && b.IsEssential)
+                .ToListAsync(cancellationToken);
+            var activeGoals = await _context.FinancialGoals
+                .AsNoTracking()
+                .Where(g => g.UserId == userId && g.Status == "Active")
+                .ToListAsync(cancellationToken);
+
+            return Ok(BuildFreeToSpendSummary(snapshot, essentialBudgets, activeGoals, month, year));
+        }
+
+        private FreeToSpendDto BuildFreeToSpendSummary(
+            UserFinancialSnapshot snapshot,
+            IReadOnlyCollection<Budget> essentialBudgets,
+            IReadOnlyCollection<FinancialGoal> activeGoals,
+            int month,
+            int year)
+        {
+            var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var monthEnd = monthStart.AddMonths(1);
+            var cashAccounts = snapshot.Accounts
+                .Where(a => !a.IsCreditCard)
+                .ToDictionary(a => a.Id);
+
+            var confirmedIncome = snapshot.Transactions
+                .Where(t =>
+                    t.Date >= monthStart &&
+                    t.Date < monthEnd &&
+                    t.Type == "Income" &&
+                    t.Paid &&
+                    !t.IsTransfer &&
+                    cashAccounts.ContainsKey(t.AccountId))
+                .Sum(t => t.Amount);
+
+            var predictedIncomeTransactions = snapshot.Transactions
+                .Where(t =>
+                    t.Date >= monthStart &&
+                    t.Date < monthEnd &&
+                    t.Type == "Income" &&
+                    !t.Paid &&
+                    !t.IsTransfer &&
+                    t.RecurringRuleId.HasValue &&
+                    cashAccounts.ContainsKey(t.AccountId))
+                .Sum(t => t.Amount);
+
+            var predictedExpenseTransactions = snapshot.Transactions
+                .Where(t =>
+                    t.Date >= monthStart &&
+                    t.Date < monthEnd &&
+                    t.Type == "Expense" &&
+                    !t.Paid &&
+                    !t.IsTransfer &&
+                    t.RecurringRuleId.HasValue &&
+                    cashAccounts.ContainsKey(t.AccountId))
+                .Sum(t => t.Amount);
+
+            var projectedRecurringIncome = snapshot.RecurringRules
+                .Where(r =>
+                    r.Type == "Income" &&
+                    r.AccountId.HasValue &&
+                    cashAccounts.ContainsKey(r.AccountId.Value) &&
+                    !RecurringTransactionExists(snapshot.Transactions, r, year, month))
+                .Sum(r => r.Amount);
+
+            var projectedRecurringExpense = snapshot.RecurringRules
+                .Where(r =>
+                    r.Type == "Expense" &&
+                    r.AccountId.HasValue &&
+                    cashAccounts.ContainsKey(r.AccountId.Value) &&
+                    !RecurringTransactionExists(snapshot.Transactions, r, year, month))
+                .Sum(r => r.Amount);
+
+            var goalsContribution = activeGoals.Sum(g => g.MonthlyContribution);
+            var essentialBudgetAmount = essentialBudgets.Sum(b => b.Amount);
+            var cardInvoices = snapshot.Accounts
+                .Where(a => a.IsCreditCard)
+                .Sum(a => _financialSnapshotService.CalculateInvoiceAmount(a, snapshot.Transactions, month, year));
+
+            var consideredIncome = confirmedIncome + predictedIncomeTransactions + projectedRecurringIncome;
+            var recurringExpenses = predictedExpenseTransactions + projectedRecurringExpense;
+            var consideredOutflows = recurringExpenses + essentialBudgetAmount + goalsContribution + cardInvoices;
+            var freeToSpendAmount = consideredIncome - consideredOutflows;
+
+            return new FreeToSpendDto(
+                freeToSpendAmount,
+                confirmedIncome,
+                predictedIncomeTransactions + projectedRecurringIncome,
+                recurringExpenses,
+                essentialBudgetAmount,
+                goalsContribution,
+                cardInvoices,
+                freeToSpendAmount < 0,
+                BuildFreeToSpendExplanation(
+                    consideredIncome,
+                    recurringExpenses,
+                    essentialBudgetAmount,
+                    goalsContribution,
+                    cardInvoices,
+                    freeToSpendAmount));
+        }
+
+        private static bool RecurringTransactionExists(IEnumerable<Transaction> transactions, RecurringTransaction rule, int year, int month)
+        {
+            return transactions.Any(t =>
+                t.UserId == rule.UserId &&
+                t.Date.Year == year &&
+                t.Date.Month == month &&
+                (t.RecurringRuleId == rule.Id ||
+                 (t.AccountId == rule.AccountId &&
+                  t.CategoryId == rule.CategoryId &&
+                  t.Type == rule.Type &&
+                  t.Amount == rule.Amount &&
+                  t.Description == rule.Description)));
+        }
+
+        private static string BuildFreeToSpendExplanation(
+            decimal consideredIncome,
+            decimal recurringExpenses,
+            decimal essentialBudgetAmount,
+            decimal goalsContribution,
+            decimal cardInvoices,
+            decimal freeToSpendAmount)
+        {
+            return
+                $"Receitas consideradas: {consideredIncome:N2}. " +
+                $"Despesas recorrentes previstas: {recurringExpenses:N2}. " +
+                $"Orcamentos essenciais: {essentialBudgetAmount:N2}. " +
+                $"Metas: {goalsContribution:N2}. " +
+                $"Faturas/cartoes: {cardInvoices:N2}. " +
+                $"Resultado livre para gastar: {freeToSpendAmount:N2}.";
+        }
+
+        public sealed record FreeToSpendDto(
+            decimal FreeToSpendAmount,
+            decimal ConfirmedIncome,
+            decimal PredictedIncome,
+            decimal RecurringExpenses,
+            decimal EssentialBudgets,
+            decimal GoalsContribution,
+            decimal CardInvoices,
+            bool IsNegative,
+            string Explanation);
     }
 }

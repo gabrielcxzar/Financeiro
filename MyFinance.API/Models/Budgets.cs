@@ -24,6 +24,9 @@ namespace MyFinance.API.Models
         [Column("allow_rollover")]
         public bool AllowRollover { get; set; }
 
+        [Column("is_essential")]
+        public bool IsEssential { get; set; }
+
         [Column("user_id")]
         public int UserId { get; set; }
     }

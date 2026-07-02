@@ -78,6 +78,6 @@ internal static class TestContextFactory
 
     public static JsonElement ToJsonElement(object value)
     {
-        return JsonSerializer.SerializeToElement(value);
+        return JsonSerializer.SerializeToElement(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 }

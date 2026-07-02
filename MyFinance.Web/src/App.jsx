@@ -14,6 +14,7 @@ import {
   TrophyOutlined,
   RiseOutlined,
   MenuOutlined,
+  FundOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components';
 import dayjs from 'dayjs';
@@ -30,6 +31,7 @@ import Invoices from './pages/Invoices';
 import Profile from './pages/Profile';
 import Budgets from './pages/Budgets';
 import Investments from './pages/Investments';
+import Goals from './pages/Goals';
 import AddTransactionModal from './components/AddTransactionModal';
 import { authExpiredEvent } from './services/api';
 
@@ -137,7 +139,8 @@ const menuItems = [
   { key: '4', icon: <BankOutlined />, label: 'Minhas Carteiras' },
   { key: '5', icon: <SyncOutlined />, label: 'Recorrencias' },
   { key: '6', icon: <TagsOutlined />, label: 'Categorias' },
-  { key: '7', icon: <TrophyOutlined />, label: 'Metas/Orcamentos' },
+  { key: '7', icon: <TrophyOutlined />, label: 'Metas Financeiras' },
+  { key: '11', icon: <FundOutlined />, label: 'Orcamentos' },
   { key: '10', icon: <RiseOutlined />, label: 'Investimentos' },
   { key: '3', icon: <PieChartOutlined />, label: 'Relatorios' },
   { type: 'divider' },
@@ -153,10 +156,11 @@ const pageNames = {
   '4': 'Contas e Carteiras',
   '5': 'Recorrencias',
   '6': 'Categorias',
-  '7': 'Metas e Orcamentos',
+  '7': 'Metas Financeiras',
   '8': 'Faturas',
   '9': 'Perfil',
   '10': 'Investimentos',
+  '11': 'Orcamentos',
 };
 
 const App = () => {
@@ -220,13 +224,15 @@ const App = () => {
       case '6':
         return <Categories />;
       case '7':
-        return <Budgets month={month} year={year} />;
+        return <Goals />;
       case '8':
         return <Invoices />;
       case '9':
         return <Profile />;
       case '10':
         return <Investments />;
+      case '11':
+        return <Budgets month={month} year={year} />;
       default:
         return <Home month={month} year={year} />;
     }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Finflow.Api.LogicTests;
 
@@ -426,7 +427,7 @@ public class FinancialCoreLogicTests
         var projectionObject = Assert.IsType<OkObjectResult>(projectionResult);
         var projectionJson = TestContextFactory.ToJsonElement(projectionObject.Value!);
         Assert.Equal(1000m, projectionJson.GetProperty("startBalance").GetDecimal());
-        Assert.Equal(90m, projectionJson.GetProperty("items")[0].GetProperty("Expense").GetDecimal());
+        Assert.Equal(90m, projectionJson.GetProperty("items")[0].GetProperty("expense").GetDecimal());
 
         var snapshotBeforeGenerate = await finance.BuildUserSnapshotAsync(1, DateTime.UtcNow);
         Assert.Equal(1000m, snapshotBeforeGenerate.AccountSnapshots.Single(s => s.AccountId == bank.Id).RealBalance);
@@ -521,6 +522,154 @@ public class FinancialCoreLogicTests
 
         Assert.Equal(500m, Assert.Single(july.Value!).Amount);
         Assert.Equal(900m, Assert.Single(august.Value!).Amount);
+    }
+
+    [Fact]
+    public async Task GoalsCrud_ReturnsProgress_AndSuggestedContribution()
+    {
+        var (db, _) = TestContextFactory.Create();
+        var (bank, _, _, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var controller = new GoalsController(db);
+        TestContextFactory.AttachUser(controller);
+        var targetDate = DateTime.UtcNow.AddMonths(4);
+
+        var createResult = await controller.PostGoal(
+            new GoalsController.UpsertFinancialGoalDto(
+                "Reserva",
+                "Saving",
+                1200m,
+                300m,
+                targetDate,
+                150m,
+                "Active",
+                bank.Id,
+                "Meta de teste"),
+            CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(createResult.Result);
+        var payload = Assert.IsType<GoalsController.FinancialGoalDto>(created.Value);
+        Assert.Equal(25m, payload.ProgressPercent);
+        Assert.Equal(900m, payload.RemainingAmount);
+        Assert.NotNull(payload.SuggestedMonthlyContribution);
+
+        var list = await controller.GetGoals(CancellationToken.None);
+        var listed = Assert.Single(list.Value!);
+        Assert.Equal("Reserva", listed.Name);
+        Assert.Equal(bank.Id, listed.LinkedAccountId);
+
+        var updateResult = await controller.PutGoal(
+            listed.Id,
+            new GoalsController.UpsertFinancialGoalDto(
+                "Reserva atualizada",
+                "Saving",
+                1200m,
+                1200m,
+                targetDate,
+                0m,
+                "Completed",
+                bank.Id,
+                null),
+            CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(updateResult);
+        Assert.Equal("Completed", (await controller.GetGoals(CancellationToken.None)).Value!.Single().Status);
+
+        var deleteResult = await controller.DeleteGoal(listed.Id, CancellationToken.None);
+        Assert.IsType<NoContentResult>(deleteResult);
+        Assert.Empty((await controller.GetGoals(CancellationToken.None)).Value!);
+    }
+
+    [Fact]
+    public async Task FreeToSpend_ConsidersIncome_Recurring_Budgets_Goals_AndCards()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (bank, card, expenseCategory, incomeCategory) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var dashboard = new DashboardSummaryController(db, finance, NullLogger<DashboardSummaryController>.Instance);
+        TestContextFactory.AttachUser(dashboard);
+        var monthDate = new DateTime(2026, 7, 2, 12, 0, 0, DateTimeKind.Utc);
+
+        db.Transactions.AddRange(
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = bank.Id,
+                CategoryId = incomeCategory.Id,
+                Description = "Salario",
+                Amount = 1000m,
+                Type = "Income",
+                Paid = true,
+                Date = monthDate
+            },
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra cartao",
+                Amount = 80m,
+                Type = "Expense",
+                Paid = true,
+                Date = monthDate
+            });
+
+        db.RecurringTransactions.AddRange(
+            new RecurringTransaction
+            {
+                UserId = 1,
+                AccountId = bank.Id,
+                CategoryId = incomeCategory.Id,
+                Description = "Renda extra",
+                Amount = 300m,
+                Type = "Income",
+                DayOfMonth = 10,
+                Active = true
+            },
+            new RecurringTransaction
+            {
+                UserId = 1,
+                AccountId = bank.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Internet",
+                Amount = 150m,
+                Type = "Expense",
+                DayOfMonth = 15,
+                Active = true
+            });
+
+        db.Budgets.Add(new Budget
+        {
+            UserId = 1,
+            CategoryId = expenseCategory.Id,
+            Amount = 250m,
+            Month = 7,
+            Year = 2026,
+            IsEssential = true
+        });
+
+        db.FinancialGoals.Add(new FinancialGoal
+        {
+            UserId = 1,
+            Name = "Reserva",
+            GoalType = "Saving",
+            TargetAmount = 5000m,
+            CurrentAmount = 1000m,
+            MonthlyContribution = 100m,
+            Status = "Active"
+        });
+
+        await db.SaveChangesAsync();
+
+        var result = await dashboard.GetFreeToSpend(7, 2026, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = TestContextFactory.ToJsonElement(ok.Value!);
+
+        Assert.Equal(720m, json.GetProperty("freeToSpendAmount").GetDecimal());
+        Assert.Equal(1000m, json.GetProperty("confirmedIncome").GetDecimal());
+        Assert.Equal(300m, json.GetProperty("predictedIncome").GetDecimal());
+        Assert.Equal(150m, json.GetProperty("recurringExpenses").GetDecimal());
+        Assert.Equal(250m, json.GetProperty("essentialBudgets").GetDecimal());
+        Assert.Equal(100m, json.GetProperty("goalsContribution").GetDecimal());
+        Assert.Equal(80m, json.GetProperty("cardInvoices").GetDecimal());
     }
 
     [Fact]

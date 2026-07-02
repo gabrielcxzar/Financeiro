@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row, Statistic, Table, Tag, Button, Grid, message } from 'antd';
+import { Card, Col, Row, Statistic, Table, Tag, Button, Grid, message, Alert, Tooltip, Space } from 'antd';
 import {
   ArrowUpOutlined,
   ArrowDownOutlined,
@@ -34,6 +34,17 @@ export default function Home({ month, year }) {
   const [projection, setProjection] = useState([]);
   const [projectionStart, setProjectionStart] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [freeToSpend, setFreeToSpend] = useState({
+    freeToSpendAmount: 0,
+    confirmedIncome: 0,
+    predictedIncome: 0,
+    recurringExpenses: 0,
+    essentialBudgets: 0,
+    goalsContribution: 0,
+    cardInvoices: 0,
+    isNegative: false,
+    explanation: '',
+  });
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -125,6 +136,17 @@ export default function Home({ month, year }) {
         setCategorySummary(payload.categorySummary || []);
         setProjection(payload.projection?.items || []);
         setProjectionStart(payload.projection?.startBalance ?? apiSummary.total ?? 0);
+        setFreeToSpend(payload.freeToSpend || {
+          freeToSpendAmount: 0,
+          confirmedIncome: 0,
+          predictedIncome: 0,
+          recurringExpenses: 0,
+          essentialBudgets: 0,
+          goalsContribution: 0,
+          cardInvoices: 0,
+          isNegative: false,
+          explanation: '',
+        });
       } catch (error) {
         if (controller.signal.aborted) return;
 
@@ -181,6 +203,74 @@ export default function Home({ month, year }) {
       </Card>
 
       <Row gutter={[16, 16]}>
+        <Col xs={24}>
+          <Card
+            variant="borderless"
+            style={{
+              borderTop: `4px solid ${freeToSpend.isNegative ? '#cf1322' : '#52c41a'}`,
+              borderRadius: 8,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            }}
+          >
+            <Row gutter={[16, 16]} align="middle">
+              <Col xs={24} lg={10}>
+                <Statistic
+                  title={
+                    <Space size={6}>
+                      Livre para gastar este mes
+                      <Tooltip title="Receitas confirmadas e previstas menos recorrencias, orcamentos essenciais, metas e faturas de cartao.">
+                        <span style={{ color: '#8c8c8c', cursor: 'help' }}>Como calculamos</span>
+                      </Tooltip>
+                    </Space>
+                  }
+                  value={freeToSpend.freeToSpendAmount}
+                  formatter={(value) => (
+                    <span style={{ color: freeToSpend.isNegative ? '#cf1322' : '#52c41a', fontWeight: 'bold', fontSize: isCompact ? 24 : 28 }}>
+                      {formatMoney(value)}
+                    </span>
+                  )}
+                />
+              </Col>
+              <Col xs={24} lg={14}>
+                <Row gutter={[12, 12]}>
+                  <Col xs={24} sm={12}>
+                    <div>Receitas consideradas: <b>{formatMoney(freeToSpend.confirmedIncome + freeToSpend.predictedIncome)}</b></div>
+                    <div>Despesas recorrentes: <b>{formatMoney(freeToSpend.recurringExpenses)}</b></div>
+                    <div>Orcamentos essenciais: <b>{formatMoney(freeToSpend.essentialBudgets)}</b></div>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <div>Metas consideradas: <b>{formatMoney(freeToSpend.goalsContribution)}</b></div>
+                    <div>Faturas/cartoes: <b>{formatMoney(freeToSpend.cardInvoices)}</b></div>
+                    <div>Receitas previstas: <b>{formatMoney(freeToSpend.predictedIncome)}</b></div>
+                  </Col>
+                </Row>
+              </Col>
+            </Row>
+
+            <div style={{ marginTop: 12 }}>
+              {freeToSpend.isNegative ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="O mes esta comprometido"
+                  description="O valor livre para gastar ficou negativo. Revise orcamentos, metas ou despesas previstas."
+                />
+              ) : (
+                <Alert
+                  type="success"
+                  showIcon
+                  message="Planejamento saudavel"
+                  description="O valor calculado indica quanto ainda pode ser gasto sem comprometer o mes, considerando os itens planejados."
+                />
+              )}
+            </div>
+
+            <div style={{ marginTop: 12, color: '#595959', fontSize: 12 }}>
+              {freeToSpend.explanation}
+            </div>
+          </Card>
+        </Col>
+
         <Col xs={24} sm={12} lg={8}>
           <Card
             variant="borderless"

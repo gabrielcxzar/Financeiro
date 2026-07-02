@@ -62,6 +62,7 @@ namespace MyFinance.API.Controllers
             {
                 existing.Amount = request.Amount;
                 existing.AllowRollover = request.AllowRollover;
+                existing.IsEssential = request.IsEssential;
                 await _context.SaveChangesAsync();
                 return Ok(existing);
             }
@@ -73,6 +74,7 @@ namespace MyFinance.API.Controllers
                 Month = request.Month,
                 Year = request.Year,
                 AllowRollover = request.AllowRollover,
+                IsEssential = request.IsEssential,
                 UserId = userId
             };
 
@@ -101,6 +103,7 @@ namespace MyFinance.API.Controllers
             public int Month { get; set; } = DateTime.UtcNow.Month;
             public int Year { get; set; } = DateTime.UtcNow.Year;
             public bool AllowRollover { get; set; }
+            public bool IsEssential { get; set; }
         }
     }
 }
