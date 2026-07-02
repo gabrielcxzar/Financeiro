@@ -15,6 +15,15 @@ namespace MyFinance.API.Models
         public int CategoryId { get; set; }
         public Category? Category { get; set; }
 
+        [Column("month")]
+        public int Month { get; set; }
+
+        [Column("year")]
+        public int Year { get; set; }
+
+        [Column("allow_rollover")]
+        public bool AllowRollover { get; set; }
+
         [Column("user_id")]
         public int UserId { get; set; }
     }

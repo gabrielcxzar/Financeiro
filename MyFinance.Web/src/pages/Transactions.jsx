@@ -63,8 +63,18 @@ export default function Transactions({ month, year }) {
   };
 
   const handleEdit = (record) => {
+    if (record.isTransfer) {
+      message.info('Transacoes de transferencia devem ser ajustadas pelo fluxo de transferencia.');
+      return;
+    }
+
     setEditingItem(record);
     setIsModalOpen(true);
+  };
+
+  const getStatusLabel = (record) => {
+    if (record.paid) return 'Confirmado';
+    return new Date(record.date) > new Date() ? 'Previsto' : 'Pendente';
   };
 
   const columns = [
@@ -102,7 +112,11 @@ export default function Transactions({ month, year }) {
       title: 'Status',
       dataIndex: 'paid',
       key: 'paid',
-      render: (paid) => <Tag color={paid ? 'green' : 'orange'}>{paid ? 'Pago' : 'Pendente'}</Tag>,
+      render: (_, record) => {
+        const label = getStatusLabel(record);
+        const color = label === 'Confirmado' ? 'green' : label === 'Previsto' ? 'blue' : 'orange';
+        return <Tag color={color}>{label}</Tag>;
+      },
     },
     {
       title: 'Acoes',

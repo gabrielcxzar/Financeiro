@@ -33,8 +33,19 @@ namespace MyFinance.API.Models
         
         [Column("user_id")]
         public int UserId { get; set; }
+
+        [Column("is_transfer")]
+        public bool IsTransfer { get; set; }
+
+        [Column("transfer_group_id")]
+        public string? TransferGroupId { get; set; }
+
+        [Column("recurring_rule_id")]
+        public int? RecurringRuleId { get; set; }
+
         [NotMapped]
         public int Installments { get; set; } = 1;
+
         [Column("installment_id")]
         public string? InstallmentId { get; set; }
     }

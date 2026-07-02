@@ -40,7 +40,7 @@ export default function Budgets({ month, year }) {
     try {
       setLoading(true);
       const [budgetsRes, catRes, transRes] = await Promise.all([
-        api.get('/budgets'),
+        api.get(`/budgets?month=${month}&year=${year}`),
         api.get('/categories'),
         api.get(`/transactions?month=${month}&year=${year}`),
       ]);
@@ -59,7 +59,7 @@ export default function Budgets({ month, year }) {
   const handleSave = async () => {
     try {
       const values = await form.validateFields();
-      await api.post('/budgets', values);
+      await api.post('/budgets', { ...values, month, year });
       message.success('Meta definida!');
       setIsModalOpen(false);
       form.resetFields();

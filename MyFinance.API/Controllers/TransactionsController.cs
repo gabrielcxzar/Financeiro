@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
+using MyFinance.API.Services;
 using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
@@ -12,10 +13,12 @@ namespace MyFinance.API.Controllers
     public class TransactionsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IFinancialSnapshotService _financialSnapshotService;
 
-        public TransactionsController(AppDbContext context)
+        public TransactionsController(AppDbContext context, IFinancialSnapshotService financialSnapshotService)
         {
             _context = context;
+            _financialSnapshotService = financialSnapshotService;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -50,42 +53,25 @@ namespace MyFinance.API.Controllers
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId);
 
             if (account == null || !account.IsCreditCard) return BadRequest("Conta invalida");
-
-            int closingDay = account.ClosingDay ?? 1;
-            int dueDay = account.DueDay ?? 10;
-
-            int daysInMonth = DateTime.DaysInMonth(year, month);
-            int safeClosingDay = Math.Min(closingDay, daysInMonth);
-            DateTime closeDate = new DateTime(year, month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-
-            DateTime startDate = closeDate.AddMonths(-1).AddDays(1);
-
-            DateTime dueDate;
-            if (dueDay < closingDay)
-            {
-                var nextMonthDate = closeDate.AddMonths(1);
-                int daysInNextMonth = DateTime.DaysInMonth(nextMonthDate.Year, nextMonthDate.Month);
-                int safeDueDay = Math.Min(dueDay, daysInNextMonth);
-                dueDate = new DateTime(nextMonthDate.Year, nextMonthDate.Month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
-            }
-            else
-            {
-                int safeDueDay = Math.Min(dueDay, daysInMonth);
-                dueDate = new DateTime(year, month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
-            }
+            var invoiceWindow = _financialSnapshotService.GetInvoiceWindow(account, month, year);
 
             var transactions = await _context.Transactions
                 .Include(t => t.Category)
-                .Where(t => t.AccountId == accountId && t.UserId == userId && t.Date >= startDate && t.Date <= closeDate)
+                .Where(t =>
+                    t.AccountId == accountId &&
+                    t.UserId == userId &&
+                    t.Date >= invoiceWindow.StartDate &&
+                    t.Date <= invoiceWindow.CloseDate &&
+                    !t.IsTransfer)
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
 
-            var total = transactions.Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount);
+            var total = _financialSnapshotService.CalculateInvoiceAmount(account, transactions, month, year);
 
             return new
             {
-                period = $"{startDate:dd/MM} a {closeDate:dd/MM}",
-                dueDate = dueDate,
+                period = $"{invoiceWindow.StartDate:dd/MM} a {invoiceWindow.CloseDate:dd/MM}",
+                dueDate = invoiceWindow.DueDate,
                 total,
                 status = total > 0 ? "Aberta" : "Paga",
                 transactions
@@ -141,14 +127,10 @@ namespace MyFinance.API.Controllers
 
                 _context.Transactions.Add(novaTransacao);
                 created.Add(novaTransacao);
-
-                if (novaTransacao.Type == "Income") account.CurrentBalance += novaTransacao.Amount;
-                else account.CurrentBalance -= novaTransacao.Amount;
-
-                _context.Entry(account).State = EntityState.Modified;
             }
 
             await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
 
             var first = created.FirstOrDefault();
             if (first == null) return Ok();
@@ -160,19 +142,26 @@ namespace MyFinance.API.Controllers
         public async Task<IActionResult> PutTransaction(int id, [FromBody] UpsertTransactionDto request)
         {
             var userId = GetUserId();
+            if (request.Id != 0 && request.Id != id)
+                return BadRequest("Id do corpo difere da rota.");
             if (string.IsNullOrWhiteSpace(request.Description))
                 return BadRequest("Descricao obrigatoria.");
             if (request.Amount <= 0)
                 return BadRequest("Valor deve ser maior que zero.");
             if (request.AccountId <= 0)
                 return BadRequest("Conta invalida.");
-            if (request.CategoryId <= 0)
-                return BadRequest("Categoria invalida.");
 
             var oldTransaction = await _context.Transactions.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
             if (oldTransaction == null) return NotFound();
+            if (!oldTransaction.IsTransfer && request.CategoryId <= 0)
+                return BadRequest("Categoria invalida.");
+
+            if (oldTransaction.IsTransfer)
+            {
+                return await UpdateTransferAsync(oldTransaction, request, userId);
+            }
 
             var transaction = new Transaction
             {
@@ -185,32 +174,19 @@ namespace MyFinance.API.Controllers
                 Amount = request.Amount,
                 Description = request.Description,
                 Date = request.Date.ToUniversalTime(),
-                InstallmentId = oldTransaction.InstallmentId
+                InstallmentId = oldTransaction.InstallmentId,
+                IsTransfer = oldTransaction.IsTransfer,
+                TransferGroupId = oldTransaction.TransferGroupId,
+                RecurringRuleId = oldTransaction.RecurringRuleId
             };
 
-            var oldAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == oldTransaction.AccountId && a.UserId == userId);
             var newAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
             if (newAccount == null)
                 return BadRequest("Conta invalida.");
 
-            if (oldAccount != null)
-            {
-                if (oldTransaction.Type == "Income") oldAccount.CurrentBalance -= oldTransaction.Amount;
-                else oldAccount.CurrentBalance += oldTransaction.Amount;
-
-                _context.Entry(oldAccount).State = EntityState.Modified;
-            }
-
-            if (newAccount != null)
-            {
-                if (transaction.Type == "Income") newAccount.CurrentBalance += transaction.Amount;
-                else newAccount.CurrentBalance -= transaction.Amount;
-
-                _context.Entry(newAccount).State = EntityState.Modified;
-            }
-
             _context.Entry(transaction).State = EntityState.Modified;
             await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
 
             return NoContent();
         }
@@ -222,6 +198,10 @@ namespace MyFinance.API.Controllers
             var transaction = await _context.Transactions.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
             if (transaction == null) return NotFound();
+            if (transaction.IsTransfer)
+            {
+                return await DeleteTransferAsync(transaction, userId);
+            }
 
             List<Transaction> transactionsToDelete = new List<Transaction>();
 
@@ -236,21 +216,10 @@ namespace MyFinance.API.Controllers
                 transactionsToDelete.Add(transaction);
             }
 
-            foreach (var t in transactionsToDelete)
-            {
-                var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == t.AccountId && a.UserId == userId);
-                if (account != null)
-                {
-                    if (t.Type == "Income") account.CurrentBalance -= t.Amount;
-                    else account.CurrentBalance += t.Amount;
-
-                    _context.Entry(account).State = EntityState.Modified;
-                }
-
-                _context.Transactions.Remove(t);
-            }
+            _context.Transactions.RemoveRange(transactionsToDelete);
 
             await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
             return NoContent();
         }
 
@@ -263,15 +232,23 @@ namespace MyFinance.API.Controllers
                 return BadRequest("Contas invalidas");
             var dateUtc = request.Date.ToUniversalTime();
 
+            var fromAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.FromAccountId && a.UserId == userId);
+            var toAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.ToAccountId && a.UserId == userId);
+
+            if (fromAcc == null || toAcc == null)
+                return BadRequest("Contas invalidas");
+
             var expense = new Transaction
             {
                 UserId = userId,
                 AccountId = request.FromAccountId,
                 Amount = request.Amount,
-                Description = "Transferencia para conta/cartao",
+                Description = toAcc?.IsCreditCard == true ? "Pagamento de fatura" : "Transferencia para conta/cartao",
                 Type = "Expense",
                 Date = dateUtc,
-                Paid = true
+                Paid = true,
+                IsTransfer = true,
+                TransferGroupId = Guid.NewGuid().ToString("N")
             };
 
             var income = new Transaction
@@ -279,27 +256,120 @@ namespace MyFinance.API.Controllers
                 UserId = userId,
                 AccountId = request.ToAccountId,
                 Amount = request.Amount,
-                Description = "Recebido de transferencia",
+                Description = toAcc?.IsCreditCard == true ? "Pagamento de fatura" : "Recebido de transferencia",
                 Type = "Income",
                 Date = dateUtc,
-                Paid = true
+                Paid = true,
+                IsTransfer = true,
+                TransferGroupId = expense.TransferGroupId
             };
-
-            var fromAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.FromAccountId && a.UserId == userId);
-            var toAcc = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.ToAccountId && a.UserId == userId);
-
-            if (fromAcc == null || toAcc == null)
-                return BadRequest("Contas invalidas");
-
-            fromAcc.CurrentBalance -= request.Amount;
-            toAcc.CurrentBalance += request.Amount;
 
             _context.Transactions.Add(expense);
             _context.Transactions.Add(income);
 
             await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
 
             return Ok(new { message = "Transferencia/Pagamento realizado!" });
+        }
+
+        private async Task<IActionResult> UpdateTransferAsync(Transaction originalTransaction, UpsertTransactionDto request, int userId)
+        {
+            var transferPair = await LoadTransferPairAsync(originalTransaction, userId);
+            if (transferPair == null)
+            {
+                return Conflict("Transferencia inconsistente. As duas pontas nao foram encontradas.");
+            }
+
+            var editedSide = transferPair.Single(t => t.Id == originalTransaction.Id);
+            var otherSide = transferPair.Single(t => t.Id != originalTransaction.Id);
+
+            if (request.Type != editedSide.Type)
+            {
+                return BadRequest("Nao e permitido alterar o tipo de uma transferencia.");
+            }
+
+            var updatedAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId && a.UserId == userId);
+            var otherAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == otherSide.AccountId && a.UserId == userId);
+            if (updatedAccount == null || otherAccount == null)
+            {
+                return BadRequest("Contas invalidas");
+            }
+
+            if (updatedAccount.Id == otherAccount.Id)
+            {
+                return BadRequest("Contas invalidas");
+            }
+
+            var transferDate = request.Date == default ? originalTransaction.Date : request.Date.ToUniversalTime();
+            var updatedDescription = ResolveTransferDescription(updatedAccount, otherAccount, editedSide.Type);
+            var otherDescription = ResolveTransferDescription(otherAccount, updatedAccount, otherSide.Type);
+
+            editedSide.AccountId = updatedAccount.Id;
+            editedSide.Amount = request.Amount;
+            editedSide.Description = updatedDescription;
+            editedSide.Date = transferDate;
+            editedSide.Paid = true;
+
+            otherSide.Amount = request.Amount;
+            otherSide.Description = otherDescription;
+            otherSide.Date = transferDate;
+            otherSide.Paid = true;
+
+            _context.Transactions.UpdateRange(editedSide, otherSide);
+            await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
+            return NoContent();
+        }
+
+        private async Task<IActionResult> DeleteTransferAsync(Transaction transaction, int userId)
+        {
+            var transferPair = await LoadTransferPairAsync(transaction, userId);
+            if (transferPair == null)
+            {
+                return Conflict("Transferencia inconsistente. As duas pontas nao foram encontradas.");
+            }
+
+            _context.Transactions.RemoveRange(transferPair);
+            await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
+            return NoContent();
+        }
+
+        private async Task<List<Transaction>?> LoadTransferPairAsync(Transaction transaction, int userId)
+        {
+            if (!transaction.IsTransfer || string.IsNullOrWhiteSpace(transaction.TransferGroupId))
+            {
+                return null;
+            }
+
+            var pair = await _context.Transactions
+                .Where(t => t.UserId == userId && t.TransferGroupId == transaction.TransferGroupId)
+                .ToListAsync();
+
+            if (pair.Count != 2)
+            {
+                return null;
+            }
+
+            var hasExpense = pair.Any(t => t.Type == "Expense");
+            var hasIncome = pair.Any(t => t.Type == "Income");
+            if (!hasExpense || !hasIncome)
+            {
+                return null;
+            }
+
+            return pair;
+        }
+
+        private static string ResolveTransferDescription(Account sourceAccount, Account destinationAccount, string type)
+        {
+            if (type == "Expense")
+            {
+                return destinationAccount.IsCreditCard ? "Pagamento de fatura" : "Transferencia para conta/cartao";
+            }
+
+            return sourceAccount.IsCreditCard ? "Pagamento de fatura" : "Recebido de transferencia";
         }
     }
 
@@ -313,6 +383,7 @@ namespace MyFinance.API.Controllers
 
     public class UpsertTransactionDto
     {
+        public int Id { get; set; }
         public string Description { get; set; } = string.Empty;
         public decimal Amount { get; set; }
         public string Type { get; set; } = "Expense";

@@ -15,7 +15,14 @@ const { useBreakpoint } = Grid;
 
 export default function Home({ month, year }) {
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState({ total: 0, income: 0, expense: 0 });
+  const [summary, setSummary] = useState({
+    total: 0,
+    income: 0,
+    expense: 0,
+    pendingTotal: 0,
+    projectedTotal: 0,
+    cardLiability: 0,
+  });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [categorySummary, setCategorySummary] = useState([]);
   const [predictedFixed, setPredictedFixed] = useState(0);
@@ -34,6 +41,11 @@ export default function Home({ month, year }) {
   const formatMonthYear = (monthNum, yearNum) => {
     const date = new Date(yearNum, monthNum - 1, 1);
     return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  };
+
+  const getStatusLabel = (record) => {
+    if (record.paid) return 'Confirmado';
+    return new Date(record.date) > new Date() ? 'Previsto' : 'Pendente';
   };
 
   const columns = [
@@ -65,7 +77,11 @@ export default function Home({ month, year }) {
       title: 'Status',
       dataIndex: 'paid',
       key: 'paid',
-      render: (paid) => <Tag color={paid ? 'green' : 'orange'}>{paid ? 'Pago' : 'Pendente'}</Tag>,
+      render: (_, record) => {
+        const label = getStatusLabel(record);
+        const color = label === 'Confirmado' ? 'green' : label === 'Previsto' ? 'blue' : 'orange';
+        return <Tag color={color}>{label}</Tag>;
+      },
     },
   ];
 
@@ -91,6 +107,9 @@ export default function Home({ month, year }) {
           total: apiSummary.total || 0,
           income: apiSummary.income || 0,
           expense: apiSummary.expense || 0,
+          pendingTotal: apiSummary.pendingTotal || 0,
+          projectedTotal: apiSummary.projectedTotal || 0,
+          cardLiability: apiSummary.cardLiability || 0,
         });
         setRecentTransactions(payload.recentTransactions || []);
         setCategorySummary(payload.categorySummary || []);
@@ -194,6 +213,12 @@ export default function Home({ month, year }) {
               render: (v) => <span style={{ color: '#cf1322' }}>{formatMoney(v)}</span>,
             },
             {
+              title: 'Transferencias/Passivos',
+              dataIndex: 'transferImpact',
+              key: 'transferImpact',
+              render: (v) => <span style={{ color: v < 0 ? '#d46b08' : '#1890ff' }}>{formatMoney(v)}</span>,
+            },
+            {
               title: 'Saldo Liquido',
               dataIndex: 'net',
               key: 'net',
@@ -256,6 +281,36 @@ export default function Home({ month, year }) {
                 <span style={{ color: '#cf1322', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>
               )}
               prefix={<ArrowDownOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #faad14', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Saldo Pendente"
+              value={summary.pendingTotal}
+              formatter={(value) => <span style={{ color: '#faad14', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #722ed1', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Saldo Projetado"
+              value={summary.projectedTotal}
+              formatter={(value) => <span style={{ color: '#722ed1', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={8}>
+          <Card variant="borderless" style={{ borderTop: '4px solid #595959', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+            <Statistic
+              title="Passivo no Cartao"
+              value={summary.cardLiability}
+              formatter={(value) => <span style={{ color: '#595959', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
             />
           </Card>
         </Col>
