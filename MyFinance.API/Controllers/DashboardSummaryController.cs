@@ -111,6 +111,19 @@ namespace MyFinance.API.Controllers
             var cardLiability = accountSnapshots.Values
                 .Where(a => a.IsCreditCard)
                 .Sum(a => a.OutstandingLiability);
+            var pendingCardLiability = accountSnapshots.Values
+                .Where(a => a.IsCreditCard)
+                .Sum(a => a.PendingLiability);
+            var projectedCardLiability = accountSnapshots.Values
+                .Where(a => a.IsCreditCard)
+                .Sum(a => a.ProjectedLiability);
+
+            var normalizedCardLiability = Math.Max(cardLiability, 0m);
+            var normalizedPendingCardLiability = Math.Max(pendingCardLiability, 0m);
+            var normalizedProjectedCardLiability = Math.Max(projectedCardLiability, 0m);
+            var netWorth = totalBalance - normalizedCardLiability;
+            var pendingNetWorth = pendingTotal - normalizedPendingCardLiability;
+            var projectedNetWorth = projectedTotal - normalizedProjectedCardLiability;
 
             var totalIncome = transactions
                 .Where(t => t.Type == "Income" && !t.IsTransfer && t.Paid)
@@ -144,7 +157,19 @@ namespace MyFinance.API.Controllers
             var payload = new DashboardSummaryResponse(
                 month,
                 year,
-                new DashboardSummaryDto(totalBalance, totalIncome, totalExpense, predictedFixed, pendingTotal, projectedTotal, cardLiability),
+                new DashboardSummaryDto(
+                    totalBalance,
+                    totalIncome,
+                    totalExpense,
+                    predictedFixed,
+                    pendingTotal,
+                    projectedTotal,
+                    normalizedCardLiability,
+                    normalizedPendingCardLiability,
+                    normalizedProjectedCardLiability,
+                    netWorth,
+                    pendingNetWorth,
+                    projectedNetWorth),
                 transactions,
                 transactions.Take(5).ToList(),
                 snapshot.Accounts
@@ -210,7 +235,12 @@ namespace MyFinance.API.Controllers
             decimal PredictedFixed,
             decimal PendingTotal,
             decimal ProjectedTotal,
-            decimal CardLiability);
+            decimal CardLiability,
+            decimal PendingCardLiability,
+            decimal ProjectedCardLiability,
+            decimal NetWorth,
+            decimal PendingNetWorth,
+            decimal ProjectedNetWorth);
 
         public sealed record AccountSnapshotDto(
             int Id,

@@ -22,6 +22,11 @@ export default function Home({ month, year }) {
     pendingTotal: 0,
     projectedTotal: 0,
     cardLiability: 0,
+    pendingCardLiability: 0,
+    projectedCardLiability: 0,
+    netWorth: 0,
+    pendingNetWorth: 0,
+    projectedNetWorth: 0,
   });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [categorySummary, setCategorySummary] = useState([]);
@@ -110,6 +115,11 @@ export default function Home({ month, year }) {
           pendingTotal: apiSummary.pendingTotal || 0,
           projectedTotal: apiSummary.projectedTotal || 0,
           cardLiability: apiSummary.cardLiability || 0,
+          pendingCardLiability: apiSummary.pendingCardLiability || 0,
+          projectedCardLiability: apiSummary.projectedCardLiability || 0,
+          netWorth: apiSummary.netWorth || 0,
+          pendingNetWorth: apiSummary.pendingNetWorth || 0,
+          projectedNetWorth: apiSummary.projectedNetWorth || 0,
         });
         setRecentTransactions(payload.recentTransactions || []);
         setCategorySummary(payload.categorySummary || []);
@@ -169,6 +179,60 @@ export default function Home({ month, year }) {
           </Button>
         </div>
       </Card>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} lg={8}>
+          <Card
+            variant="borderless"
+            style={{ borderTop: '4px solid #1890ff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+          >
+            <Statistic
+              title="Saldo em Contas"
+              value={summary.total}
+              formatter={(value) => (
+                <span style={{ color: '#1890ff', fontWeight: 'bold', fontSize: isCompact ? 20 : 24 }}>
+                  {formatMoney(value)}
+                </span>
+              )}
+              prefix={<DollarOutlined />}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={8}>
+          <Card
+            variant="borderless"
+            style={{ borderTop: '4px solid #595959', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+          >
+            <Statistic
+              title="Passivo em Cartoes"
+              value={summary.cardLiability}
+              formatter={(value) => (
+                <span style={{ color: '#595959', fontWeight: 'bold', fontSize: isCompact ? 20 : 24 }}>
+                  {formatMoney(value)}
+                </span>
+              )}
+            />
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={8}>
+          <Card
+            variant="borderless"
+            style={{ borderTop: '4px solid #13c2c2', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+          >
+            <Statistic
+              title="Patrimonio Liquido"
+              value={summary.netWorth}
+              formatter={(value) => (
+                <span style={{ color: '#13c2c2', fontWeight: 'bold', fontSize: isCompact ? 20 : 24 }}>
+                  {formatMoney(value)}
+                </span>
+              )}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       <Card variant="borderless" bodyStyle={{ padding: isCompact ? 14 : 20 }}>
         <div
@@ -241,8 +305,8 @@ export default function Home({ month, year }) {
             style={{ borderTop: '4px solid #1890ff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
           >
             <Statistic
-              title="Saldo Geral (Atual)"
-              value={summary.total}
+              title="Saldo Disponivel + Pendencias"
+              value={summary.pendingTotal}
               formatter={(value) => (
                 <span style={{ color: '#1890ff', fontWeight: 'bold', fontSize: isCompact ? 20 : 24 }}>
                   {formatMoney(value)}
@@ -290,8 +354,8 @@ export default function Home({ month, year }) {
         <Col xs={24} sm={12} lg={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #faad14', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Saldo Pendente"
-              value={summary.pendingTotal}
+              title="Patrimonio com Pendencias"
+              value={summary.pendingNetWorth}
               formatter={(value) => <span style={{ color: '#faad14', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
             />
           </Card>
@@ -299,8 +363,8 @@ export default function Home({ month, year }) {
         <Col xs={24} sm={12} lg={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #722ed1', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Saldo Projetado"
-              value={summary.projectedTotal}
+              title="Patrimonio Projetado"
+              value={summary.projectedNetWorth}
               formatter={(value) => <span style={{ color: '#722ed1', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
             />
           </Card>
@@ -308,8 +372,8 @@ export default function Home({ month, year }) {
         <Col xs={24} sm={12} lg={8}>
           <Card variant="borderless" style={{ borderTop: '4px solid #595959', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
             <Statistic
-              title="Passivo no Cartao"
-              value={summary.cardLiability}
+              title="Passivo Projetado no Cartao"
+              value={summary.projectedCardLiability}
               formatter={(value) => <span style={{ color: '#595959', fontSize: isCompact ? 20 : 24 }}>{formatMoney(value)}</span>}
             />
           </Card>
