@@ -228,6 +228,61 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task CreditCardInstallmentInProgress_CreatesOnlyRemainingParcels_WithCorrectSequence()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (_, card, expenseCategory, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var transactions = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(transactions);
+        var baseDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        var result = await transactions.PostTransaction(new UpsertTransactionDto
+        {
+            Description = "Revisao da moto - Moto Facil Yamaha",
+            Amount = 71.73m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = baseDate,
+            InstallmentNumber = 3,
+            TotalInstallments = 6
+        });
+
+        Assert.IsType<CreatedAtActionResult>(result.Result);
+
+        var created = await db.Transactions
+            .Where(t => t.AccountId == card.Id)
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        Assert.Equal(4, created.Count);
+        Assert.Collection(created,
+            first =>
+            {
+                Assert.Equal("Revisao da moto - Moto Facil Yamaha (3/6)", first.Description);
+                Assert.Equal(baseDate, first.Date);
+            },
+            second =>
+            {
+                Assert.Equal("Revisao da moto - Moto Facil Yamaha (4/6)", second.Description);
+                Assert.Equal(baseDate.AddMonths(1), second.Date);
+            },
+            third =>
+            {
+                Assert.Equal("Revisao da moto - Moto Facil Yamaha (5/6)", third.Description);
+                Assert.Equal(baseDate.AddMonths(2), third.Date);
+            },
+            fourth =>
+            {
+                Assert.Equal("Revisao da moto - Moto Facil Yamaha (6/6)", fourth.Description);
+                Assert.Equal(baseDate.AddMonths(3), fourth.Date);
+            });
+
+        Assert.Single(created.Select(t => t.InstallmentId).Distinct());
+    }
+
+    [Fact]
     public async Task RecurringFuture_AppearsInProjection_ButNotInRealBalance_AndDoesNotDuplicateGeneration()
     {
         var (db, finance) = TestContextFactory.Create();
