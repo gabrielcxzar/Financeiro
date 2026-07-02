@@ -13,6 +13,8 @@ import {
   Empty,
   Popconfirm,
   Grid,
+  Switch,
+  Tag,
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../services/api';
@@ -60,18 +62,18 @@ export default function Budgets({ month, year }) {
     try {
       const values = await form.validateFields();
       await api.post('/budgets', { ...values, month, year });
-      message.success('Meta definida!');
+      message.success('Orcamento definido.');
       setIsModalOpen(false);
       form.resetFields();
       loadData();
-    } catch {
-      message.error('Erro ao salvar meta.');
+    } catch (error) {
+      message.error(error?.message || 'Erro ao salvar orcamento.');
     }
   };
 
   const handleDelete = async (id) => {
     await api.delete(`/budgets/${id}`);
-    message.success('Meta removida.');
+      message.success('Orcamento removido.');
     loadData();
   };
 
@@ -101,13 +103,19 @@ export default function Budgets({ month, year }) {
             </div>
           }
           extra={
-            <Popconfirm title="Remover meta?" onConfirm={() => handleDelete(budget.id)}>
+            <Popconfirm title="Remover orcamento?" onConfirm={() => handleDelete(budget.id)}>
               <Button type="text" danger icon={<DeleteOutlined />} size="small" />
             </Popconfirm>
           }
           style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
           loading={loading}
         >
+          <div style={{ marginBottom: 8 }}>
+            <Tag color={budget.isEssential ? 'gold' : 'default'}>
+              {budget.isEssential ? 'Essencial no planejamento' : 'Nao essencial'}
+            </Tag>
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             <span style={{ color: '#888' }}>
               Gasto: <b>{formatMoney(spent)}</b>
@@ -150,20 +158,20 @@ export default function Budgets({ month, year }) {
           gap: 12,
         }}
       >
-        <h2 style={{ margin: 0 }}>Metas de Orcamento</h2>
+        <h2 style={{ margin: 0 }}>Orcamentos por Categoria</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} block={isCompact}>
-          Definir Meta
+          Definir Orcamento
         </Button>
       </div>
 
       {budgets.length === 0 ? (
-        <Empty description="Nenhuma meta definida para controlar seus gastos." />
+        <Empty description="Nenhum orcamento definido para este mes." />
       ) : (
         <Row gutter={[16, 16]}>{budgets.map(renderBudgetCard)}</Row>
       )}
 
       <Modal
-        title="Definir Meta de Gasto"
+        title="Definir Orcamento de Gasto"
         open={isModalOpen}
         onOk={handleSave}
         onCancel={() => setIsModalOpen(false)}
@@ -191,6 +199,15 @@ export default function Budgets({ month, year }) {
             rules={[{ required: true, message: 'Informe o limite' }]}
           >
             <InputNumber style={{ width: '100%' }} prefix="R$" precision={2} />
+          </Form.Item>
+
+          <Form.Item
+            name="isEssential"
+            label="Considerar no calculo de livre para gastar"
+            valuePropName="checked"
+            initialValue={false}
+          >
+            <Switch checkedChildren="Sim" unCheckedChildren="Nao" />
           </Form.Item>
         </Form>
       </Modal>
