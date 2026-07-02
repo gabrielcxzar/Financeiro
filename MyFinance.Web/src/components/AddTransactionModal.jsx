@@ -77,7 +77,6 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
     const acc = accounts.find((a) => a.id === value);
     if (acc?.isCreditCard) {
       setIsCreditCard(true);
-      setIsPaid(false);
       return;
     }
 
@@ -215,7 +214,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
               <Switch
                 checked={isPaid}
                 onChange={setIsPaid}
-                checkedChildren="Pago"
+                checkedChildren="Confirmado"
                 unCheckedChildren="Pendente"
               />
             </Form.Item>

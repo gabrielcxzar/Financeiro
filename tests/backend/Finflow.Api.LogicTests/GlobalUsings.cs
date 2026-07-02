@@ -1,0 +1,12 @@
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.Extensions.Logging.Abstractions;
+global using MyFinance.API.Controllers;
+global using MyFinance.API.Data;
+global using MyFinance.API.Models;
+global using MyFinance.API.Services;
+global using System.Security.Claims;
+global using System.Text;
+global using System.Text.Json;
+global using Xunit;

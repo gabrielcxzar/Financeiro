@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Data;
 using MyFinance.API.Models;
+using MyFinance.API.Services;
 using System.Diagnostics;
 using System.Security.Claims;
 
@@ -14,13 +15,16 @@ namespace MyFinance.API.Controllers
     public class DashboardSummaryController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IFinancialSnapshotService _financialSnapshotService;
         private readonly ILogger<DashboardSummaryController> _logger;
 
         public DashboardSummaryController(
             AppDbContext context,
+            IFinancialSnapshotService financialSnapshotService,
             ILogger<DashboardSummaryController> logger)
         {
             _context = context;
+            _financialSnapshotService = financialSnapshotService;
             _logger = logger;
         }
 
@@ -51,7 +55,8 @@ namespace MyFinance.API.Controllers
                 month,
                 year);
 
-            var accounts = await GetAccountsSnapshotAsync(_context, userId, cancellationToken);
+            var snapshot = await _financialSnapshotService.BuildUserSnapshotAsync(userId, DateTime.UtcNow, cancellationToken);
+            var accounts = snapshot.Accounts;
             _logger.LogInformation(
                 "Dashboard summary accounts query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -59,7 +64,24 @@ namespace MyFinance.API.Controllers
                 accounts.Count);
 
             stepStopwatch.Restart();
-            var transactions = await GetMonthlyTransactionsAsync(_context, userId, startDate, endDate, cancellationToken);
+            var transactions = snapshot.Transactions
+                .Where(t => t.Date >= startDate && t.Date < endDate)
+                .OrderByDescending(t => t.Date)
+                .Select(t => new TransactionSummaryDto(
+                    t.Id,
+                    t.Description,
+                    t.Amount,
+                    t.Date,
+                    t.Type,
+                    t.Paid,
+                    t.CategoryId,
+                    t.AccountId,
+                    t.InstallmentId,
+                    t.IsTransfer,
+                    t.Category == null
+                        ? null
+                        : new CategoryDto(t.Category.Id, t.Category.Name, t.Category.Type, t.Category.Icon, t.Category.Color)))
+                .ToList();
             _logger.LogInformation(
                 "Dashboard summary transactions query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -67,30 +89,42 @@ namespace MyFinance.API.Controllers
                 transactions.Count);
 
             stepStopwatch.Restart();
-            var recurringRules = await GetRecurringRulesAsync(_context, userId, cancellationToken);
+            var recurringRules = snapshot.RecurringRules
+                .Select(r => new RecurringRuleDto(r.Id, r.Description, r.Amount, r.Type, r.DayOfMonth, r.AccountId))
+                .ToList();
             _logger.LogInformation(
                 "Dashboard summary recurring query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
                 userId,
                 recurringRules.Count);
 
-            var totalBalance = accounts
+            var accountSnapshots = snapshot.AccountSnapshots.ToDictionary(s => s.AccountId);
+            var totalBalance = accountSnapshots.Values
                 .Where(a => !a.IsCreditCard)
-                .Sum(a => a.CurrentBalance);
+                .Sum(a => a.RealBalance);
+            var pendingTotal = accountSnapshots.Values
+                .Where(a => !a.IsCreditCard)
+                .Sum(a => a.PendingBalance);
+            var projectedTotal = accountSnapshots.Values
+                .Where(a => !a.IsCreditCard)
+                .Sum(a => a.ProjectedBalance);
+            var cardLiability = accountSnapshots.Values
+                .Where(a => a.IsCreditCard)
+                .Sum(a => a.OutstandingLiability);
 
             var totalIncome = transactions
-                .Where(t => t.Type == "Income")
+                .Where(t => t.Type == "Income" && !t.IsTransfer && t.Paid)
                 .Sum(t => t.Amount);
 
             var totalExpense = transactions
-                .Where(t => t.Type == "Expense")
+                .Where(t => t.Type == "Expense" && !t.IsTransfer && t.Paid)
                 .Sum(t => t.Amount);
 
             var predictedFixed = recurringRules
-                .Where(r => r.Type == "Expense")
+                .Where(r => r.Type == "Expense" && (!r.AccountId.HasValue || accounts.First(a => a.Id == r.AccountId.Value).IsCreditCard == false))
                 .Sum(r => r.Amount);
             var categorySummary = transactions
-                .Where(t => t.Type == "Expense")
+                .Where(t => t.Type == "Expense" && !t.IsTransfer)
                 .GroupBy(t => new { Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
                 .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.Amount)))
                 .OrderByDescending(g => g.Total)
@@ -98,17 +132,51 @@ namespace MyFinance.API.Controllers
 
             var nextMonth = month == 12 ? 1 : month + 1;
             var nextYear = month == 12 ? year + 1 : year;
-            var projection = BuildProjection(accounts, recurringRules, nextMonth, nextYear, 6);
+            var projection = _financialSnapshotService.BuildProjection(
+                snapshot.Accounts,
+                snapshot.Transactions,
+                snapshot.RecurringRules,
+                DateTime.UtcNow,
+                nextMonth,
+                nextYear,
+                6);
 
             var payload = new DashboardSummaryResponse(
                 month,
                 year,
-                new DashboardSummaryDto(totalBalance, totalIncome, totalExpense, predictedFixed),
+                new DashboardSummaryDto(totalBalance, totalIncome, totalExpense, predictedFixed, pendingTotal, projectedTotal, cardLiability),
                 transactions,
                 transactions.Take(5).ToList(),
-                accounts.Where(a => a.IsCreditCard).ToList(),
+                snapshot.Accounts
+                    .Where(a => a.IsCreditCard)
+                    .Select(a => new AccountSnapshotDto(
+                        a.Id,
+                        a.Name,
+                        a.InitialBalance,
+                        accountSnapshots[a.Id].RealBalance,
+                        _financialSnapshotService.CalculateInvoiceAmount(a, snapshot.Transactions, DateTime.UtcNow.Month, DateTime.UtcNow.Year),
+                        a.Type,
+                        a.IsCreditCard,
+                        a.CreditLimit,
+                        a.ClosingDay,
+                        a.DueDay,
+                        accountSnapshots[a.Id].PendingBalance,
+                        accountSnapshots[a.Id].ProjectedBalance,
+                        accountSnapshots[a.Id].OutstandingLiability,
+                        accountSnapshots[a.Id].PendingLiability,
+                        accountSnapshots[a.Id].ProjectedLiability))
+                    .ToList(),
                 categorySummary,
-                projection,
+                new ProjectionDto(
+                    projection.StartBalance,
+                    projection.Items.Select(item => new ProjectionItemDto(
+                        item.Year,
+                        item.Month,
+                        item.Income,
+                        item.Expense,
+                        item.TransferImpact,
+                        item.Net,
+                        item.ProjectedBalance)).ToList()),
                 DateTime.UtcNow
             );
 
@@ -123,163 +191,6 @@ namespace MyFinance.API.Controllers
             return Ok(payload);
         }
 
-        private static async Task<List<AccountSnapshotDto>> GetAccountsSnapshotAsync(
-            AppDbContext db,
-            int userId,
-            CancellationToken cancellationToken)
-        {
-            var accounts = await db.Accounts
-                .AsNoTracking()
-                .Where(a => a.UserId == userId)
-                .ToListAsync(cancellationToken);
-
-            var creditCardAccounts = accounts.Where(a => a.IsCreditCard).ToList();
-            var invoiceTotals = new Dictionary<int, decimal>();
-
-            if (creditCardAccounts.Count > 0)
-            {
-                var today = DateTime.UtcNow;
-                var ranges = new List<CardInvoiceRange>();
-
-                foreach (var account in creditCardAccounts)
-                {
-                    var closingDay = account.ClosingDay ?? 1;
-                    var daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
-                    var safeClosingDay = Math.Min(closingDay, daysInMonth);
-
-                    var closeDate = new DateTime(today.Year, today.Month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-                    if (today.Day >= safeClosingDay)
-                    {
-                        closeDate = closeDate.AddMonths(1);
-                    }
-
-                    var startDate = closeDate.AddMonths(-1).AddDays(1);
-                    ranges.Add(new CardInvoiceRange(account.Id, startDate, closeDate));
-                }
-
-                var minStartDate = ranges.Min(r => r.StartDate);
-                var maxCloseDate = ranges.Max(r => r.CloseDate);
-                var cardIds = ranges.Select(r => r.AccountId).ToList();
-
-                var transactions = await db.Transactions
-                    .AsNoTracking()
-                    .Where(t =>
-                        t.UserId == userId &&
-                        cardIds.Contains(t.AccountId) &&
-                        t.Date >= minStartDate &&
-                        t.Date <= maxCloseDate)
-                    .Select(t => new
-                    {
-                        t.AccountId,
-                        t.Date,
-                        t.Type,
-                        t.Amount
-                    })
-                    .ToListAsync(cancellationToken);
-
-                invoiceTotals = ranges.ToDictionary(
-                    range => range.AccountId,
-                    range => transactions
-                        .Where(t => t.AccountId == range.AccountId && t.Date >= range.StartDate && t.Date <= range.CloseDate)
-                        .Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount)
-                );
-            }
-
-            return accounts
-                .Select(acc => new AccountSnapshotDto(
-                    acc.Id,
-                    acc.Name,
-                    acc.InitialBalance,
-                    acc.CurrentBalance,
-                    invoiceTotals.GetValueOrDefault(acc.Id, 0m),
-                    acc.Type,
-                    acc.IsCreditCard,
-                    acc.CreditLimit,
-                    acc.ClosingDay,
-                    acc.DueDay
-                ))
-                .ToList();
-        }
-
-        private static async Task<List<TransactionSummaryDto>> GetMonthlyTransactionsAsync(
-            AppDbContext db,
-            int userId,
-            DateTime startDate,
-            DateTime endDate,
-            CancellationToken cancellationToken)
-        {
-            return await db.Transactions
-                .AsNoTracking()
-                .Include(t => t.Category)
-                .Where(t => t.UserId == userId && t.Date >= startDate && t.Date < endDate)
-                .OrderByDescending(t => t.Date)
-                .Select(t => new TransactionSummaryDto(
-                    t.Id,
-                    t.Description,
-                    t.Amount,
-                    t.Date,
-                    t.Type,
-                    t.Paid,
-                    t.CategoryId,
-                    t.AccountId,
-                    t.InstallmentId,
-                    t.Category == null
-                        ? null
-                        : new CategoryDto(t.Category.Id, t.Category.Name, t.Category.Type, t.Category.Icon, t.Category.Color)
-                ))
-                .ToListAsync(cancellationToken);
-        }
-
-        private static async Task<List<RecurringRuleDto>> GetRecurringRulesAsync(
-            AppDbContext db,
-            int userId,
-            CancellationToken cancellationToken)
-        {
-            return await db.RecurringTransactions
-                .AsNoTracking()
-                .Where(r => r.Active && r.UserId == userId)
-                .Select(r => new RecurringRuleDto(r.Id, r.Description, r.Amount, r.Type, r.DayOfMonth))
-                .ToListAsync(cancellationToken);
-        }
-
-        private static ProjectionDto BuildProjection(
-            List<AccountSnapshotDto> accounts,
-            List<RecurringRuleDto> recurringRules,
-            int startMonth,
-            int startYear,
-            int months)
-        {
-            var startingBalance = accounts
-                .Where(a => !a.IsCreditCard)
-                .Sum(a => a.CurrentBalance);
-
-            var monthlyExpense = recurringRules.Where(r => r.Type == "Expense").Sum(r => r.Amount);
-            var monthlyIncome = recurringRules.Where(r => r.Type == "Income").Sum(r => r.Amount);
-            var runningBalance = startingBalance;
-            var items = new List<ProjectionItemDto>();
-            var start = new DateTime(startYear, startMonth, 1);
-
-            for (var i = 0; i < months; i++)
-            {
-                var date = start.AddMonths(i);
-                var net = monthlyIncome - monthlyExpense;
-                runningBalance += net;
-
-                items.Add(new ProjectionItemDto(
-                    date.Year,
-                    date.Month,
-                    monthlyIncome,
-                    monthlyExpense,
-                    net,
-                    runningBalance
-                ));
-            }
-
-            return new ProjectionDto(startingBalance, items);
-        }
-
-        private sealed record CardInvoiceRange(int AccountId, DateTime StartDate, DateTime CloseDate);
-
         public sealed record DashboardSummaryResponse(
             int Month,
             int Year,
@@ -292,7 +203,14 @@ namespace MyFinance.API.Controllers
             DateTime GeneratedAtUtc
         );
 
-        public sealed record DashboardSummaryDto(decimal Total, decimal Income, decimal Expense, decimal PredictedFixed);
+        public sealed record DashboardSummaryDto(
+            decimal Total,
+            decimal Income,
+            decimal Expense,
+            decimal PredictedFixed,
+            decimal PendingTotal,
+            decimal ProjectedTotal,
+            decimal CardLiability);
 
         public sealed record AccountSnapshotDto(
             int Id,
@@ -304,7 +222,12 @@ namespace MyFinance.API.Controllers
             bool IsCreditCard,
             decimal? CreditLimit,
             int? ClosingDay,
-            int? DueDay
+            int? DueDay,
+            decimal PendingBalance,
+            decimal ProjectedBalance,
+            decimal OutstandingLiability,
+            decimal PendingLiability,
+            decimal ProjectedLiability
         );
 
         public sealed record TransactionSummaryDto(
@@ -317,6 +240,7 @@ namespace MyFinance.API.Controllers
             int? CategoryId,
             int AccountId,
             string? InstallmentId,
+            bool IsTransfer,
             CategoryDto? Category
         );
 
@@ -324,7 +248,7 @@ namespace MyFinance.API.Controllers
 
         public sealed record CategorySummaryDto(string Name, string Color, decimal Total);
 
-        public sealed record RecurringRuleDto(int Id, string Description, decimal Amount, string Type, int DayOfMonth);
+        public sealed record RecurringRuleDto(int Id, string Description, decimal Amount, string Type, int DayOfMonth, int? AccountId);
 
         public sealed record ProjectionDto(decimal StartBalance, List<ProjectionItemDto> Items);
 
@@ -333,6 +257,7 @@ namespace MyFinance.API.Controllers
             int Month,
             decimal Income,
             decimal Expense,
+            decimal TransferImpact,
             decimal Net,
             decimal ProjectedBalance
         );

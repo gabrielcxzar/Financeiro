@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Data;
 using MyFinance.API.Models;
+using MyFinance.API.Services;
 using System.Globalization;
 using System.IO.Compression;
 using System.Security.Claims;
@@ -30,10 +31,12 @@ namespace MyFinance.API.Controllers
         ];
 
         private readonly AppDbContext _context;
+        private readonly IFinancialSnapshotService _financialSnapshotService;
 
-        public ImportController(AppDbContext context)
+        public ImportController(AppDbContext context, IFinancialSnapshotService financialSnapshotService)
         {
             _context = context;
+            _financialSnapshotService = financialSnapshotService;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -68,9 +71,11 @@ namespace MyFinance.API.Controllers
 
             var categories = await _context.Categories.Where(c => c.UserId == userId).ToListAsync(cancellationToken);
             categories = await EnsureImportCategoriesAsync(categories, userId, cancellationToken);
+            var userAccounts = await _context.Accounts.Where(a => a.UserId == userId).ToListAsync(cancellationToken);
 
             var importedCount = 0;
             var skippedCount = 0;
+            var manualReviewCount = 0;
 
             foreach (var row in rows.Skip(1))
             {
@@ -80,13 +85,49 @@ namespace MyFinance.API.Controllers
                     continue;
                 }
 
+                if (!account.IsCreditCard &&
+                    candidate.Type == "Expense" &&
+                    LooksLikeInvoicePayment(candidate.Description))
+                {
+                    var paymentResolution = await ResolveCreditCardForPaymentAsync(
+                        candidate.Description,
+                        account,
+                        userAccounts,
+                        userId,
+                        cancellationToken);
+                    if (paymentResolution.Status is InvoicePaymentResolutionStatus.SingleMatch or InvoicePaymentResolutionStatus.AutoProvisioned)
+                    {
+                        var transferExists = await TransferAlreadyImportedAsync(
+                            userId,
+                            account.Id,
+                            paymentResolution.Account!.Id,
+                            candidate,
+                            cancellationToken);
+
+                        if (transferExists)
+                        {
+                            skippedCount++;
+                            continue;
+                        }
+
+                        CreateTransferTransactions(userId, account.Id, paymentResolution.Account!.Id, candidate);
+                        importedCount++;
+                        continue;
+                    }
+
+                    CreateManualReviewTransaction(userId, account.Id, candidate, categories);
+                    manualReviewCount++;
+                    continue;
+                }
+
                 bool exists = await _context.Transactions.AnyAsync(t =>
                     t.UserId == userId &&
                     t.AccountId == accountId &&
                     t.Date.Date == candidate.Date.Date &&
                     t.Amount == candidate.Amount &&
                     t.Type == candidate.Type &&
-                    t.Description == candidate.Description,
+                    t.Description == candidate.Description &&
+                    !t.IsTransfer,
                     cancellationToken);
 
                 if (exists)
@@ -109,18 +150,18 @@ namespace MyFinance.API.Controllers
                 };
 
                 _context.Transactions.Add(transaction);
-                ApplyBalance(account, transaction);
                 importedCount++;
             }
 
-            _context.Entry(account).State = EntityState.Modified;
             await _context.SaveChangesAsync(cancellationToken);
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId, cancellationToken);
 
             return Ok(new
             {
                 message = $"{importedCount} transacoes importadas com sucesso.",
                 importedCount,
                 skippedCount,
+                manualReviewCount,
                 detectedLayout = layout.Kind
             });
         }
@@ -503,6 +544,32 @@ namespace MyFinance.API.Controllers
                 changed = true;
             }
 
+            if (!categories.Any(c => c.UserId == userId && c.Type == "Income" && c.Name.Equals("Estorno", StringComparison.OrdinalIgnoreCase)))
+            {
+                categories.Add(new Category
+                {
+                    Name = "Estorno",
+                    Type = "Income",
+                    Color = "#52c41a",
+                    Icon = "ES",
+                    UserId = userId
+                });
+                changed = true;
+            }
+
+            if (!categories.Any(c => c.UserId == userId && c.Type == "Expense" && c.Name.Equals("Revisar Importacao", StringComparison.OrdinalIgnoreCase)))
+            {
+                categories.Add(new Category
+                {
+                    Name = "Revisar Importacao",
+                    Type = "Expense",
+                    Color = "#faad14",
+                    Icon = "RV",
+                    UserId = userId
+                });
+                changed = true;
+            }
+
             if (changed)
             {
                 _context.Categories.AddRange(categories.Where(c => c.Id == 0));
@@ -533,17 +600,177 @@ namespace MyFinance.API.Controllers
                 ?.Id;
         }
 
-        private static void ApplyBalance(Account account, Transaction transaction)
+        private async Task<bool> TransferAlreadyImportedAsync(
+            int userId,
+            int fromAccountId,
+            int toAccountId,
+            ImportCandidate candidate,
+            CancellationToken cancellationToken)
         {
-            if (account.IsCreditCard)
+            return await _context.Transactions.AnyAsync(t =>
+                    t.UserId == userId &&
+                    t.IsTransfer &&
+                    t.AccountId == fromAccountId &&
+                    t.Type == "Expense" &&
+                    t.Amount == candidate.Amount &&
+                    t.Date.Date == candidate.Date.Date &&
+                    t.Description == candidate.Description,
+                cancellationToken)
+                || await _context.Transactions.AnyAsync(t =>
+                    t.UserId == userId &&
+                    t.IsTransfer &&
+                    t.AccountId == toAccountId &&
+                    t.Type == "Income" &&
+                    t.Amount == candidate.Amount &&
+                    t.Date.Date == candidate.Date.Date &&
+                    t.Description == "Pagamento de fatura importado",
+                cancellationToken);
+        }
+
+        private void CreateTransferTransactions(int userId, int fromAccountId, int toAccountId, ImportCandidate candidate)
+        {
+            var transferGroupId = Guid.NewGuid().ToString("N");
+            _context.Transactions.Add(new Transaction
             {
-                if (transaction.Type == "Expense") account.CurrentBalance -= transaction.Amount;
-                else account.CurrentBalance += transaction.Amount;
-                return;
+                UserId = userId,
+                AccountId = fromAccountId,
+                Date = candidate.Date,
+                Description = candidate.Description,
+                Amount = candidate.Amount,
+                Type = "Expense",
+                Paid = true,
+                IsTransfer = true,
+                TransferGroupId = transferGroupId
+            });
+
+            _context.Transactions.Add(new Transaction
+            {
+                UserId = userId,
+                AccountId = toAccountId,
+                Date = candidate.Date,
+                Description = "Pagamento de fatura importado",
+                Amount = candidate.Amount,
+                Type = "Income",
+                Paid = true,
+                IsTransfer = true,
+                TransferGroupId = transferGroupId
+            });
+        }
+
+        private void CreateManualReviewTransaction(int userId, int accountId, ImportCandidate candidate, List<Category> categories)
+        {
+            var reviewCategoryId = categories
+                .FirstOrDefault(category =>
+                    category.Type == "Expense" &&
+                    category.Name.Equals("Revisar Importacao", StringComparison.OrdinalIgnoreCase))
+                ?.Id;
+
+            _context.Transactions.Add(new Transaction
+            {
+                UserId = userId,
+                AccountId = accountId,
+                CategoryId = reviewCategoryId,
+                Date = candidate.Date,
+                Description = $"REVISAR MANUALMENTE: {candidate.Description}",
+                Amount = candidate.Amount,
+                Type = candidate.Type,
+                Paid = false
+            });
+        }
+
+        private static bool LooksLikeInvoicePayment(string description)
+        {
+            var normalized = description.ToLowerInvariant();
+            return normalized.Contains("pagamento fatura", StringComparison.Ordinal)
+                || normalized.Contains("pagamento de fatura", StringComparison.Ordinal)
+                || normalized.Contains("pgto fatura", StringComparison.Ordinal)
+                || normalized.Contains("fatura", StringComparison.Ordinal) && normalized.Contains("cartao", StringComparison.Ordinal);
+        }
+
+        private async Task<InvoicePaymentResolution> ResolveCreditCardForPaymentAsync(
+            string description,
+            Account sourceAccount,
+            List<Account> accounts,
+            int userId,
+            CancellationToken cancellationToken)
+        {
+            var resolution = ResolveCreditCardForPayment(description, accounts);
+            if (resolution.Status != InvoicePaymentResolutionStatus.NoCreditCard)
+            {
+                return resolution;
             }
 
-            if (transaction.Type == "Income") account.CurrentBalance += transaction.Amount;
-            else account.CurrentBalance -= transaction.Amount;
+            if (!CanAutoProvisionCreditCard(sourceAccount, description))
+            {
+                return resolution;
+            }
+
+            var inferredCard = new Account
+            {
+                UserId = userId,
+                Name = BuildAutoProvisionedCreditCardName(sourceAccount),
+                Type = "Checking",
+                IsCreditCard = true,
+                InitialBalance = 0m,
+                CurrentBalance = 0m
+            };
+
+            _context.Accounts.Add(inferredCard);
+            await _context.SaveChangesAsync(cancellationToken);
+            accounts.Add(inferredCard);
+
+            return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.AutoProvisioned, inferredCard);
+        }
+
+        private static InvoicePaymentResolution ResolveCreditCardForPayment(string description, IEnumerable<Account> accounts)
+        {
+            var creditCards = accounts.Where(a => a.IsCreditCard).ToList();
+            var normalized = description.ToLowerInvariant();
+            var matches = creditCards
+                .Where(card => normalized.Contains(card.Name.ToLowerInvariant(), StringComparison.Ordinal))
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.SingleMatch, matches[0]);
+            }
+
+            if (creditCards.Count == 1)
+            {
+                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.SingleMatch, creditCards[0]);
+            }
+
+            if (matches.Count > 1)
+            {
+                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.Ambiguous, null);
+            }
+
+            return new InvoicePaymentResolution(
+                creditCards.Count == 0 ? InvoicePaymentResolutionStatus.NoCreditCard : InvoicePaymentResolutionStatus.UnknownCard,
+                null);
+        }
+
+        private static bool CanAutoProvisionCreditCard(Account sourceAccount, string description)
+        {
+            if (sourceAccount.IsCreditCard)
+            {
+                return false;
+            }
+
+            if (!LooksLikeInvoicePayment(description))
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(sourceAccount.Name);
+        }
+
+        private static string BuildAutoProvisionedCreditCardName(Account sourceAccount)
+        {
+            var trimmedName = sourceAccount.Name.Trim();
+            return trimmedName.StartsWith("cartao", StringComparison.OrdinalIgnoreCase)
+                ? trimmedName
+                : $"Cartao {trimmedName}";
         }
 
         private int? GuessCategory(string description, string type, List<Category> categories)
@@ -565,6 +792,8 @@ namespace MyFinance.API.Controllers
                 categoryName = "Salario";
             else if (desc.Contains("pagamento de fatura") || desc.Contains("pagamento fatura"))
                 categoryName = "Pagamento Fatura";
+            else if (desc.Contains("estorno") || desc.Contains("chargeback"))
+                categoryName = "Estorno";
             else
                 categoryName = "Importacao";
 
@@ -579,5 +808,16 @@ namespace MyFinance.API.Controllers
         private sealed record ImportLayout(string Kind, int DateIndex, int AmountIndex, int DescriptionIndex, int? CategoryIndex);
 
         private sealed record ImportCandidate(DateTime Date, decimal Amount, string Type, string Description, string RawCategory, bool IsCreditCard);
+
+        private sealed record InvoicePaymentResolution(InvoicePaymentResolutionStatus Status, Account? Account);
+
+        private enum InvoicePaymentResolutionStatus
+        {
+            SingleMatch,
+            AutoProvisioned,
+            Ambiguous,
+            UnknownCard,
+            NoCreditCard
+        }
     }
 }

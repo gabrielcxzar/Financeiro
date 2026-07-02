@@ -139,10 +139,11 @@ export default function Accounts() {
 
   const renderCreditCard = (card) => {
     const faturaAtual = card.invoiceAmount || 0;
-    const limiteUsado = Math.abs(card.currentBalance);
+    const passivoAtual = card.outstandingLiability || faturaAtual || 0;
+    const limiteUsado = Math.max(passivoAtual, 0);
     const limite = card.creditLimit || 1000;
-    const disponivel = limite - limiteUsado;
-    const percentualUso = (limiteUsado / limite) * 100;
+    const disponivel = Math.max(limite - limiteUsado, 0);
+    const percentualUso = limite > 0 ? (limiteUsado / limite) * 100 : 0;
 
     return (
       <Col xs={24} sm={12} xl={8} key={card.id}>
@@ -165,6 +166,9 @@ export default function Accounts() {
             <div style={{ fontSize: isCompact ? 20 : 24, fontWeight: 'bold', color: '#fff', marginTop: 4 }}>
               {formatMoney(faturaAtual)}
             </div>
+            <div style={{ marginTop: 6, fontSize: 12, color: '#d9d9d9' }}>
+              Passivo atual: <b>{formatMoney(passivoAtual)}</b>
+            </div>
           </div>
 
           <div style={{ marginTop: 18 }}>
@@ -180,6 +184,9 @@ export default function Accounts() {
               size={["100%", 8]}
             />
             <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 8 }}>
+              Limite total: <span style={{ color: '#fff' }}>{formatMoney(limite)}</span>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>
               Disponivel: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
             </div>
           </div>

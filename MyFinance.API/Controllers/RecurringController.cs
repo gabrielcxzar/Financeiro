@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Data;
 using MyFinance.API.Models;
+using MyFinance.API.Services;
 using System.Security.Claims;
 
 namespace MyFinance.API.Controllers
@@ -13,10 +14,12 @@ namespace MyFinance.API.Controllers
     public class RecurringController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IFinancialSnapshotService _financialSnapshotService;
 
-        public RecurringController(AppDbContext context)
+        public RecurringController(AppDbContext context, IFinancialSnapshotService financialSnapshotService)
         {
             _context = context;
+            _financialSnapshotService = financialSnapshotService;
         }
 
         private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -100,13 +103,14 @@ namespace MyFinance.API.Controllers
 
                 bool exists = await _context.Transactions.AnyAsync(t =>
                     t.UserId == userId &&
-                    t.Description == rule.Description &&
-                    t.Amount == rule.Amount &&
-                    t.Type == rule.Type &&
-                    t.AccountId == accountId &&
-                    t.CategoryId == rule.CategoryId &&
                     t.Date.Month == month &&
-                    t.Date.Year == year
+                    t.Date.Year == year &&
+                    (t.RecurringRuleId == rule.Id ||
+                     (t.Description == rule.Description &&
+                      t.Amount == rule.Amount &&
+                      t.Type == rule.Type &&
+                      t.AccountId == accountId &&
+                      t.CategoryId == rule.CategoryId))
                 );
 
                 if (exists)
@@ -121,19 +125,16 @@ namespace MyFinance.API.Controllers
                     CategoryId = rule.CategoryId,
                     AccountId = accountId,
                     Date = targetDate,
-                    Paid = false
+                    Paid = false,
+                    RecurringRuleId = rule.Id
                 };
 
                 _context.Transactions.Add(newTrans);
                 count++;
-
-                if (newTrans.Type == "Income") account.CurrentBalance += newTrans.Amount;
-                else account.CurrentBalance -= newTrans.Amount;
-
-                _context.Entry(account).State = EntityState.Modified;
             }
 
             await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
             return Ok(new { message = $"{count} transacoes geradas." });
         }
 
@@ -148,46 +149,31 @@ namespace MyFinance.API.Controllers
             if (months > 36) months = 36;
 
             var userId = GetUserId();
-            var rules = await _context.RecurringTransactions
-                .AsNoTracking()
-                .Where(r => r.Active && r.UserId == userId)
-                .ToListAsync(cancellationToken);
-
-            var accounts = await _context.Accounts
-                .AsNoTracking()
-                .Where(a => a.UserId == userId && !a.IsCreditCard)
-                .ToListAsync(cancellationToken);
-
-            var startingBalance = accounts.Sum(a => a.CurrentBalance);
-
-            var baseDate = DateTime.Today;
+            var snapshot = await _financialSnapshotService.BuildUserSnapshotAsync(userId, DateTime.UtcNow, cancellationToken);
+            var baseDate = DateTime.UtcNow;
             var month = startMonth ?? baseDate.Month;
             var year = startYear ?? baseDate.Year;
-            var start = new DateTime(year, month, 1);
+            var projection = _financialSnapshotService.BuildProjection(
+                snapshot.Accounts,
+                snapshot.Transactions,
+                snapshot.RecurringRules,
+                DateTime.UtcNow,
+                month,
+                year,
+                months);
 
-            var monthlyIncome = rules.Where(r => r.Type == "Income").Sum(r => r.Amount);
-            var monthlyExpense = rules.Where(r => r.Type == "Expense").Sum(r => r.Amount);
-
-            var result = new List<ProjectionItemDto>();
-            var runningBalance = startingBalance;
-
-            for (int i = 0; i < months; i++)
+            return Ok(new
             {
-                var date = start.AddMonths(i);
-                var net = monthlyIncome - monthlyExpense;
-                runningBalance += net;
-
-                result.Add(new ProjectionItemDto(
-                    date.Year,
-                    date.Month,
-                    monthlyIncome,
-                    monthlyExpense,
-                    net,
-                    runningBalance
-                ));
-            }
-
-            return Ok(new { startBalance = startingBalance, items = result });
+                startBalance = projection.StartBalance,
+                items = projection.Items.Select(item => new ProjectionItemDto(
+                    item.Year,
+                    item.Month,
+                    item.Income,
+                    item.Expense,
+                    item.TransferImpact,
+                    item.Net,
+                    item.ProjectedBalance))
+            });
         }
 
         public record ProjectionItemDto(
@@ -195,6 +181,7 @@ namespace MyFinance.API.Controllers
             int Month,
             decimal Income,
             decimal Expense,
+            decimal TransferImpact,
             decimal Net,
             decimal ProjectedBalance
         );
