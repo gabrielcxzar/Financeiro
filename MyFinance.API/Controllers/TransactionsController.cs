@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
 using MyFinance.API.Services;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 
 namespace MyFinance.API.Controllers
 {
@@ -161,6 +162,11 @@ namespace MyFinance.API.Controllers
             if (oldTransaction.IsTransfer)
             {
                 return await UpdateTransferAsync(oldTransaction, request, userId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(oldTransaction.InstallmentId) && request.ApplyToSeries)
+            {
+                return await UpdateInstallmentSeriesAsync(oldTransaction, request, userId);
             }
 
             var transaction = new Transaction
@@ -362,6 +368,98 @@ namespace MyFinance.API.Controllers
             return pair;
         }
 
+        private async Task<IActionResult> UpdateInstallmentSeriesAsync(Transaction originalTransaction, UpsertTransactionDto request, int userId)
+        {
+            var installmentPlan = ResolveInstallmentPlan(request);
+            if (!installmentPlan.IsValid)
+            {
+                return BadRequest(installmentPlan.ValidationError);
+            }
+
+            var updatedAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == request.AccountId && a.UserId == userId);
+            if (updatedAccount == null)
+            {
+                return BadRequest("Conta invalida.");
+            }
+
+            var series = await _context.Transactions
+                .Where(t => t.UserId == userId && t.InstallmentId == originalTransaction.InstallmentId)
+                .OrderBy(t => t.Date)
+                .ThenBy(t => t.Id)
+                .ToListAsync();
+
+            if (series.Count == 0)
+            {
+                return NotFound();
+            }
+
+            var existingByInstallmentNumber = series
+                .Select((transaction, index) => new
+                {
+                    Transaction = transaction,
+                    InstallmentNumber = ParseInstallmentInfo(transaction.Description)?.Current ?? (index + 1)
+                })
+                .GroupBy(item => item.InstallmentNumber)
+                .ToDictionary(group => group.Key, group => group.First().Transaction);
+
+            var firstInstallmentNumber = Math.Min(existingByInstallmentNumber.Keys.Min(), installmentPlan.StartingInstallment);
+            if (firstInstallmentNumber > installmentPlan.TotalInstallments)
+            {
+                return BadRequest("Parcela inicial invalida para a serie.");
+            }
+
+            var desiredNumbers = Enumerable.Range(firstInstallmentNumber, installmentPlan.TotalInstallments - firstInstallmentNumber + 1).ToList();
+            var requestDateUtc = request.Date.ToUniversalTime();
+            var desiredTransactions = new Dictionary<int, Transaction>();
+
+            foreach (var installmentNumber in desiredNumbers)
+            {
+                var installmentDate = requestDateUtc.AddMonths(installmentNumber - installmentPlan.StartingInstallment);
+                var transaction = existingByInstallmentNumber.TryGetValue(installmentNumber, out var existing)
+                    ? existing
+                    : new Transaction
+                    {
+                        UserId = userId,
+                        InstallmentId = originalTransaction.InstallmentId
+                    };
+
+                transaction.CategoryId = request.CategoryId;
+                transaction.AccountId = request.AccountId;
+                transaction.Type = request.Type;
+                transaction.Paid = existingByInstallmentNumber.TryGetValue(installmentNumber, out var persisted)
+                    ? persisted.Paid
+                    : request.Paid;
+                transaction.Amount = request.Amount;
+                transaction.Description = BuildInstallmentDescription(request.Description, installmentNumber, installmentPlan.TotalInstallments);
+                transaction.Date = installmentDate;
+                transaction.IsTransfer = false;
+                transaction.TransferGroupId = null;
+                transaction.RecurringRuleId = null;
+
+                desiredTransactions[installmentNumber] = transaction;
+            }
+
+            var toDelete = series.Where(transaction =>
+            {
+                var installmentNumber = ParseInstallmentInfo(transaction.Description)?.Current;
+                return installmentNumber == null || !desiredTransactions.ContainsKey(installmentNumber.Value);
+            }).ToList();
+
+            foreach (var transaction in desiredTransactions.Values.Where(t => t.Id == 0))
+            {
+                _context.Transactions.Add(transaction);
+            }
+
+            if (toDelete.Count > 0)
+            {
+                _context.Transactions.RemoveRange(toDelete);
+            }
+
+            await _context.SaveChangesAsync();
+            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);
+            return NoContent();
+        }
+
         private static string ResolveTransferDescription(Account sourceAccount, Account destinationAccount, string type)
         {
             if (type == "Expense")
@@ -402,6 +500,19 @@ namespace MyFinance.API.Controllers
                 ? $"{description} ({installmentNumber}/{totalInstallments})"
                 : description;
         }
+
+        private static InstallmentInfo? ParseInstallmentInfo(string description)
+        {
+            var match = Regex.Match(description, @"\((\d+)/(\d+)\)\s*$");
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            return new InstallmentInfo(
+                int.Parse(match.Groups[1].Value),
+                int.Parse(match.Groups[2].Value));
+        }
     }
 
     public class TransferDto
@@ -425,6 +536,7 @@ namespace MyFinance.API.Controllers
         public int Installments { get; set; } = 1;
         public int InstallmentNumber { get; set; } = 1;
         public int TotalInstallments { get; set; } = 1;
+        public bool ApplyToSeries { get; set; }
     }
 
     internal sealed record InstallmentPlan(bool IsValid, string? ValidationError, int StartingInstallment, int TotalInstallments)
@@ -438,4 +550,6 @@ namespace MyFinance.API.Controllers
         public static InstallmentPlan Invalid(string validationError) =>
             new(false, validationError, 1, 1);
     }
+
+    internal sealed record InstallmentInfo(int Current, int Total);
 }

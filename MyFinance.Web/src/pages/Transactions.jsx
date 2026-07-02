@@ -7,6 +7,19 @@ import api from '../services/api';
 
 const { useBreakpoint } = Grid;
 const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const installmentPattern = /\((\d+)\/(\d+)\)\s*$/;
+
+const extractInstallmentInfo = (description) => {
+  const match = description?.match(installmentPattern);
+  if (!match) {
+    return { installmentNumber: 1, totalInstallments: 1 };
+  }
+
+  return {
+    installmentNumber: Number(match[1]),
+    totalInstallments: Number(match[2]),
+  };
+};
 
 export default function Transactions({ month, year }) {
   const [transactions, setTransactions] = useState([]);
@@ -68,7 +81,10 @@ export default function Transactions({ month, year }) {
       return;
     }
 
-    setEditingItem(record);
+    setEditingItem({
+      ...record,
+      ...extractInstallmentInfo(record.description),
+    });
     setIsModalOpen(true);
   };
 
