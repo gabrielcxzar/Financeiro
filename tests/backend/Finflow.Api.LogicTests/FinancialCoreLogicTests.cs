@@ -283,6 +283,75 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task EditingInstallmentSeries_RecalculatesExistingSequence_FromEditedParcel()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (_, card, expenseCategory, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var transactions = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(transactions);
+        var originalDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        await transactions.PostTransaction(new UpsertTransactionDto
+        {
+            Description = "Curso de pilotagem",
+            Amount = 50m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = originalDate,
+            InstallmentNumber = 3,
+            TotalInstallments = 6
+        });
+
+        var anchor = await db.Transactions.SingleAsync(t => t.Description == "Curso de pilotagem (3/6)");
+        var updateResult = await transactions.PutTransaction(anchor.Id, new UpsertTransactionDto
+        {
+            Id = anchor.Id,
+            Description = "Curso de pilotagem premium",
+            Amount = 75m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = originalDate,
+            InstallmentNumber = 2,
+            TotalInstallments = 5,
+            ApplyToSeries = true
+        });
+
+        Assert.IsType<NoContentResult>(updateResult);
+
+        var updated = await db.Transactions
+            .Where(t => t.AccountId == card.Id)
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        Assert.Collection(updated,
+            first =>
+            {
+                Assert.Equal("Curso de pilotagem premium (2/5)", first.Description);
+                Assert.Equal(75m, first.Amount);
+                Assert.Equal(originalDate, first.Date);
+            },
+            second =>
+            {
+                Assert.Equal("Curso de pilotagem premium (3/5)", second.Description);
+                Assert.Equal(originalDate.AddMonths(1), second.Date);
+            },
+            third =>
+            {
+                Assert.Equal("Curso de pilotagem premium (4/5)", third.Description);
+                Assert.Equal(originalDate.AddMonths(2), third.Date);
+            },
+            fourth =>
+            {
+                Assert.Equal("Curso de pilotagem premium (5/5)", fourth.Description);
+                Assert.Equal(originalDate.AddMonths(3), fourth.Date);
+            });
+    }
+
+    [Fact]
     public async Task RecurringFuture_AppearsInProjection_ButNotInRealBalance_AndDoesNotDuplicateGeneration()
     {
         var (db, finance) = TestContextFactory.Create();

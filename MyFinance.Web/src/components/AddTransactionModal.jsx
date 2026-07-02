@@ -30,6 +30,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
   const [transactionType, setTransactionType] = useState('Expense');
   const [isCreditCard, setIsCreditCard] = useState(false);
   const [isPaid, setIsPaid] = useState(true);
+  const isSeriesEdit = Boolean(transactionToEdit?.installmentId);
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -39,23 +40,23 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
 
     loadData(transactionToEdit?.accountId);
 
-      if (transactionToEdit) {
-        form.setFieldsValue({
-          ...transactionToEdit,
-          date: dayjs(transactionToEdit.date),
-          amount: Math.abs(transactionToEdit.amount),
-          installments: transactionToEdit.installments || 1,
-          installmentNumber: transactionToEdit.installmentNumber || 1,
-          totalInstallments: transactionToEdit.totalInstallments || transactionToEdit.installments || 1,
-        });
-        setTransactionType(transactionToEdit.type);
-        setIsPaid(transactionToEdit.paid);
-      } else {
-        form.resetFields();
-        form.setFieldsValue({ date: dayjs(), type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 });
-        setTransactionType('Expense');
-        setIsPaid(true);
-        setIsCreditCard(false);
+    if (transactionToEdit) {
+      form.setFieldsValue({
+        ...transactionToEdit,
+        date: dayjs(transactionToEdit.date),
+        amount: Math.abs(transactionToEdit.amount),
+        installments: transactionToEdit.installments || 1,
+        installmentNumber: transactionToEdit.installmentNumber || 1,
+        totalInstallments: transactionToEdit.totalInstallments || transactionToEdit.installments || 1,
+      });
+      setTransactionType(transactionToEdit.type);
+      setIsPaid(transactionToEdit.paid);
+    } else {
+      form.resetFields();
+      form.setFieldsValue({ date: dayjs(), type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 });
+      setTransactionType('Expense');
+      setIsPaid(true);
+      setIsCreditCard(false);
     }
   }, [visible, transactionToEdit, form]);
 
@@ -103,6 +104,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         installments: values.totalInstallments || values.installments || 1,
         installmentNumber: values.installmentNumber || 1,
         totalInstallments: values.totalInstallments || values.installments || 1,
+        applyToSeries: isSeriesEdit,
       };
 
       if (transactionToEdit) {
@@ -209,7 +211,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Form.Item>
           </Col>
 
-          {isCreditCard && !transactionToEdit && (
+          {isCreditCard && (
             <>
               <Col xs={24} md={8}>
                 <Form.Item name="totalInstallments" label="Total de Parcelas">
@@ -251,6 +253,12 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Form.Item>
           </Col>
         </Row>
+
+        {isSeriesEdit && (
+          <div style={{ marginTop: 8, color: '#8c8c8c', fontSize: 12 }}>
+            Esta edicao recalcula toda a serie deste parcelamento.
+          </div>
+        )}
       </Form>
     </Modal>
   );
