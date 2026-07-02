@@ -97,21 +97,21 @@ namespace MyFinance.API.Controllers
             if (account == null)
                 return BadRequest("Conta invalida.");
 
-            int parcelas = request.Installments > 1 ? request.Installments : 1;
-            decimal valorParcela = request.Amount;
-
-            string? installmentId = null;
-            if (parcelas > 1)
+            var installmentPlan = ResolveInstallmentPlan(request);
+            if (!installmentPlan.IsValid)
             {
-                installmentId = Guid.NewGuid().ToString();
+                return BadRequest(installmentPlan.ValidationError);
             }
 
+            decimal valorParcela = request.Amount;
+            string? installmentId = installmentPlan.RequiresGrouping ? Guid.NewGuid().ToString() : null;
             DateTime dataBase = transactionDate;
 
             var created = new List<Transaction>();
 
-            for (int i = 0; i < parcelas; i++)
+            for (int i = 0; i < installmentPlan.RemainingInstallments; i++)
             {
+                var installmentNumber = installmentPlan.StartingInstallment + i;
                 var novaTransacao = new Transaction
                 {
                     UserId = userId,
@@ -120,7 +120,7 @@ namespace MyFinance.API.Controllers
                     Type = request.Type,
                     Paid = request.Paid,
                     Amount = valorParcela,
-                    Description = parcelas > 1 ? $"{request.Description} ({i + 1}/{parcelas})" : request.Description,
+                    Description = BuildInstallmentDescription(request.Description, installmentNumber, installmentPlan.TotalInstallments),
                     Date = dataBase.AddMonths(i).ToUniversalTime(),
                     InstallmentId = installmentId
                 };
@@ -371,6 +371,37 @@ namespace MyFinance.API.Controllers
 
             return sourceAccount.IsCreditCard ? "Pagamento de fatura" : "Recebido de transferencia";
         }
+
+        private static InstallmentPlan ResolveInstallmentPlan(UpsertTransactionDto request)
+        {
+            var fallbackTotal = request.Installments > 1 ? request.Installments : 1;
+            var totalInstallments = request.TotalInstallments > 1 ? request.TotalInstallments : fallbackTotal;
+            var startingInstallment = request.InstallmentNumber > 1 ? request.InstallmentNumber : 1;
+
+            if (totalInstallments < 1)
+            {
+                return InstallmentPlan.Invalid("Quantidade de parcelas invalida.");
+            }
+
+            if (startingInstallment < 1)
+            {
+                return InstallmentPlan.Invalid("Numero da parcela atual invalido.");
+            }
+
+            if (startingInstallment > totalInstallments)
+            {
+                return InstallmentPlan.Invalid("Parcela atual nao pode ser maior que o total.");
+            }
+
+            return InstallmentPlan.Valid(startingInstallment, totalInstallments);
+        }
+
+        private static string BuildInstallmentDescription(string description, int installmentNumber, int totalInstallments)
+        {
+            return totalInstallments > 1
+                ? $"{description} ({installmentNumber}/{totalInstallments})"
+                : description;
+        }
     }
 
     public class TransferDto
@@ -392,5 +423,19 @@ namespace MyFinance.API.Controllers
         public DateTime Date { get; set; }
         public bool Paid { get; set; }
         public int Installments { get; set; } = 1;
+        public int InstallmentNumber { get; set; } = 1;
+        public int TotalInstallments { get; set; } = 1;
+    }
+
+    internal sealed record InstallmentPlan(bool IsValid, string? ValidationError, int StartingInstallment, int TotalInstallments)
+    {
+        public int RemainingInstallments => TotalInstallments - StartingInstallment + 1;
+        public bool RequiresGrouping => TotalInstallments > 1;
+
+        public static InstallmentPlan Valid(int startingInstallment, int totalInstallments) =>
+            new(true, null, startingInstallment, totalInstallments);
+
+        public static InstallmentPlan Invalid(string validationError) =>
+            new(false, validationError, 1, 1);
     }
 }

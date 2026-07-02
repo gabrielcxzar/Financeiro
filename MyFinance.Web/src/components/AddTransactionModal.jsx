@@ -39,21 +39,23 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
 
     loadData(transactionToEdit?.accountId);
 
-    if (transactionToEdit) {
-      form.setFieldsValue({
-        ...transactionToEdit,
-        date: dayjs(transactionToEdit.date),
-        amount: Math.abs(transactionToEdit.amount),
-        installments: transactionToEdit.installments || 1,
-      });
-      setTransactionType(transactionToEdit.type);
-      setIsPaid(transactionToEdit.paid);
-    } else {
-      form.resetFields();
-      form.setFieldsValue({ date: dayjs(), type: 'Expense', installments: 1 });
-      setTransactionType('Expense');
-      setIsPaid(true);
-      setIsCreditCard(false);
+      if (transactionToEdit) {
+        form.setFieldsValue({
+          ...transactionToEdit,
+          date: dayjs(transactionToEdit.date),
+          amount: Math.abs(transactionToEdit.amount),
+          installments: transactionToEdit.installments || 1,
+          installmentNumber: transactionToEdit.installmentNumber || 1,
+          totalInstallments: transactionToEdit.totalInstallments || transactionToEdit.installments || 1,
+        });
+        setTransactionType(transactionToEdit.type);
+        setIsPaid(transactionToEdit.paid);
+      } else {
+        form.resetFields();
+        form.setFieldsValue({ date: dayjs(), type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 });
+        setTransactionType('Expense');
+        setIsPaid(true);
+        setIsCreditCard(false);
     }
   }, [visible, transactionToEdit, form]);
 
@@ -98,7 +100,9 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         accountId: values.accountId,
         date: values.date.toISOString(),
         paid: isPaid,
-        installments: values.installments || 1,
+        installments: values.totalInstallments || values.installments || 1,
+        installmentNumber: values.installmentNumber || 1,
+        totalInstallments: values.totalInstallments || values.installments || 1,
       };
 
       if (transactionToEdit) {
@@ -131,7 +135,11 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
       style={{ top: isCompact ? 8 : 24 }}
       destroyOnClose
     >
-      <Form form={form} layout="vertical" initialValues={{ type: 'Expense', installments: 1 }}>
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={{ type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 }}
+      >
         <Row gutter={12}>
           <Col xs={24} sm={12}>
             <Form.Item name="type" label="Tipo" rules={[{ required: true }]}>
@@ -202,14 +210,37 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
           </Col>
 
           {isCreditCard && !transactionToEdit && (
-            <Col xs={24} md={8}>
-              <Form.Item name="installments" label="Qtd. Parcelas">
-                <InputNumber min={1} max={48} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
+            <>
+              <Col xs={24} md={8}>
+                <Form.Item name="totalInstallments" label="Total de Parcelas">
+                  <InputNumber min={1} max={48} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  name="installmentNumber"
+                  label="Parcela Atual"
+                  dependencies={['totalInstallments']}
+                  rules={[
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        const current = Number(value || 1);
+                        const total = Number(getFieldValue('totalInstallments') || 1);
+                        if (current < 1 || current > total) {
+                          return Promise.reject(new Error('Informe uma parcela atual entre 1 e o total.'));
+                        }
+                        return Promise.resolve();
+                      },
+                    }),
+                  ]}
+                >
+                  <InputNumber min={1} max={48} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </>
           )}
 
-          <Col xs={24} md={isCreditCard ? 8 : 12}>
+          <Col xs={24} md={isCreditCard ? 24 : 12}>
             <Form.Item label="Situacao">
               <Switch
                 checked={isPaid}

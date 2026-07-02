@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Finflow.Api.ContractTests;
 
@@ -43,6 +44,58 @@ public class TransactionsAndRecurringApiTests
         Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
 
         var delete = await client.DeleteAsync($"transactions/{transactionId}?deleteAll=false");
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+        await client.DeleteAsync($"categories/{categoryId}");
+        await client.DeleteAsync($"accounts/{accountId}");
+    }
+
+    [Fact]
+    public async Task PostTransaction_WithCurrentInstallment_CreatesRemainingInstallmentsOnly()
+    {
+        var api = new FinflowApiClient();
+        using var client = await api.CreateAuthenticatedClientAsync();
+
+        var suffix = Guid.NewGuid().ToString("N");
+        var accountId = await api.CreateAccountAsync(client, suffix);
+        var categoryId = await api.CreateCategoryAsync(client, suffix);
+        var baseDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+
+        var post = await client.PostAsJsonAsync("transactions", new
+        {
+            description = $"Compra Parcelada Teste {suffix}",
+            amount = 71.73m,
+            date = baseDate,
+            type = "Expense",
+            paid = true,
+            categoryId,
+            accountId,
+            installmentNumber = 3,
+            totalInstallments = 6
+        });
+
+        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+
+        var month6 = await GetTransactionsForMonthAsync(client, 6, 2026);
+        var month7 = await GetTransactionsForMonthAsync(client, 7, 2026);
+        var month8 = await GetTransactionsForMonthAsync(client, 8, 2026);
+        var month9 = await GetTransactionsForMonthAsync(client, 9, 2026);
+
+        Assert.Contains(month6, t => t.Description == $"Compra Parcelada Teste {suffix} (3/6)");
+        Assert.Contains(month7, t => t.Description == $"Compra Parcelada Teste {suffix} (4/6)");
+        Assert.Contains(month8, t => t.Description == $"Compra Parcelada Teste {suffix} (5/6)");
+        Assert.Contains(month9, t => t.Description == $"Compra Parcelada Teste {suffix} (6/6)");
+
+        var installmentIds = month6.Concat(month7).Concat(month8).Concat(month9)
+            .Where(t => t.Description.Contains(suffix, StringComparison.Ordinal))
+            .Select(t => t.InstallmentId)
+            .Distinct()
+            .ToList();
+
+        Assert.Single(installmentIds);
+
+        var deleteAll = month6.First(t => t.Description == $"Compra Parcelada Teste {suffix} (3/6)");
+        var delete = await client.DeleteAsync($"transactions/{deleteAll.Id}?deleteAll=true");
         Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
 
         await client.DeleteAsync($"categories/{categoryId}");
@@ -152,6 +205,27 @@ public class TransactionsAndRecurringApiTests
 
         await client.DeleteAsync($"categories/{categoryId}");
         await client.DeleteAsync($"accounts/{accountId}");
+    }
+
+    private static async Task<List<TransactionListItem>> GetTransactionsForMonthAsync(HttpClient client, int month, int year)
+    {
+        var response = await client.GetAsync($"transactions?month={month}&year={year}");
+        response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        var transactions = await JsonSerializer.DeserializeAsync<List<TransactionListItem>>(stream, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        return transactions ?? new List<TransactionListItem>();
+    }
+
+    private sealed class TransactionListItem
+    {
+        public int Id { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public string? InstallmentId { get; set; }
     }
 }
 
