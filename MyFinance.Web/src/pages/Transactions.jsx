@@ -12,12 +12,13 @@ const installmentPattern = /\((\d+)\/(\d+)\)\s*$/;
 const extractInstallmentInfo = (description) => {
   const match = description?.match(installmentPattern);
   if (!match) {
-    return { installmentNumber: 1, totalInstallments: 1 };
+    return { installmentNumber: 1, totalInstallments: 1, baseDescription: description || '' };
   }
 
   return {
     installmentNumber: Number(match[1]),
     totalInstallments: Number(match[2]),
+    baseDescription: description.replace(installmentPattern, '').trim(),
   };
 };
 

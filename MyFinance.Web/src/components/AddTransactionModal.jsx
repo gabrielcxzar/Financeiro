@@ -31,6 +31,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
   const [isCreditCard, setIsCreditCard] = useState(false);
   const [isPaid, setIsPaid] = useState(true);
   const isSeriesEdit = Boolean(transactionToEdit?.installmentId);
+  const [applyToSeries, setApplyToSeries] = useState(false);
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -43,6 +44,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
     if (transactionToEdit) {
       form.setFieldsValue({
         ...transactionToEdit,
+        description: transactionToEdit.baseDescription || transactionToEdit.description,
         date: dayjs(transactionToEdit.date),
         amount: Math.abs(transactionToEdit.amount),
         installments: transactionToEdit.installments || 1,
@@ -51,12 +53,14 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
       });
       setTransactionType(transactionToEdit.type);
       setIsPaid(transactionToEdit.paid);
+      setApplyToSeries(Boolean(transactionToEdit.installmentId));
     } else {
       form.resetFields();
       form.setFieldsValue({ date: dayjs(), type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 });
       setTransactionType('Expense');
       setIsPaid(true);
       setIsCreditCard(false);
+      setApplyToSeries(false);
     }
   }, [visible, transactionToEdit, form]);
 
@@ -104,7 +108,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         installments: values.totalInstallments || values.installments || 1,
         installmentNumber: values.installmentNumber || 1,
         totalInstallments: values.totalInstallments || values.installments || 1,
-        applyToSeries: isSeriesEdit,
+        applyToSeries,
       };
 
       if (transactionToEdit) {
@@ -166,6 +170,15 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
           <Input placeholder="Ex: Supermercado" />
         </Form.Item>
 
+        {isSeriesEdit && (
+          <Form.Item label="Aplicar Edicao">
+            <Radio.Group value={applyToSeries} onChange={(e) => setApplyToSeries(e.target.value)}>
+              <Radio.Button value>Serie inteira</Radio.Button>
+              <Radio.Button value={false}>Apenas esta parcela</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+        )}
+
         <Row gutter={12}>
           <Col xs={24} sm={12}>
             <Form.Item name="categoryId" label="Categoria" rules={[{ required: true }]}>
@@ -211,7 +224,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Form.Item>
           </Col>
 
-          {isCreditCard && (
+          {isCreditCard && (!transactionToEdit || applyToSeries) && (
             <>
               <Col xs={24} md={8}>
                 <Form.Item name="totalInstallments" label="Total de Parcelas">
@@ -254,7 +267,7 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
           </Col>
         </Row>
 
-        {isSeriesEdit && (
+        {isSeriesEdit && applyToSeries && (
           <div style={{ marginTop: 8, color: '#8c8c8c', fontSize: 12 }}>
             Esta edicao recalcula toda a serie deste parcelamento.
           </div>
