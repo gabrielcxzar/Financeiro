@@ -229,6 +229,65 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task Purchase_OnClosingDay_FallsIntoNextInvoiceCycle()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var expenseCategory = new Category
+        {
+            UserId = 1,
+            Name = "Despesa Teste",
+            Type = "Expense",
+            Icon = "EX",
+            Color = "#111111"
+        };
+
+        var card = new Account
+        {
+            UserId = 1,
+            Name = "Cartao Principal",
+            Type = "Checking",
+            IsCreditCard = true,
+            InitialBalance = 0m,
+            CurrentBalance = 0m,
+            ClosingDay = 31,
+            DueDay = 7,
+            CreditLimit = 5000m
+        };
+
+        db.Categories.Add(expenseCategory);
+        db.Accounts.Add(card);
+        await db.SaveChangesAsync();
+
+        db.Transactions.AddRange(
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra antes do fechamento",
+                Amount = 100m,
+                Type = "Expense",
+                Paid = true,
+                Date = new DateTime(2026, 6, 29, 12, 0, 0, DateTimeKind.Utc)
+            },
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra no dia do fechamento",
+                Amount = 16.99m,
+                Type = "Expense",
+                Paid = true,
+                Date = new DateTime(2026, 6, 30, 8, 32, 0, DateTimeKind.Utc)
+            });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(100m, finance.CalculateInvoiceAmount(card, await db.Transactions.ToListAsync(), 6, 2026));
+        Assert.Equal(16.99m, finance.CalculateInvoiceAmount(card, await db.Transactions.ToListAsync(), 7, 2026));
+    }
+
+    [Fact]
     public async Task CreditCardInstallmentInProgress_CreatesOnlyRemainingParcels_WithCorrectSequence()
     {
         var (db, finance) = TestContextFactory.Create();

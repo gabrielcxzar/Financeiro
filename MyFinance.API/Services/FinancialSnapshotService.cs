@@ -180,13 +180,16 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
         var dueDay = account.DueDay ?? 10;
         var daysInMonth = DateTime.DaysInMonth(year, month);
         var safeClosingDay = Math.Min(closingDay, daysInMonth);
-        var closeDate = new DateTime(year, month, safeClosingDay, 23, 59, 59, DateTimeKind.Utc);
-        var startDate = closeDate.AddMonths(-1).AddDays(1);
+        var closeDateExclusive = new DateTime(year, month, safeClosingDay, 0, 0, 0, DateTimeKind.Utc);
+
+        var previousMonthDate = closeDateExclusive.AddMonths(-1);
+        var previousMonthClosingDay = Math.Min(closingDay, DateTime.DaysInMonth(previousMonthDate.Year, previousMonthDate.Month));
+        var startDate = new DateTime(previousMonthDate.Year, previousMonthDate.Month, previousMonthClosingDay, 0, 0, 0, DateTimeKind.Utc);
 
         DateTime dueDate;
         if (dueDay < closingDay)
         {
-            var nextMonthDate = closeDate.AddMonths(1);
+            var nextMonthDate = closeDateExclusive.AddMonths(1);
             var daysInNextMonth = DateTime.DaysInMonth(nextMonthDate.Year, nextMonthDate.Month);
             var safeDueDay = Math.Min(dueDay, daysInNextMonth);
             dueDate = new DateTime(nextMonthDate.Year, nextMonthDate.Month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
@@ -197,7 +200,7 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
             dueDate = new DateTime(year, month, safeDueDay, 12, 0, 0, DateTimeKind.Utc);
         }
 
-        return new InvoiceWindow(startDate, closeDate, dueDate);
+        return new InvoiceWindow(startDate, closeDateExclusive, dueDate);
     }
 
     public decimal CalculateInvoiceAmount(Account account, IEnumerable<Transaction> transactions, int month, int year)
@@ -207,7 +210,7 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
             .Where(t =>
                 t.AccountId == account.Id &&
                 t.Date >= window.StartDate &&
-                t.Date <= window.CloseDate &&
+                t.Date < window.CloseDate &&
                 !t.IsTransfer)
             .Sum(CardSignedAmount);
     }
