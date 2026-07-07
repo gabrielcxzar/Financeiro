@@ -33,19 +33,29 @@ export default function Transactions({ month, year }) {
   const isCompact = !screens.md;
 
   useEffect(() => {
-    loadTransactions();
+    const controller = new AbortController();
+    loadTransactions(controller.signal);
+
+    return () => controller.abort();
   }, [month, year]);
 
-  const loadTransactions = async () => {
+  const loadTransactions = async (signal) => {
     setLoading(true);
+    setTransactions([]);
     try {
       const query = month && year ? `?month=${month}&year=${year}` : '';
-      const response = await api.get(`/transactions${query}`);
+      const response = await api.get(`/transactions${query}`, { signal });
       setTransactions(response.data);
-    } catch {
+    } catch (error) {
+      if (signal?.aborted || error?.code === 'ERR_CANCELED') {
+        return;
+      }
+
       message.error('Erro ao carregar transacoes');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 

@@ -168,6 +168,7 @@ namespace MyFinance.API.Controllers
                 activeGoals,
                 month,
                 year);
+            var nextOpenInvoice = BuildNextOpenInvoice(snapshot, DateTime.UtcNow);
 
             var nextMonth = month == 12 ? 1 : month + 1;
             var nextYear = month == 12 ? year + 1 : year;
@@ -230,6 +231,7 @@ namespace MyFinance.API.Controllers
                         item.Net,
                         item.ProjectedBalance)).ToList()),
                 freeToSpend,
+                nextOpenInvoice,
                 DateTime.UtcNow
             );
 
@@ -254,6 +256,7 @@ namespace MyFinance.API.Controllers
             List<CategorySummaryDto> CategorySummary,
             ProjectionDto Projection,
             FreeToSpendDto FreeToSpend,
+            NextOpenInvoiceDto? NextOpenInvoice,
             DateTime GeneratedAtUtc
         );
 
@@ -320,6 +323,17 @@ namespace MyFinance.API.Controllers
             decimal TransferImpact,
             decimal Net,
             decimal ProjectedBalance
+        );
+
+        public sealed record NextOpenInvoiceDto(
+            int AccountId,
+            string AccountName,
+            int ReferenceMonth,
+            int ReferenceYear,
+            DateTime DueDate,
+            DateTime StartDate,
+            DateTime CloseDate,
+            decimal Amount
         );
 
         [HttpGet("free-to-spend")]
@@ -468,6 +482,55 @@ namespace MyFinance.API.Controllers
                 $"Metas: {goalsContribution:N2}. " +
                 $"Faturas/cartoes: {cardInvoices:N2}. " +
                 $"Resultado livre para gastar: {freeToSpendAmount:N2}.";
+        }
+
+        private NextOpenInvoiceDto? BuildNextOpenInvoice(UserFinancialSnapshot snapshot, DateTime asOfUtc)
+        {
+            var invoiceCandidates = new List<NextOpenInvoiceDto>();
+
+            foreach (var card in snapshot.Accounts.Where(a => a.IsCreditCard))
+            {
+                foreach (var monthReference in GetInvoiceReferenceMonths(asOfUtc))
+                {
+                    var window = _financialSnapshotService.GetInvoiceWindow(card, monthReference.Month, monthReference.Year);
+                    if (window.DueDate < asOfUtc.Date)
+                    {
+                        continue;
+                    }
+
+                    var amount = _financialSnapshotService.CalculateInvoiceAmount(card, snapshot.Transactions, monthReference.Month, monthReference.Year);
+                    if (amount <= 0)
+                    {
+                        continue;
+                    }
+
+                    invoiceCandidates.Add(new NextOpenInvoiceDto(
+                        card.Id,
+                        card.Name,
+                        monthReference.Month,
+                        monthReference.Year,
+                        window.DueDate,
+                        window.StartDate,
+                        window.CloseDate,
+                        amount));
+                }
+            }
+
+            return invoiceCandidates
+                .OrderBy(i => i.DueDate)
+                .ThenBy(i => i.AccountName)
+                .FirstOrDefault();
+        }
+
+        private static IEnumerable<(int Month, int Year)> GetInvoiceReferenceMonths(DateTime asOfUtc)
+        {
+            var anchor = new DateTime(asOfUtc.Year, asOfUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            for (var offset = -1; offset <= 2; offset++)
+            {
+                var reference = anchor.AddMonths(offset);
+                yield return (reference.Month, reference.Year);
+            }
         }
 
         public sealed record FreeToSpendDto(

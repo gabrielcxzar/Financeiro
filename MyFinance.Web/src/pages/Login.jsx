@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
-import { Card, Form, Input, Button, Typography, message, Tabs } from 'antd';
+import { Card, Form, Input, Button, Typography, message, Tabs, Checkbox } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
-import api from '../services/api';
+import api, { storeAuthSession } from '../services/api';
 import './Login.css';
 
 const { Title } = Typography;
@@ -13,8 +13,11 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', values);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userName', data.name);
+      storeAuthSession({
+        token: data.token,
+        userName: data.name,
+        rememberMe: values.rememberMe !== false,
+      });
       message.success(`Bem-vindo, ${data.name}!`);
       onLoginSuccess();
     } catch (error) {
@@ -52,6 +55,9 @@ export default function Login({ onLoginSuccess }) {
               size="large"
               autoComplete="current-password"
             />
+          </Form.Item>
+          <Form.Item name="rememberMe" valuePropName="checked" initialValue>
+            <Checkbox>Lembrar de mim</Checkbox>
           </Form.Item>
           <Button type="primary" htmlType="submit" block size="large" loading={loading} className="login-submit">
             Entrar
