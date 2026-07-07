@@ -33,7 +33,7 @@ import Budgets from './pages/Budgets';
 import Investments from './pages/Investments';
 import Goals from './pages/Goals';
 import AddTransactionModal from './components/AddTransactionModal';
-import { authExpiredEvent } from './services/api';
+import { authExpiredEvent, clearStoredAuth, getStoredAuthToken } from './services/api';
 
 const { Header, Content, Footer, Sider } = Layout;
 const { useBreakpoint } = Grid;
@@ -164,7 +164,7 @@ const pageNames = {
 };
 
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!getStoredAuthToken());
   const [collapsed, setCollapsed] = useState(false);
   const [activeKey, setActiveKey] = useState('1');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -180,8 +180,7 @@ const App = () => {
   } = theme.useToken();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userName');
+    clearStoredAuth();
     setIsAuthenticated(false);
   };
 
@@ -232,7 +231,7 @@ const App = () => {
       case '10':
         return <Investments />;
       case '11':
-        return <Budgets month={month} year={year} />;
+        return <Budgets key={`${month}-${year}`} month={month} year={year} />;
       default:
         return <Home month={month} year={year} />;
     }

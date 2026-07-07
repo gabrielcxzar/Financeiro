@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const authExpiredEvent = 'finflow:auth-expired';
+const persistentStorage = window.localStorage;
+const sessionStorageRef = window.sessionStorage;
 
 const resolveBaseUrl = () => {
   const configured = import.meta.env.VITE_API_URL?.trim();
@@ -26,9 +28,29 @@ const api = axios.create({
   timeout: 60000,
 });
 
+const getStoredAuthToken = () =>
+  persistentStorage.getItem('token') || sessionStorageRef.getItem('token');
+
+const storeAuthSession = ({ token, userName, rememberMe }) => {
+  const target = rememberMe ? persistentStorage : sessionStorageRef;
+  const alternate = rememberMe ? sessionStorageRef : persistentStorage;
+
+  alternate.removeItem('token');
+  alternate.removeItem('userName');
+  target.setItem('token', token);
+  target.setItem('userName', userName);
+};
+
+const clearStoredAuth = () => {
+  persistentStorage.removeItem('token');
+  persistentStorage.removeItem('userName');
+  sessionStorageRef.removeItem('token');
+  sessionStorageRef.removeItem('userName');
+};
+
 // Interceptor: Antes de cada requisicao, cola o token
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getStoredAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -51,8 +73,7 @@ api.interceptors.response.use(
     }
 
     if (error.response.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('userName');
+      clearStoredAuth();
       window.dispatchEvent(new Event(authExpiredEvent));
       return Promise.reject(buildApiError(error, 'Sua sessao expirou. Entre novamente.'));
     }
@@ -73,5 +94,6 @@ api.interceptors.response.use(
   },
 );
 
+export { clearStoredAuth, getStoredAuthToken, storeAuthSession };
 export { authExpiredEvent };
 export default api;

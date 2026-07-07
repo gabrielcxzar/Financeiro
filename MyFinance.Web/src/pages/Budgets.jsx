@@ -35,26 +35,37 @@ export default function Budgets({ month, year }) {
   const isCompact = !screens.md;
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    loadData(controller.signal);
+
+    return () => controller.abort();
   }, [month, year]);
 
-  const loadData = async () => {
+  const loadData = async (signal) => {
     try {
       setLoading(true);
+      setBudgets([]);
+      setTransactions([]);
       const [budgetsRes, catRes, transRes] = await Promise.all([
-        api.get(`/budgets?month=${month}&year=${year}`),
-        api.get('/categories'),
-        api.get(`/transactions?month=${month}&year=${year}`),
+        api.get(`/budgets?month=${month}&year=${year}`, { signal }),
+        api.get('/categories', { signal }),
+        api.get(`/transactions?month=${month}&year=${year}`, { signal }),
       ]);
 
       setBudgets(budgetsRes.data);
       setCategories(catRes.data);
       setTransactions(transRes.data);
     } catch (error) {
+      if (signal?.aborted || error?.code === 'ERR_CANCELED') {
+        return;
+      }
+
       console.error(error);
       message.error('Erro ao carregar metas.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 
@@ -164,7 +175,9 @@ export default function Budgets({ month, year }) {
         </Button>
       </div>
 
-      {budgets.length === 0 ? (
+      {loading ? (
+        <Card variant="borderless" loading bodyStyle={{ minHeight: 180 }} />
+      ) : budgets.length === 0 ? (
         <Empty description="Nenhum orcamento definido para este mes." />
       ) : (
         <Row gutter={[16, 16]}>{budgets.map(renderBudgetCard)}</Row>

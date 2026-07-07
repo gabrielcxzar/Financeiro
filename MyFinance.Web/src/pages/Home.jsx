@@ -3,6 +3,7 @@ import { Card, Col, Row, Statistic, Table, Tag, Button, Grid, message, Alert, To
 import {
   ArrowUpOutlined,
   ArrowDownOutlined,
+  CreditCardOutlined,
   DollarOutlined,
   EyeOutlined,
   EyeInvisibleOutlined,
@@ -34,6 +35,7 @@ export default function Home({ month, year }) {
   const [projection, setProjection] = useState([]);
   const [projectionStart, setProjectionStart] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [nextOpenInvoice, setNextOpenInvoice] = useState(null);
   const [freeToSpend, setFreeToSpend] = useState({
     freeToSpendAmount: 0,
     confirmedIncome: 0,
@@ -136,6 +138,7 @@ export default function Home({ month, year }) {
         setCategorySummary(payload.categorySummary || []);
         setProjection(payload.projection?.items || []);
         setProjectionStart(payload.projection?.startBalance ?? apiSummary.total ?? 0);
+        setNextOpenInvoice(payload.nextOpenInvoice || null);
         setFreeToSpend(payload.freeToSpend || {
           freeToSpendAmount: 0,
           confirmedIncome: 0,
@@ -271,7 +274,42 @@ export default function Home({ month, year }) {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={8}>
+        <Col xs={24} lg={12}>
+          <Card
+            variant="borderless"
+            style={{ borderTop: '4px solid #722ed1', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+          >
+            {nextOpenInvoice ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Statistic
+                  title="Proxima Fatura em Aberto"
+                  value={nextOpenInvoice.amount}
+                  formatter={(value) => (
+                    <span style={{ color: '#722ed1', fontWeight: 'bold', fontSize: isCompact ? 22 : 26 }}>
+                      {formatMoney(value)}
+                    </span>
+                  )}
+                  prefix={<CreditCardOutlined />}
+                />
+                <div><b>{nextOpenInvoice.accountName}</b></div>
+                <div style={{ color: '#595959' }}>
+                  Vencimento {new Date(nextOpenInvoice.dueDate).toLocaleDateString('pt-BR')}
+                </div>
+                <div style={{ color: '#8c8c8c', fontSize: 12 }}>
+                  Ciclo de {new Date(nextOpenInvoice.startDate).toLocaleDateString('pt-BR')} ate{' '}
+                  {new Date(new Date(nextOpenInvoice.closeDate).getTime() - 86400000).toLocaleDateString('pt-BR')}
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontWeight: 600 }}>Proxima Fatura em Aberto</div>
+                <div style={{ color: '#8c8c8c' }}>Nenhuma fatura em aberto encontrada para os proximos ciclos.</div>
+              </div>
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={4}>
           <Card
             variant="borderless"
             style={{ borderTop: '4px solid #1890ff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
@@ -289,7 +327,7 @@ export default function Home({ month, year }) {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={8}>
+        <Col xs={24} sm={12} lg={4}>
           <Card
             variant="borderless"
             style={{ borderTop: '4px solid #595959', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
@@ -306,7 +344,7 @@ export default function Home({ month, year }) {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={8}>
+        <Col xs={24} sm={12} lg={4}>
           <Card
             variant="borderless"
             style={{ borderTop: '4px solid #13c2c2', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}

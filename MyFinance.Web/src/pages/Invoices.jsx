@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { Card, Select, Tabs, List, Tag, Statistic, Grid, message } from 'antd';
+import { Card, Select, Tabs, List, Tag, Statistic, Grid, message, Skeleton } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
 
@@ -11,6 +11,8 @@ export default function Invoices() {
   const [selectedCard, setSelectedCard] = useState(null);
   const [invoiceData, setInvoiceData] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(dayjs());
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -20,6 +22,7 @@ export default function Invoices() {
 
     const loadCards = async () => {
       try {
+        setCardsLoading(true);
         const res = await api.get('/accounts');
         if (cancelled) return;
 
@@ -33,6 +36,10 @@ export default function Invoices() {
           console.error('Erro ao carregar cartoes para faturas:', error);
           message.error('Nao foi possivel carregar os cartoes.');
           setCards([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setCardsLoading(false);
         }
       }
     };
@@ -51,6 +58,8 @@ export default function Invoices() {
 
     const fetchInvoice = async () => {
       try {
+        setInvoiceLoading(true);
+        setInvoiceData(null);
         const response = await api.get(
           `/transactions/invoice?accountId=${selectedCard}&month=${currentMonth.month() + 1}&year=${currentMonth.year()}`,
         );
@@ -62,6 +71,10 @@ export default function Invoices() {
           console.error('Erro ao carregar dados da fatura:', error);
           message.error('Nao foi possivel carregar a fatura selecionada.');
           setInvoiceData({ total: 0, dueDate: dayjs().toISOString(), transactions: [] });
+        }
+      } finally {
+        if (!cancelled) {
+          setInvoiceLoading(false);
         }
       }
     };
@@ -99,6 +112,7 @@ export default function Invoices() {
           value={selectedCard}
           onChange={setSelectedCard}
           placeholder="Selecione um cartao"
+          loading={cardsLoading}
           options={cards.map((c) => ({ label: c.name, value: c.id }))}
         />
       </div>
@@ -110,7 +124,11 @@ export default function Invoices() {
           items={items.map((item) => ({
             label: item.label,
             key: item.key,
-            children: invoiceData ? (
+            children: invoiceLoading ? (
+              <div style={{ padding: isCompact ? 8 : 12 }}>
+                <Skeleton active paragraph={{ rows: 5 }} title={{ width: '35%' }} />
+              </div>
+            ) : invoiceData ? (
               <div>
                 <div
                   style={{

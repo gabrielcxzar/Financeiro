@@ -732,6 +732,55 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task DashboardSummary_ReturnsNextOpenInvoice_WithNearestFutureDueDate()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (_, card, expenseCategory, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var dashboard = new DashboardSummaryController(db, finance, NullLogger<DashboardSummaryController>.Instance);
+        TestContextFactory.AttachUser(dashboard);
+        var now = DateTime.UtcNow;
+        var currentWindow = finance.GetInvoiceWindow(card, now.Month, now.Year);
+        var nextReference = now.Month == 12 ? (Month: 1, Year: now.Year + 1) : (Month: now.Month + 1, Year: now.Year);
+        var nextWindow = finance.GetInvoiceWindow(card, nextReference.Month, nextReference.Year);
+
+        db.Transactions.AddRange(
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra do proximo vencimento",
+                Amount = 50m,
+                Type = "Expense",
+                Paid = true,
+                Date = currentWindow.StartDate.AddDays(1)
+            },
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra do vencimento seguinte",
+                Amount = 80m,
+                Type = "Expense",
+                Paid = true,
+                Date = nextWindow.StartDate.AddDays(1)
+            });
+        await db.SaveChangesAsync();
+
+        var result = await dashboard.GetSummary(now.Month, now.Year, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var json = TestContextFactory.ToJsonElement(ok.Value!);
+        var nextInvoice = json.GetProperty("nextOpenInvoice");
+
+        Assert.Equal(card.Name, nextInvoice.GetProperty("accountName").GetString());
+        Assert.Equal(50m, nextInvoice.GetProperty("amount").GetDecimal());
+        Assert.Equal(currentWindow.DueDate, nextInvoice.GetProperty("dueDate").GetDateTime());
+        Assert.Equal(now.Month, nextInvoice.GetProperty("referenceMonth").GetInt32());
+        Assert.Equal(now.Year, nextInvoice.GetProperty("referenceYear").GetInt32());
+    }
+
+    [Fact]
     public async Task ImportingInvoicePayment_CreatesTransferInsteadOfFalseIncome()
     {
         var (db, finance) = TestContextFactory.Create();
