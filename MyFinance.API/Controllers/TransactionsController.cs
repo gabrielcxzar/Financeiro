@@ -62,7 +62,7 @@ namespace MyFinance.API.Controllers
                     t.AccountId == accountId &&
                     t.UserId == userId &&
                     t.Date >= invoiceWindow.StartDate &&
-                    t.Date <= invoiceWindow.CloseDate &&
+                    t.Date < invoiceWindow.CloseDate &&
                     !t.IsTransfer)
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
@@ -71,7 +71,7 @@ namespace MyFinance.API.Controllers
 
             return new
             {
-                period = $"{invoiceWindow.StartDate:dd/MM} a {invoiceWindow.CloseDate:dd/MM}",
+                period = $"{invoiceWindow.StartDate:dd/MM} a {invoiceWindow.CloseDate.AddDays(-1):dd/MM}",
                 dueDate = invoiceWindow.DueDate,
                 total,
                 status = total > 0 ? "Aberta" : "Paga",
