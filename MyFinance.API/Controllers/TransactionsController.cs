@@ -107,6 +107,7 @@ namespace MyFinance.API.Controllers
             decimal valorParcela = request.Amount;
             string? installmentId = installmentPlan.RequiresGrouping ? Guid.NewGuid().ToString() : null;
             DateTime dataBase = transactionDate;
+            var installmentDates = BuildInstallmentDates(account, dataBase, installmentPlan);
 
             var created = new List<Transaction>();
 
@@ -122,7 +123,7 @@ namespace MyFinance.API.Controllers
                     Paid = request.Paid,
                     Amount = valorParcela,
                     Description = BuildInstallmentDescription(request.Description, installmentNumber, installmentPlan.TotalInstallments),
-                    Date = dataBase.AddMonths(i).ToUniversalTime(),
+                    Date = installmentDates[installmentNumber],
                     InstallmentId = installmentId
                 };
 
@@ -413,11 +414,13 @@ namespace MyFinance.API.Controllers
 
             var desiredNumbers = Enumerable.Range(firstInstallmentNumber, installmentPlan.TotalInstallments - firstInstallmentNumber + 1).ToList();
             var requestDateUtc = request.Date.ToUniversalTime();
+            var desiredPlan = InstallmentPlan.Valid(firstInstallmentNumber, installmentPlan.TotalInstallments);
+            var scheduledDates = BuildInstallmentDates(updatedAccount, requestDateUtc, desiredPlan);
             var desiredTransactions = new Dictionary<int, Transaction>();
 
             foreach (var installmentNumber in desiredNumbers)
             {
-                var installmentDate = requestDateUtc.AddMonths(installmentNumber - installmentPlan.StartingInstallment);
+                var installmentDate = scheduledDates[installmentNumber];
                 var transaction = existingByInstallmentNumber.TryGetValue(installmentNumber, out var existing)
                     ? existing
                     : new Transaction
@@ -545,6 +548,70 @@ namespace MyFinance.API.Controllers
             return new InstallmentInfo(
                 int.Parse(match.Groups[1].Value),
                 int.Parse(match.Groups[2].Value));
+        }
+
+        private Dictionary<int, DateTime> BuildInstallmentDates(Account account, DateTime anchorDateUtc, InstallmentPlan plan)
+        {
+            var dates = new Dictionary<int, DateTime>();
+            if (!plan.IsValid)
+            {
+                return dates;
+            }
+
+            var normalizedAnchor = anchorDateUtc.Kind == DateTimeKind.Utc
+                ? anchorDateUtc
+                : anchorDateUtc.ToUniversalTime();
+            var timeOfDay = normalizedAnchor.TimeOfDay == TimeSpan.Zero
+                ? TimeSpan.FromHours(12)
+                : normalizedAnchor.TimeOfDay;
+
+            var currentDate = normalizedAnchor;
+
+            for (var installmentNumber = plan.StartingInstallment; installmentNumber <= plan.TotalInstallments; installmentNumber++)
+            {
+                if (installmentNumber == plan.StartingInstallment)
+                {
+                    dates[installmentNumber] = currentDate;
+                    continue;
+                }
+
+                currentDate = account.IsCreditCard
+                    ? MoveToNextInvoiceCycle(account, currentDate, timeOfDay)
+                    : normalizedAnchor.AddMonths(installmentNumber - plan.StartingInstallment);
+
+                dates[installmentNumber] = currentDate;
+            }
+
+            return dates;
+        }
+
+        private DateTime MoveToNextInvoiceCycle(Account account, DateTime currentDateUtc, TimeSpan preferredTimeOfDay)
+        {
+            var reference = ResolveInvoiceReferenceMonth(account, currentDateUtc);
+            var nextReferenceBase = new DateTime(reference.Year, reference.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
+            var nextWindow = _financialSnapshotService.GetInvoiceWindow(account, nextReferenceBase.Month, nextReferenceBase.Year);
+            return nextWindow.StartDate.Add(preferredTimeOfDay);
+        }
+
+        private (int Month, int Year) ResolveInvoiceReferenceMonth(Account account, DateTime dateUtc)
+        {
+            var candidateMonths = new[]
+            {
+                new DateTime(dateUtc.Year, dateUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(-1),
+                new DateTime(dateUtc.Year, dateUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(dateUtc.Year, dateUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1)
+            };
+
+            foreach (var candidate in candidateMonths)
+            {
+                var window = _financialSnapshotService.GetInvoiceWindow(account, candidate.Month, candidate.Year);
+                if (dateUtc >= window.StartDate && dateUtc < window.CloseDate)
+                {
+                    return (candidate.Month, candidate.Year);
+                }
+            }
+
+            throw new InvalidOperationException("Nao foi possivel resolver o ciclo da fatura para a parcela.");
         }
     }
 

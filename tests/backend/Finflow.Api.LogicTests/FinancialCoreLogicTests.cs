@@ -295,6 +295,9 @@ public class FinancialCoreLogicTests
         var transactions = new TransactionsController(db, finance);
         TestContextFactory.AttachUser(transactions);
         var baseDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+        var julyWindow = finance.GetInvoiceWindow(card, 7, 2026);
+        var augustWindow = finance.GetInvoiceWindow(card, 8, 2026);
+        var septemberWindow = finance.GetInvoiceWindow(card, 9, 2026);
 
         var result = await transactions.PostTransaction(new UpsertTransactionDto
         {
@@ -326,17 +329,17 @@ public class FinancialCoreLogicTests
             second =>
             {
                 Assert.Equal("Revisao da moto - Moto Facil Yamaha (4/6)", second.Description);
-                Assert.Equal(baseDate.AddMonths(1), second.Date);
+                Assert.Equal(julyWindow.CloseDate.AddHours(12), second.Date);
             },
             third =>
             {
                 Assert.Equal("Revisao da moto - Moto Facil Yamaha (5/6)", third.Description);
-                Assert.Equal(baseDate.AddMonths(2), third.Date);
+                Assert.Equal(augustWindow.CloseDate.AddHours(12), third.Date);
             },
             fourth =>
             {
                 Assert.Equal("Revisao da moto - Moto Facil Yamaha (6/6)", fourth.Description);
-                Assert.Equal(baseDate.AddMonths(3), fourth.Date);
+                Assert.Equal(septemberWindow.CloseDate.AddHours(12), fourth.Date);
             });
 
         Assert.Single(created.Select(t => t.InstallmentId).Distinct());
@@ -350,6 +353,9 @@ public class FinancialCoreLogicTests
         var transactions = new TransactionsController(db, finance);
         TestContextFactory.AttachUser(transactions);
         var originalDate = new DateTime(2026, 6, 30, 12, 0, 0, DateTimeKind.Utc);
+        var julyWindow = finance.GetInvoiceWindow(card, 7, 2026);
+        var augustWindow = finance.GetInvoiceWindow(card, 8, 2026);
+        var septemberWindow = finance.GetInvoiceWindow(card, 9, 2026);
 
         await transactions.PostTransaction(new UpsertTransactionDto
         {
@@ -397,18 +403,84 @@ public class FinancialCoreLogicTests
             second =>
             {
                 Assert.Equal("Curso de pilotagem premium (3/5)", second.Description);
-                Assert.Equal(originalDate.AddMonths(1), second.Date);
+                Assert.Equal(julyWindow.CloseDate.AddHours(12), second.Date);
             },
             third =>
             {
                 Assert.Equal("Curso de pilotagem premium (4/5)", third.Description);
-                Assert.Equal(originalDate.AddMonths(2), third.Date);
+                Assert.Equal(augustWindow.CloseDate.AddHours(12), third.Date);
             },
             fourth =>
             {
                 Assert.Equal("Curso de pilotagem premium (5/5)", fourth.Description);
-                Assert.Equal(originalDate.AddMonths(3), fourth.Date);
+                Assert.Equal(septemberWindow.CloseDate.AddHours(12), fourth.Date);
             });
+    }
+
+    [Fact]
+    public async Task CreditCardInstallments_OnClosingBoundary_DoNotStackInSameInvoice()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var expenseCategory = new Category
+        {
+            UserId = 1,
+            Name = "Despesa Teste",
+            Type = "Expense",
+            Icon = "EX",
+            Color = "#111111"
+        };
+
+        var card = new Account
+        {
+            UserId = 1,
+            Name = "Cartao Principal",
+            Type = "Checking",
+            IsCreditCard = true,
+            InitialBalance = 0m,
+            CurrentBalance = 0m,
+            ClosingDay = 31,
+            DueDay = 7,
+            CreditLimit = 5000m
+        };
+
+        db.Categories.Add(expenseCategory);
+        db.Accounts.Add(card);
+        await db.SaveChangesAsync();
+
+        var controller = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(controller);
+
+        var result = await controller.PostTransaction(new UpsertTransactionDto
+        {
+            Description = "Compra parcelada",
+            Amount = 71.73m,
+            Type = "Expense",
+            Paid = true,
+            CategoryId = expenseCategory.Id,
+            AccountId = card.Id,
+            Date = new DateTime(2026, 6, 30, 8, 32, 0, DateTimeKind.Utc),
+            InstallmentNumber = 3,
+            TotalInstallments = 6
+        });
+
+        Assert.IsType<CreatedAtActionResult>(result.Result);
+
+        var created = await db.Transactions
+            .Where(t => t.AccountId == card.Id)
+            .OrderBy(t => t.Date)
+            .ToListAsync();
+
+        Assert.Collection(created,
+            first => Assert.Equal(new DateTime(2026, 6, 30, 8, 32, 0, DateTimeKind.Utc), first.Date),
+            second => Assert.Equal(new DateTime(2026, 7, 31, 8, 32, 0, DateTimeKind.Utc), second.Date),
+            third => Assert.Equal(new DateTime(2026, 8, 31, 8, 32, 0, DateTimeKind.Utc), third.Date),
+            fourth => Assert.Equal(new DateTime(2026, 9, 30, 8, 32, 0, DateTimeKind.Utc), fourth.Date));
+
+        var allTransactions = await db.Transactions.ToListAsync();
+        Assert.Equal(71.73m, finance.CalculateInvoiceAmount(card, allTransactions, 7, 2026));
+        Assert.Equal(71.73m, finance.CalculateInvoiceAmount(card, allTransactions, 8, 2026));
+        Assert.Equal(71.73m, finance.CalculateInvoiceAmount(card, allTransactions, 9, 2026));
+        Assert.Equal(71.73m, finance.CalculateInvoiceAmount(card, allTransactions, 10, 2026));
     }
 
     [Fact]
