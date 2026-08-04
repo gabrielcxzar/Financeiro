@@ -35,6 +35,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
     pendingNetWorth: 0,
     projectedNetWorth: 0,
   });
+  const [prevExpense, setPrevExpense] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [categorySummary, setCategorySummary] = useState([]);
   const [predictedFixed, setPredictedFixed] = useState(0);
@@ -140,6 +141,19 @@ export default function Home({ month, year, onOpenOnboarding }) {
           pendingNetWorth: apiSummary.pendingNetWorth || 0,
           projectedNetWorth: apiSummary.projectedNetWorth || 0,
         });
+
+        // Fetch previous month for Month-over-Month comparison
+        const prevMonth = month === 1 ? 12 : month - 1;
+        const prevYear = month === 1 ? year - 1 : year;
+        try {
+          const prevRes = await api.get(`/dashboard/summary?month=${prevMonth}&year=${prevYear}`, {
+            signal: controller.signal,
+          });
+          setPrevExpense(prevRes.data?.summary?.expense || 0);
+        } catch {
+          setPrevExpense(0);
+        }
+
         setRecentTransactions(payload.recentTransactions || []);
         setCategorySummary(payload.categorySummary || []);
         setProjection(payload.projection?.items || []);
@@ -310,8 +324,21 @@ export default function Home({ month, year, onOpenOnboarding }) {
             <div style={{ fontSize: isCompact ? 24 : 30, fontWeight: 800, color: '#EF4444', letterSpacing: '-0.02em' }}>
               {formatMoney(summary.expense)}
             </div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 6 }}>
-              Fixas cadastradas: {formatMoney(predictedFixed)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, flexWrap: 'wrap', gap: 6 }}>
+              <span style={{ fontSize: 12, color: '#64748B' }}>
+                Fixas cadastradas: {formatMoney(predictedFixed)}
+              </span>
+              {prevExpense > 0 && summary.expense > 0 && (
+                (() => {
+                  const momDiff = Math.round(((summary.expense - prevExpense) / prevExpense) * 100);
+                  const isBetter = momDiff <= 0;
+                  return (
+                    <Tag color={isBetter ? 'green' : 'red'} style={{ borderRadius: 6, fontWeight: 700, margin: 0 }}>
+                      {momDiff > 0 ? `+${momDiff}%` : `${momDiff}%`} vs mês ant. {isBetter ? '🎉' : '⚠️'}
+                    </Tag>
+                  );
+                })()
+              )}
             </div>
           </Card>
         </Col>

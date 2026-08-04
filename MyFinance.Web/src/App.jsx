@@ -16,6 +16,7 @@ import {
   MenuOutlined,
   FundOutlined,
   StarOutlined,
+  SearchOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -39,6 +40,7 @@ import AddTransactionModal from './components/AddTransactionModal';
 import OnboardingWizard from './components/OnboardingWizard';
 import FloatingActionButton from './components/FloatingActionButton';
 import BottomNavigation from './components/BottomNavigation';
+import CommandKModal from './components/CommandKModal';
 import { authExpiredEvent, clearStoredAuth, getStoredAuthToken } from './services/api';
 
 const { Header, Content, Footer, Sider } = Layout;
@@ -191,6 +193,8 @@ const App = () => {
   const [activeKey, setActiveKey] = useState('1');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isCommandKOpen, setIsCommandKOpen] = useState(false);
+  const [isValuesVisible, setIsValuesVisible] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -214,6 +218,18 @@ const App = () => {
 
     window.addEventListener(authExpiredEvent, handleAuthExpired);
     return () => window.removeEventListener(authExpiredEvent, handleAuthExpired);
+  }, []);
+
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandKOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Auto trigger Onboarding Wizard if not completed yet
@@ -408,6 +424,19 @@ const App = () => {
                 alignItems: 'center',
               }}
             >
+              {!isMobile && (
+                <Tooltip title="Buscar comandos e atalhos (Ctrl + K)">
+                  <Button
+                    type="default"
+                    icon={<SearchOutlined style={{ color: '#FF6600' }} />}
+                    onClick={() => setIsCommandKOpen(true)}
+                    style={{ borderRadius: 10, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B' }}
+                  >
+                    Buscar... <Tag style={{ borderRadius: 4, marginLeft: 6, fontSize: 10 }}>Ctrl+K</Tag>
+                  </Button>
+                </Tooltip>
+              )}
+
               <Tooltip title="Abrir Guia de Primeiros Passos">
                 <Button
                   type="default"
@@ -489,6 +518,15 @@ const App = () => {
           open={isOnboardingOpen}
           onClose={() => setIsOnboardingOpen(false)}
           onComplete={() => setRefreshKey((old) => old + 1)}
+        />
+
+        <CommandKModal
+          open={isCommandKOpen}
+          onClose={() => setIsCommandKOpen(false)}
+          onNavigate={(key) => setActiveKey(key)}
+          onAddTransaction={() => setIsModalOpen(true)}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+          onToggleVisibility={() => {}}
         />
 
         <FloatingActionButton onClick={() => setIsModalOpen(true)} />
