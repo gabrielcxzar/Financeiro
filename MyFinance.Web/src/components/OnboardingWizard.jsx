@@ -94,6 +94,11 @@ export default function OnboardingWizard({ open, onClose, onComplete }) {
     }
   };
 
+  const handleDismiss = () => {
+    localStorage.setItem('finflow_onboarding_completed', 'true');
+    onClose();
+  };
+
   const handleFinish = () => {
     localStorage.setItem('finflow_onboarding_completed', 'true');
     onComplete();
@@ -111,7 +116,7 @@ export default function OnboardingWizard({ open, onClose, onComplete }) {
     <Modal
       open={open}
       footer={null}
-      onCancel={onClose}
+      onCancel={handleDismiss}
       width={680}
       centered
       destroyOnClose
