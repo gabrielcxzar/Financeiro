@@ -1,11 +1,11 @@
 :root {
-  --login-navy-900: #03152f;
-  --login-navy-700: #0b2a57;
-  --login-blue-500: #1f8cff;
-  --login-cyan-400: #4dd9ff;
-  --login-surface: #f7fbff;
-  --login-ink: #10254a;
-  --login-muted: #5d6a82;
+  --login-black-900: #0B0D12;
+  --login-black-800: #12151E;
+  --login-orange-500: #FF6600;
+  --login-orange-400: #FF7714;
+  --login-surface: #F8FAFC;
+  --login-ink: #0F172A;
+  --login-muted: #64748B;
 }
 
 .login-shell {
@@ -15,9 +15,9 @@
   justify-content: center;
   padding: 28px;
   background:
-    radial-gradient(48rem 30rem at 12% 0%, rgba(66, 212, 255, 0.18), transparent 58%),
-    radial-gradient(52rem 28rem at 100% 100%, rgba(31, 140, 255, 0.2), transparent 62%),
-    linear-gradient(145deg, #04132a 0%, #051b3b 38%, #08244d 100%);
+    radial-gradient(48rem 30rem at 12% 0%, rgba(255, 102, 0, 0.18), transparent 58%),
+    radial-gradient(52rem 28rem at 100% 100%, rgba(255, 119, 20, 0.15), transparent 62%),
+    linear-gradient(145deg, #090B0E 0%, #10131B 45%, #181C28 100%);
 }
 
 .login-layout {
@@ -27,17 +27,17 @@
   grid-template-columns: 1.05fr 0.95fr;
   border-radius: 28px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 30px 90px rgba(2, 9, 22, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
 }
 
 .login-brand-panel {
   position: relative;
   padding: 56px 52px;
-  color: #eaf4ff;
+  color: #F8FAFC;
   background:
-    radial-gradient(28rem 20rem at 20% 4%, rgba(84, 221, 255, 0.28), transparent 65%),
-    linear-gradient(160deg, var(--login-navy-900) 0%, var(--login-navy-700) 100%);
+    radial-gradient(28rem 20rem at 20% 4%, rgba(255, 102, 0, 0.25), transparent 65%),
+    linear-gradient(160deg, #0B0D12 0%, #161922 100%);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -50,27 +50,28 @@
   width: 280px;
   height: 280px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(77, 217, 255, 0.25) 0%, rgba(77, 217, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 102, 0, 0.2) 0%, rgba(255, 102, 0, 0) 70%);
 }
 
 .login-brand-logo {
   width: 66px;
   height: 66px;
   object-fit: contain;
-  filter: drop-shadow(0 10px 20px rgba(77, 217, 255, 0.25));
+  filter: drop-shadow(0 10px 20px rgba(255, 102, 0, 0.35));
 }
 
 .login-brand-panel h1 {
   margin: 2px 0 0;
-  font-family: 'Sora', 'Manrope', sans-serif;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
   font-size: clamp(1.9rem, 3vw, 2.4rem);
   letter-spacing: -0.03em;
+  color: #FFFFFF;
 }
 
 .login-brand-panel p {
   max-width: 34ch;
   margin: 0;
-  color: rgba(233, 244, 255, 0.84);
+  color: rgba(248, 250, 252, 0.84);
   line-height: 1.6;
   font-size: 1rem;
 }
@@ -87,7 +88,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #d9ecff;
+  color: #F1F5F9;
   font-weight: 600;
 }
 
@@ -96,8 +97,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: linear-gradient(145deg, var(--login-cyan-400), #8fe7ff);
-  box-shadow: 0 0 0 5px rgba(77, 217, 255, 0.14);
+  background: linear-gradient(145deg, #FF6600, #FFAA00);
+  box-shadow: 0 0 0 5px rgba(255, 102, 0, 0.2);
 }
 
 .login-form-panel {
@@ -105,13 +106,13 @@
   align-items: center;
   justify-content: center;
   padding: 36px;
-  background: linear-gradient(180deg, #fbfdff 0%, var(--login-surface) 100%);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
 }
 
 .login-card {
   width: min(440px, 100%);
-  border-radius: 18px;
-  box-shadow: 0 20px 50px rgba(13, 35, 77, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
 }
 
 .login-card .ant-card-body {
@@ -134,7 +135,7 @@
 .login-title.ant-typography {
   margin: 0;
   color: var(--login-ink);
-  font-family: 'Sora', 'Manrope', sans-serif;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -0.02em;
   font-size: 1.62rem;
 }
@@ -147,7 +148,15 @@
 
 .login-tabs .ant-tabs-tab {
   font-weight: 700;
-  font-family: 'Sora', 'Manrope', sans-serif;
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+}
+
+.login-tabs .ant-tabs-ink-bar {
+  background-color: #FF6600 !important;
+}
+
+.login-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #FF6600 !important;
 }
 
 .login-form .ant-input-affix-wrapper,
@@ -163,13 +172,14 @@
   font-weight: 700;
   letter-spacing: 0.2px;
   border: none;
-  background: linear-gradient(135deg, #0d8bff 0%, #2e69ff 100%);
-  box-shadow: 0 10px 18px rgba(22, 102, 255, 0.28);
+  background: linear-gradient(135deg, #FF6600 0%, #FF8800 100%);
+  box-shadow: 0 10px 18px rgba(255, 102, 0, 0.3);
+  color: #FFFFFF !important;
 }
 
 .login-submit.ant-btn:hover,
 .login-submit.ant-btn:focus {
-  background: linear-gradient(135deg, #1f96ff 0%, #3a74ff 100%);
+  background: linear-gradient(135deg, #FF7714 0%, #FFAA00 100%);
 }
 
 @media (max-width: 980px) {

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Row,
@@ -28,6 +28,7 @@ import TransferModal from '../components/TransferModal';
 import AddAccountModal from '../components/AddAccountModal';
 import AdjustBalanceModal from '../components/AdjustBalanceModal';
 import BrandLoading from '../components/BrandLoading';
+import ActionableEmptyState from '../components/ActionableEmptyState';
 
 const { useBreakpoint } = Grid;
 const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -266,15 +267,29 @@ export default function Accounts() {
         </Col>
       </Row>
 
-      {creditCards.length > 0 && (
+      {accounts.length === 0 ? (
+        <ActionableEmptyState
+          title="Nenhuma conta ou carteira cadastrada"
+          description="Cadastre seus bancos (ex: Itaú, Bradesco, Nubank) ou carteira física para acompanhar seu saldo consolidado."
+          actionLabel="Adicionar Minha Primeira Conta"
+          onAction={() => {
+            setEditingAccount(null);
+            setIsModalOpen(true);
+          }}
+        />
+      ) : (
         <>
-          <h3 style={{ margin: '4px 0 0', color: '#555' }}>Cartoes de Credito</h3>
-          <Row gutter={[16, 16]}>{creditCards.map(renderCreditCard)}</Row>
+          {creditCards.length > 0 && (
+            <>
+              <h3 style={{ margin: '16px 0 8px', color: '#0F172A', fontWeight: 700 }}>Cartões de Crédito</h3>
+              <Row gutter={[16, 16]}>{creditCards.map(renderCreditCard)}</Row>
+            </>
+          )}
+
+          <h3 style={{ margin: '16px 0 8px', color: '#0F172A', fontWeight: 700 }}>Contas Bancárias e Investimentos</h3>
+          <Row gutter={[16, 16]}>{[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}</Row>
         </>
       )}
-
-      <h3 style={{ margin: '4px 0 0', color: '#555' }}>Contas Bancarias</h3>
-      <Row gutter={[16, 16]}>{[...checkingAccounts, ...investmentAccounts].map(renderSimpleAccount)}</Row>
 
       <AddAccountModal
         visible={isModalOpen}

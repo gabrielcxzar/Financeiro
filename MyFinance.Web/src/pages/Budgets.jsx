@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Progress,
@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../services/api';
+import ActionableEmptyState from '../components/ActionableEmptyState';
 
 const { Option } = Select;
 const { useBreakpoint } = Grid;
@@ -178,7 +179,12 @@ export default function Budgets({ month, year }) {
       {loading ? (
         <Card variant="borderless" loading bodyStyle={{ minHeight: 180 }} />
       ) : budgets.length === 0 ? (
-        <Empty description="Nenhum orcamento definido para este mes." />
+        <ActionableEmptyState
+          title="Nenhum orçamento definido para este mês"
+          description="Defina limites mensais por categoria (ex: Alimentação, Lazer) para manter suas finanças sob controle."
+          actionLabel="Definir Primeiro Orçamento"
+          onAction={() => setIsModalOpen(true)}
+        />
       ) : (
         <Row gutter={[16, 16]}>{budgets.map(renderBudgetCard)}</Row>
       )}
