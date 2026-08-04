@@ -1,14 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 
 :root {
-  --mf-navy-900: #04142d;
-  --mf-navy-700: #0b2a57;
-  --mf-blue-500: #1f8cff;
-  --mf-cyan-400: #4dd9ff;
-  --mf-surface: #f4f7fb;
-  --mf-text: #10254a;
-  --mf-muted: #5d6a82;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  /* Brand Black & Orange Tokens */
+  --ff-black-900: #0B0D12;
+  --ff-black-800: #12151E;
+  --ff-black-700: #1A1E2B;
+  --ff-black-600: #262B3D;
+  
+  --ff-orange-primary: #FF6600;
+  --ff-orange-hover: #FF7714;
+  --ff-orange-active: #E65C00;
+  --ff-orange-light: rgba(255, 102, 0, 0.08);
+  --ff-orange-glow: rgba(255, 102, 0, 0.25);
+  
+  /* Status Colors */
+  --ff-income: #10B981;
+  --ff-income-light: rgba(16, 185, 129, 0.1);
+  --ff-expense: #EF4444;
+  --ff-expense-light: rgba(239, 68, 68, 0.1);
+  --ff-warning: #F59E0B;
+  --ff-info: #3B82F6;
+
+  /* Surfaces & Text */
+  --ff-bg-surface: #F8FAFC;
+  --ff-card-bg: #FFFFFF;
+  --ff-text-main: #0F172A;
+  --ff-text-muted: #64748B;
+  --ff-border: #E2E8F0;
+
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -22,23 +42,87 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(45rem 25rem at -8% 0%, rgba(77, 217, 255, 0.12), transparent 62%),
-    radial-gradient(40rem 22rem at 108% 100%, rgba(31, 140, 255, 0.13), transparent 60%),
-    var(--mf-surface);
-  color: var(--mf-text);
+  background-color: var(--ff-bg-surface);
+  color: var(--ff-text-main);
+  background-image: 
+    radial-gradient(40rem 20rem at 0% 0%, rgba(255, 102, 0, 0.05), transparent 70%),
+    radial-gradient(35rem 20rem at 100% 100%, rgba(255, 102, 0, 0.03), transparent 70%);
+  background-attachment: fixed;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: 'Sora', 'Manrope', sans-serif;
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -0.02em;
 }
 
-#root {
-  min-height: 100vh;
+/* Ant Design Global Overrides & Enhancements */
+.ant-layout-sider {
+  background: var(--ff-black-900) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ant-menu-dark {
+  background: var(--ff-black-900) !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: var(--ff-orange-primary) !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px var(--ff-orange-glow);
+}
+
+.ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #FF994D !important;
+}
+
+.ant-btn-primary {
+  background-color: var(--ff-orange-primary) !important;
+  border-color: var(--ff-orange-primary) !important;
+  box-shadow: 0 4px 12px var(--ff-orange-glow) !important;
+  font-weight: 600;
+}
+
+.ant-btn-primary:hover {
+  background-color: var(--ff-orange-hover) !important;
+  border-color: var(--ff-orange-hover) !important;
+}
+
+/* Card Improvements */
+.ant-card {
+  border-radius: 16px !important;
+  border: 1px solid #EEF2F6 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }

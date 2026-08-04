@@ -1,12 +1,13 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid } from 'antd';
 import { DeleteOutlined, EditOutlined, CloudUploadOutlined, PlusOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import ImportModal from '../components/ImportModal';
+import ActionableEmptyState from '../components/ActionableEmptyState';
 import api from '../services/api';
 
 const { useBreakpoint } = Grid;
-const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatMoney = (value) => (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const installmentPattern = /\((\d+)\/(\d+)\)\s*$/;
 
 const extractInstallmentInfo = (description) => {
@@ -45,13 +46,12 @@ export default function Transactions({ month, year }) {
     try {
       const query = month && year ? `?month=${month}&year=${year}` : '';
       const response = await api.get(`/transactions${query}`, { signal });
-      setTransactions(response.data);
+      setTransactions(response.data || []);
     } catch (error) {
       if (signal?.aborted || error?.code === 'ERR_CANCELED') {
         return;
       }
-
-      message.error('Erro ao carregar transacoes');
+      message.error('Erro ao carregar transações.');
     } finally {
       if (!signal?.aborted) {
         setLoading(false);
@@ -62,7 +62,7 @@ export default function Transactions({ month, year }) {
   const executeDelete = async (id, deleteAll) => {
     try {
       await api.delete(`/transactions/${id}?deleteAll=${deleteAll}`);
-      message.success('Excluido com sucesso!');
+      message.success('Excluído com sucesso!');
       loadTransactions();
     } catch {
       message.error('Erro ao excluir');
@@ -73,7 +73,7 @@ export default function Transactions({ month, year }) {
     if (record.installmentId) {
       Modal.confirm({
         title: 'Excluir parcelamento',
-        content: 'Esta transacao faz parte de uma serie. O que deseja fazer?',
+        content: 'Esta transação faz parte de uma série. O que deseja fazer?',
         okText: 'Apagar TODAS',
         cancelText: 'Apenas ESTA',
         okButtonProps: { danger: true },
@@ -88,7 +88,7 @@ export default function Transactions({ month, year }) {
 
   const handleEdit = (record) => {
     if (record.isTransfer) {
-      message.info('Transacoes de transferencia devem ser ajustadas pelo fluxo de transferencia.');
+      message.info('Transações de transferência devem ser ajustadas pelo fluxo de transferência.');
       return;
     }
 
@@ -99,65 +99,46 @@ export default function Transactions({ month, year }) {
     setIsModalOpen(true);
   };
 
-  const getStatusLabel = (record) => {
-    if (record.paid) return 'Confirmado';
-    return new Date(record.date) > new Date() ? 'Previsto' : 'Pendente';
-  };
-
   const columns = [
-    {
-      title: 'Data',
-      dataIndex: 'date',
-      key: 'date',
-      render: (date) => new Date(date).toLocaleDateString('pt-BR'),
-      sorter: (a, b) => new Date(a.date) - new Date(b.date),
-    },
-    {
-      title: 'Descricao',
-      dataIndex: 'description',
-      key: 'description',
-    },
+    { title: 'Descrição', dataIndex: 'description', key: 'desc', render: (t) => <strong>{t}</strong> },
     {
       title: 'Categoria',
       dataIndex: ['category', 'name'],
-      key: 'category',
-      render: (text) => <Tag color="cyan">{text || 'Geral'}</Tag>,
+      key: 'cat',
+      render: (t) => <Tag color="orange">{t || 'Geral'}</Tag>,
     },
     {
       title: 'Valor',
       dataIndex: 'amount',
-      key: 'amount',
+      key: 'amt',
       render: (value, record) => (
-        <span style={{ color: record.type === 'Expense' ? '#cf1322' : '#3f8600', fontWeight: 'bold' }}>
+        <span style={{ color: record.type === 'Expense' ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>
           {record.type === 'Expense' ? '- ' : '+ '}
           {formatMoney(value)}
         </span>
       ),
-      sorter: (a, b) => a.amount - b.amount,
     },
     {
-      title: 'Status',
-      dataIndex: 'paid',
-      key: 'paid',
-      render: (_, record) => {
-        const label = getStatusLabel(record);
-        const color = label === 'Confirmado' ? 'green' : label === 'Previsto' ? 'blue' : 'orange';
-        return <Tag color={color}>{label}</Tag>;
-      },
+      title: 'Data',
+      dataIndex: 'date',
+      key: 'date',
+      render: (d) => new Date(d).toLocaleDateString('pt-BR'),
     },
     {
-      title: 'Acoes',
-      key: 'action',
-      fixed: isCompact ? undefined : 'right',
+      title: 'Conta',
+      dataIndex: ['account', 'name'],
+      key: 'acc',
+      render: (t) => t || '-',
+    },
+    {
+      title: 'Ações',
+      key: 'actions',
       render: (_, record) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Tooltip title="Editar">
-            <Button
-              type="text"
-              icon={<EditOutlined style={{ color: '#1890ff' }} />}
-              onClick={() => handleEdit(record)}
-            />
+            <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
           </Tooltip>
+
           <Tooltip title="Excluir">
             <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
           </Tooltip>
@@ -167,7 +148,7 @@ export default function Transactions({ month, year }) {
   ];
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div
         style={{
           display: 'flex',
@@ -178,7 +159,7 @@ export default function Transactions({ month, year }) {
           marginBottom: 16,
         }}
       >
-        <h2 style={{ margin: 0 }}>Extrato Completo</h2>
+        <h2 style={{ margin: 0 }}>Extrato de Transações</h2>
         <div style={{ display: 'flex', gap: 10, width: isCompact ? '100%' : 'auto', flexWrap: 'wrap' }}>
           <Button
             type="primary"
@@ -188,31 +169,43 @@ export default function Transactions({ month, year }) {
               setIsModalOpen(true);
             }}
             block={isCompact}
-            style={isCompact ? { width: '100%' } : undefined}
           >
-            Nova Transacao
+            Nova Transação
           </Button>
           <Button
             icon={<CloudUploadOutlined />}
             onClick={() => setIsImportOpen(true)}
             block={isCompact}
-            style={isCompact ? { width: '100%' } : undefined}
           >
             Importar CSV
           </Button>
         </div>
       </div>
 
-      <Card variant="borderless" style={{ borderRadius: 8 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
-        <Table
-          dataSource={transactions}
-          columns={columns}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: isCompact ? 8 : 10 }}
-          size={isCompact ? 'small' : 'middle'}
-          scroll={{ x: 860 }}
-        />
+      <Card variant="borderless" style={{ borderRadius: 16 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
+        {!loading && transactions.length === 0 ? (
+          <ActionableEmptyState
+            title="Nenhuma transação encontrada no mês"
+            description="Você pode adicionar transações manualmente ou importar extratos via CSV para automatizar seu controle."
+            actionLabel="Criar Nova Transação"
+            onAction={() => {
+              setEditingItem(null);
+              setIsModalOpen(true);
+            }}
+            secondaryActionLabel="Importar Extrato CSV"
+            onSecondaryAction={() => setIsImportOpen(true)}
+          />
+        ) : (
+          <Table
+            dataSource={transactions}
+            columns={columns}
+            rowKey="id"
+            loading={loading}
+            pagination={{ pageSize: isCompact ? 8 : 10 }}
+            size={isCompact ? 'small' : 'middle'}
+            scroll={{ x: 860 }}
+          />
+        )}
       </Card>
 
       <AddTransactionModal
@@ -222,10 +215,10 @@ export default function Transactions({ month, year }) {
           setIsModalOpen(false);
           setEditingItem(null);
         }}
-        onSuccess={loadTransactions}
+        onSuccess={() => loadTransactions()}
       />
 
-      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={loadTransactions} />
+      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={() => loadTransactions()} />
     </div>
   );
 }

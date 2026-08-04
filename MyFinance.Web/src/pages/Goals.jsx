@@ -21,6 +21,7 @@ import {
 import { DeleteOutlined, EditOutlined, PauseOutlined, PlusOutlined, CheckOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../services/api';
+import ActionableEmptyState from '../components/ActionableEmptyState';
 
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
@@ -218,7 +219,12 @@ export default function Goals() {
       </div>
 
       {goals.length === 0 ? (
-        <Empty description="Nenhuma meta cadastrada." />
+        <ActionableEmptyState
+          title="Nenhuma meta financeira cadastrada"
+          description="Crie objetivos como 'Reserva de Emergência', 'Viagem' ou 'Carro Novo' e acompanhe o progresso das suas economias."
+          actionLabel="Criar Minha Primeira Meta"
+          onAction={openCreate}
+        />
       ) : (
         <Row gutter={[16, 16]}>
           {goals.map((goal) => (
