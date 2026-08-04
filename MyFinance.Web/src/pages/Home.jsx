@@ -197,7 +197,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <SparklesOutlined style={{ color: '#FF6600', fontSize: 18 }} />
+              <StarOutlined style={{ color: '#FF6600', fontSize: 18 }} />
               <span style={{ color: '#94A3B8', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Resumo Financeiro • {formatMonthYear(month, year)}
               </span>
@@ -211,7 +211,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
             {onOpenOnboarding && (
               <Button
                 type="default"
-                icon={<SparklesOutlined />}
+                icon={<StarOutlined />}
                 onClick={onOpenOnboarding}
                 style={{ background: 'rgba(255, 102, 0, 0.15)', borderColor: '#FF6600', color: '#FF6600', borderRadius: 10, fontWeight: 600 }}
               >
@@ -235,7 +235,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
         <Alert
           type="warning"
           showIcon
-          icon={<SparklesOutlined style={{ color: '#FF6600' }} />}
+          icon={<StarOutlined style={{ color: '#FF6600' }} />}
           message={<strong>Você ainda não possui dados cadastrados este mês.</strong>}
           description={
             <div style={{ marginTop: 6 }}>

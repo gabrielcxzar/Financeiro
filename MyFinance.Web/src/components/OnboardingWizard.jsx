@@ -134,7 +134,7 @@ export default function OnboardingWizard({ open, onClose, onComplete }) {
             marginBottom: 10,
           }}
         >
-          <SparklesOutlined /> GUIA DE PRIMEIROS PASSOS
+          <StarOutlined /> GUIA DE PRIMEIROS PASSOS
         </div>
         <Steps current={currentStep} items={stepsItems} size="small" style={{ marginTop: 12 }} />
       </div>

@@ -411,7 +411,7 @@ const App = () => {
               <Tooltip title="Abrir Guia de Primeiros Passos">
                 <Button
                   type="default"
-                  icon={<SparklesOutlined style={{ color: '#FF6600' }} />}
+                  icon={<StarOutlined style={{ color: '#FF6600' }} />}
                   onClick={() => setIsOnboardingOpen(true)}
                   style={{ borderRadius: 10 }}
                 >
