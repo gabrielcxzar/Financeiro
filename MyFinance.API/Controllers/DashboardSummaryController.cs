@@ -393,18 +393,26 @@ namespace MyFinance.API.Controllers
                     t.Type == "Income" &&
                     !t.Paid &&
                     !t.IsTransfer &&
-                    t.RecurringRuleId.HasValue &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 
-            var predictedExpenseTransactions = snapshot.Transactions
+            var paidExpenseTransactions = snapshot.Transactions
+                .Where(t =>
+                    t.Date >= monthStart &&
+                    t.Date < monthEnd &&
+                    t.Type == "Expense" &&
+                    t.Paid &&
+                    !t.IsTransfer &&
+                    cashAccounts.ContainsKey(t.AccountId))
+                .Sum(t => t.Amount);
+
+            var pendingExpenseTransactions = snapshot.Transactions
                 .Where(t =>
                     t.Date >= monthStart &&
                     t.Date < monthEnd &&
                     t.Type == "Expense" &&
                     !t.Paid &&
                     !t.IsTransfer &&
-                    t.RecurringRuleId.HasValue &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 
@@ -431,22 +439,22 @@ namespace MyFinance.API.Controllers
                 .Sum(a => _financialSnapshotService.CalculateInvoiceAmount(a, snapshot.Transactions, month, year));
 
             var consideredIncome = confirmedIncome + predictedIncomeTransactions + projectedRecurringIncome;
-            var recurringExpenses = predictedExpenseTransactions + projectedRecurringExpense;
-            var consideredOutflows = recurringExpenses + essentialBudgetAmount + goalsContribution + cardInvoices;
+            var totalExpenses = paidExpenseTransactions + pendingExpenseTransactions + projectedRecurringExpense;
+            var consideredOutflows = totalExpenses + essentialBudgetAmount + goalsContribution + cardInvoices;
             var freeToSpendAmount = consideredIncome - consideredOutflows;
 
             return new FreeToSpendDto(
                 freeToSpendAmount,
                 confirmedIncome,
                 predictedIncomeTransactions + projectedRecurringIncome,
-                recurringExpenses,
+                totalExpenses,
                 essentialBudgetAmount,
                 goalsContribution,
                 cardInvoices,
                 freeToSpendAmount < 0,
                 BuildFreeToSpendExplanation(
                     consideredIncome,
-                    recurringExpenses,
+                    totalExpenses,
                     essentialBudgetAmount,
                     goalsContribution,
                     cardInvoices,
@@ -469,19 +477,19 @@ namespace MyFinance.API.Controllers
 
         private static string BuildFreeToSpendExplanation(
             decimal consideredIncome,
-            decimal recurringExpenses,
+            decimal totalExpenses,
             decimal essentialBudgetAmount,
             decimal goalsContribution,
             decimal cardInvoices,
             decimal freeToSpendAmount)
         {
             return
-                $"Receitas consideradas: {consideredIncome:N2}. " +
-                $"Despesas recorrentes previstas: {recurringExpenses:N2}. " +
-                $"Orcamentos essenciais: {essentialBudgetAmount:N2}. " +
+                $"Receitas (Pagas + Previstas): {consideredIncome:N2}. " +
+                $"Despesas (Pagas + Pendentes): {totalExpenses:N2}. " +
+                $"Orçamentos Essenciais: {essentialBudgetAmount:N2}. " +
                 $"Metas: {goalsContribution:N2}. " +
-                $"Faturas/cartoes: {cardInvoices:N2}. " +
-                $"Resultado livre para gastar: {freeToSpendAmount:N2}.";
+                $"Faturas/Cartões: {cardInvoices:N2}. " +
+                $"Resultado Livre para Gastar: {freeToSpendAmount:N2}.";
         }
 
         private NextOpenInvoiceDto? BuildNextOpenInvoice(UserFinancialSnapshot snapshot, DateTime asOfUtc)

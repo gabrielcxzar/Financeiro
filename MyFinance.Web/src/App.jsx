@@ -41,7 +41,7 @@ import OnboardingWizard from './components/OnboardingWizard';
 import FloatingActionButton from './components/FloatingActionButton';
 import BottomNavigation from './components/BottomNavigation';
 import CommandKModal from './components/CommandKModal';
-import { authExpiredEvent, clearStoredAuth, getStoredAuthToken } from './services/api';
+import api, { authExpiredEvent, clearStoredAuth, getStoredAuthToken } from './services/api';
 
 const { Header, Content, Footer, Sider } = Layout;
 const { useBreakpoint } = Grid;
@@ -231,12 +231,20 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Auto trigger Onboarding Wizard if not completed yet
+  // Auto trigger Onboarding Wizard only for brand new users without accounts
   useEffect(() => {
     if (isAuthenticated) {
       const completed = localStorage.getItem('finflow_onboarding_completed');
       if (!completed) {
-        setIsOnboardingOpen(true);
+        api.get('/accounts').then((res) => {
+          if (res.data && res.data.length > 0) {
+            localStorage.setItem('finflow_onboarding_completed', 'true');
+          } else {
+            setIsOnboardingOpen(true);
+          }
+        }).catch(() => {
+          setIsOnboardingOpen(true);
+        });
       }
     }
   }, [isAuthenticated]);
