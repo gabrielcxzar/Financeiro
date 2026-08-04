@@ -1,24 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
   <defs>
-    <linearGradient id="bg-grad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#181A20" />
-      <stop offset="1" stop-color="#0B0C10" />
-    </linearGradient>
-    
-    <linearGradient id="orange-grad" x1="20" y1="100" x2="108" y2="20" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF5500" />
-      <stop offset="0.5" stop-color="#FF7700" />
-      <stop offset="1" stop-color="#FFAA00" />
+    <linearGradient id="orange-brand-fav" x1="24" y1="24" x2="104" y2="104" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF7700" />
+      <stop offset="1" stop-color="#FF5500" />
     </linearGradient>
   </defs>
 
-  <rect x="6" y="6" width="116" height="116" rx="32" fill="url(#bg-grad)" stroke="#FF6600" stroke-width="3" />
-  
-  <rect x="28" y="72" width="14" height="26" rx="7" fill="url(#orange-grad)" opacity="0.4" />
-  <rect x="48" y="56" width="14" height="42" rx="7" fill="url(#orange-grad)" opacity="0.7" />
-  <rect x="68" y="40" width="14" height="58" rx="7" fill="url(#orange-grad)" />
+  <rect width="128" height="128" rx="30" fill="#0B0D12" />
 
-  <path d="M 26 78 C 42 70, 50 54, 98 32" stroke="url(#orange-grad)" stroke-width="9" stroke-linecap="round" />
-  <circle cx="98" cy="32" r="9" fill="url(#orange-grad)" />
-  <circle cx="98" cy="32" r="4" fill="#FFFFFF" />
+  <path
+    d="M 32 86 L 56 62 L 74 76 L 96 42"
+    stroke="url(#orange-brand-fav)"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M 76 42 H 96 V 62"
+    stroke="url(#orange-brand-fav)"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <circle cx="32" cy="86" r="7" fill="#FF5500" />
 </svg>
