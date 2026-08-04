@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -11,15 +11,31 @@ import {
   Switch,
   Row,
   Col,
-  Divider,
+  Tag,
+  Space,
   Grid,
 } from 'antd';
-import { BankOutlined, CreditCardOutlined } from '@ant-design/icons';
+import { BankOutlined, CreditCardOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import api from '../services/api';
 import dayjs from 'dayjs';
+import InputMoney from './InputMoney';
 
 const { Option } = Select;
 const { useBreakpoint } = Grid;
+
+const EXPENSE_PRESETS = [
+  { label: '☕ Café R$ 10', desc: 'Café da manhã / Lanche', amount: 10, catKeyword: 'alimentação' },
+  { label: '🍱 Almoço R$ 35', desc: 'Almoço em Restaurante', amount: 35, catKeyword: 'alimentação' },
+  { label: '⛽ Combustível R$ 100', desc: 'Abastecimento / Posto', amount: 100, catKeyword: 'transporte' },
+  { label: '🛒 Mercado R$ 150', desc: 'Compras de Mercado', amount: 150, catKeyword: 'alimentação' },
+  { label: '💊 Farmácia R$ 50', desc: 'Farmácia / Medicamentos', amount: 50, catKeyword: 'saúde' },
+];
+
+const INCOME_PRESETS = [
+  { label: '💵 Salário R$ 3.000', desc: 'Salário Mensal', amount: 3000, catKeyword: 'salário' },
+  { label: '💻 Freelance R$ 500', desc: 'Serviço Freelance / Extra', amount: 500, catKeyword: 'renda' },
+  { label: '📈 Dividendos R$ 100', desc: 'Rendimentos de Investimento', amount: 100, catKeyword: 'investimento' },
+];
 
 export default function AddTransactionModal({ visible, onClose, onSuccess, transactionToEdit }) {
   const [form] = Form.useForm();
@@ -67,14 +83,19 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
   const loadData = async (accountId) => {
     try {
       const [catResponse, accResponse] = await Promise.all([api.get('/categories'), api.get('/accounts')]);
-      setCategories(catResponse.data);
-      setAccounts(accResponse.data);
-      if (accountId) {
+      setCategories(catResponse.data || []);
+      setAccounts(accResponse.data || []);
+      
+      // Auto assign first account if creating new and no account set
+      if (!accountId && accResponse.data?.length > 0) {
+        form.setFieldValue('accountId', accResponse.data[0].id);
+        setIsCreditCard(Boolean(accResponse.data[0].isCreditCard));
+      } else if (accountId) {
         const currentAccount = accResponse.data.find((acc) => acc.id === accountId);
         setIsCreditCard(Boolean(currentAccount?.isCreditCard));
       }
     } catch {
-      message.error('Erro ao carregar dados');
+      message.error('Erro ao carregar contas e categorias.');
     }
   };
 
@@ -86,9 +107,22 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
       setIsCreditCard(true);
       return;
     }
-
     setIsCreditCard(false);
     setIsPaid(true);
+  };
+
+  const handlePresetClick = (preset) => {
+    form.setFieldValue('description', preset.desc);
+    form.setFieldValue('amount', preset.amount);
+
+    // Try to auto match category
+    const matchedCategory = filteredCategories.find((c) =>
+      c.name.toLowerCase().includes(preset.catKeyword)
+    );
+
+    if (matchedCategory) {
+      form.setFieldValue('categoryId', matchedCategory.id);
+    }
   };
 
   const handleOk = async () => {
@@ -101,41 +135,43 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         description: values.description,
         amount: Number(values.amount),
         type: values.type,
-        categoryId: values.categoryId,
-        accountId: values.accountId,
         date: values.date.toISOString(),
-        paid: isPaid,
-        installments: values.totalInstallments || values.installments || 1,
-        installmentNumber: values.installmentNumber || 1,
-        totalInstallments: values.totalInstallments || values.installments || 1,
-        applyToSeries,
+        categoryId: Number(values.categoryId),
+        accountId: Number(values.accountId),
+        paid: isCreditCard ? false : isPaid,
+        installments: isCreditCard ? Number(values.totalInstallments || 1) : 1,
+        installmentNumber: isCreditCard ? Number(values.installmentNumber || 1) : 1,
+        applyToSeries: isSeriesEdit ? applyToSeries : false,
       };
 
       if (transactionToEdit) {
         await api.put(`/transactions/${transactionToEdit.id}`, payload);
-        message.success('Atualizado!');
+        message.success('Transação atualizada!');
       } else {
         await api.post('/transactions', payload);
-        message.success('Criado!');
+        message.success('Transação lançada!');
       }
 
       onSuccess();
       onClose();
-    } catch {
-      message.error('Erro ao salvar');
+    } catch (error) {
+      if (error?.errorFields) return;
+      message.error('Erro ao salvar transação.');
     } finally {
       setLoading(false);
     }
   };
 
+  const presets = transactionType === 'Expense' ? EXPENSE_PRESETS : INCOME_PRESETS;
+
   return (
     <Modal
-      title={transactionToEdit ? 'Editar Lancamento' : 'Novo Lancamento'}
+      title={transactionToEdit ? 'Editar Transação' : 'Nova Transação'}
       open={visible}
       onOk={handleOk}
       onCancel={onClose}
       confirmLoading={loading}
-      okText="Salvar"
+      okText="Salvar Lançamento"
       cancelText="Cancelar"
       width={isCompact ? 'calc(100vw - 20px)' : 640}
       style={{ top: isCompact ? 8 : 24 }}
@@ -146,43 +182,51 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
         layout="vertical"
         initialValues={{ type: 'Expense', installments: 1, installmentNumber: 1, totalInstallments: 1 }}
       >
-        <Row gutter={12}>
-          <Col xs={24} sm={12}>
-            <Form.Item name="type" label="Tipo" rules={[{ required: true }]}>
-              <Radio.Group buttonStyle="solid" onChange={(e) => setTransactionType(e.target.value)}>
-                <Radio.Button value="Income" style={{ color: 'green' }}>
-                  Receita
-                </Radio.Button>
-                <Radio.Button value="Expense" style={{ color: 'red' }}>
-                  Despesa
-                </Radio.Button>
-              </Radio.Group>
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="date" label="Data" initialValue={dayjs()} rules={[{ required: true }]}>
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} allowClear={false} />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item name="description" label="Descricao" rules={[{ required: true }]}>
-          <Input placeholder="Ex: Supermercado" />
-        </Form.Item>
-
-        {isSeriesEdit && (
-          <Form.Item label="Aplicar Edicao">
-            <Radio.Group value={applyToSeries} onChange={(e) => setApplyToSeries(e.target.value)}>
-              <Radio.Button value>Serie inteira</Radio.Button>
-              <Radio.Button value={false}>Apenas esta parcela</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
+        {/* PRESETS BAR */}
+        {!transactionToEdit && (
+          <div style={{ marginBottom: 16, background: '#F8FAFC', padding: 12, borderRadius: 12, border: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748B', fontWeight: 700, marginBottom: 8 }}>
+              <ThunderboltOutlined style={{ color: '#FF6600' }} /> PREENCHIMENTO RÁPIDO (1-CLIQUE):
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {presets.map((p, idx) => (
+                <Tag
+                  key={idx}
+                  color="orange"
+                  style={{ cursor: 'pointer', borderRadius: 8, padding: '4px 10px', fontWeight: 600 }}
+                  onClick={() => handlePresetClick(p)}
+                >
+                  {p.label}
+                </Tag>
+              ))}
+            </div>
+          </div>
         )}
 
         <Row gutter={12}>
           <Col xs={24} sm={12}>
-            <Form.Item name="categoryId" label="Categoria" rules={[{ required: true }]}>
-              <Select placeholder="Selecione">
+            <Form.Item name="type" label="Tipo de Lançamento" rules={[{ required: true }]}>
+              <Radio.Group buttonStyle="solid" onChange={(e) => setTransactionType(e.target.value)}>
+                <Radio.Button value="Expense" style={{ fontWeight: 600 }}>Despesa</Radio.Button>
+                <Radio.Button value="Income" style={{ fontWeight: 600 }}>Receita</Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="date" label="Data do Lançamento" initialValue={dayjs()} rules={[{ required: true }]}>
+              <DatePicker format="DD/MM/YYYY" style={{ width: '100%', borderRadius: 10 }} allowClear={false} />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Form.Item name="description" label="Descrição" rules={[{ required: true, message: 'Digite uma descrição' }]}>
+          <Input size="large" placeholder="Ex: Supermercado, Salário, Gasolina..." style={{ borderRadius: 10 }} />
+        </Form.Item>
+
+        <Row gutter={12}>
+          <Col xs={24} sm={12}>
+            <Form.Item name="categoryId" label="Categoria" rules={[{ required: true, message: 'Selecione uma categoria' }]}>
+              <Select placeholder="Selecione" size="large" style={{ borderRadius: 10 }}>
                 {filteredCategories.map((c) => (
                   <Option key={c.id} value={c.id}>
                     <span style={{ color: c.color, marginRight: 8 }}>&bull;</span> {c.name}
@@ -192,8 +236,8 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item name="accountId" label="Conta" rules={[{ required: true }]}>
-              <Select placeholder="Selecione" onChange={handleAccountChange}>
+            <Form.Item name="accountId" label="Conta / Carteira" rules={[{ required: true, message: 'Selecione a conta' }]}>
+              <Select placeholder="Selecione" size="large" onChange={handleAccountChange} style={{ borderRadius: 10 }}>
                 {accounts.map((a) => (
                   <Option key={a.id} value={a.id}>
                     {a.isCreditCard ? <CreditCardOutlined /> : <BankOutlined />} {a.name}
@@ -204,59 +248,30 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
           </Col>
         </Row>
 
-        <Divider style={{ margin: '12px 0' }} />
-
         <Row gutter={12}>
           <Col xs={24} md={isCreditCard ? 8 : 12}>
-            <Form.Item
-              name="amount"
-              label={isCreditCard ? 'Valor da Parcela' : 'Valor'}
-              rules={[{ required: true }]}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                prefix="R$"
-                decimalSeparator=","
-                precision={2}
-                step={0.01}
-                stringMode
-              />
+            <Form.Item name="amount" label={isCreditCard ? 'Valor da Parcela' : 'Valor (R$)'} rules={[{ required: true, message: 'Informe o valor' }]}>
+              <InputMoney placeholder="0,00" size="large" />
             </Form.Item>
           </Col>
 
           {isCreditCard && (!transactionToEdit || applyToSeries) && (
             <>
               <Col xs={24} md={8}>
-                <Form.Item name="totalInstallments" label="Total de Parcelas">
-                  <InputNumber min={1} max={48} style={{ width: '100%' }} />
+                <Form.Item name="totalInstallments" label="Total Parcelas">
+                  <InputNumber min={1} max={48} size="large" style={{ width: '100%', borderRadius: 10 }} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
-                <Form.Item
-                  name="installmentNumber"
-                  label="Parcela Atual"
-                  dependencies={['totalInstallments']}
-                  rules={[
-                    ({ getFieldValue }) => ({
-                      validator(_, value) {
-                        const current = Number(value || 1);
-                        const total = Number(getFieldValue('totalInstallments') || 1);
-                        if (current < 1 || current > total) {
-                          return Promise.reject(new Error('Informe uma parcela atual entre 1 e o total.'));
-                        }
-                        return Promise.resolve();
-                      },
-                    }),
-                  ]}
-                >
-                  <InputNumber min={1} max={48} style={{ width: '100%' }} />
+                <Form.Item name="installmentNumber" label="Parcela Atual">
+                  <InputNumber min={1} max={48} size="large" style={{ width: '100%', borderRadius: 10 }} />
                 </Form.Item>
               </Col>
             </>
           )}
 
           <Col xs={24} md={isCreditCard ? 24 : 12}>
-            <Form.Item label="Situacao">
+            <Form.Item label="Situação">
               <Switch
                 checked={isPaid}
                 onChange={setIsPaid}
@@ -266,12 +281,6 @@ export default function AddTransactionModal({ visible, onClose, onSuccess, trans
             </Form.Item>
           </Col>
         </Row>
-
-        {isSeriesEdit && applyToSeries && (
-          <div style={{ marginTop: 8, color: '#8c8c8c', fontSize: 12 }}>
-            Esta edicao recalcula toda a serie deste parcelamento.
-          </div>
-        )}
       </Form>
     </Modal>
   );
