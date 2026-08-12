@@ -4,6 +4,17 @@ Este documento estabelece o manual de comportamento operacional padrão para qua
 
 ---
 
+> [!IMPORTANT]
+> **CHECKLIST OBRIGATÓRIO DE INICIALIZAÇÃO DA IA**
+>
+> Toda vez que receber qualquer comando ou tarefa neste repositório, a **PRIMEIRA AÇÃO** deve ser ler e validar o conteúdo de [.ai/AI_CONVENTIONS.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/.ai/AI_CONVENTIONS.md) antes de criar, modificar, mover ou copiar qualquer arquivo.
+>
+> Antes de qualquer operação envolvendo arquivos, valide o diretório de destino utilizando a estrutura de pastas definida para este projeto.
+>
+> É proibido gerar arquivos na raiz do repositório sem antes confirmar que aquele é o local correto conforme as convenções do projeto.
+
+---
+
 ## 1. Convenções de Documentação
 
 - **Localização Estrita**: Os documentos DEVEM respeitar a Estrutura Corporativa:

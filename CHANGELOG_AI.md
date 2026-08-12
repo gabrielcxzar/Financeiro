@@ -4,6 +4,65 @@ Este arquivo registra todas as alterações estruturais, de código e de documen
 
 ---
 
+## [1.4.0] - 2026-07-29
+
+- **Data**: 2026-07-29
+- **Agente**: Antigravity
+- **Modelo**: Gemini 3.6 Flash (High)
+- **Objetivo**: Importação automática da fatura do Cartão de Crédito Nubank em formato OFX (`Nubank_2026-08-07.ofx`) para o banco de dados Neon (`neondb`) do usuário Gabriel Cezar.
+- **Arquivos Modificados / Criados**:
+  - `CHANGELOG_AI.md` -> [CHANGELOG_AI.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/CHANGELOG_AI.md)
+- **Resumo Técnico**:
+  - Parsing de 23 transações de cartão contidas em `Nubank_2026-08-07.ofx`.
+  - Verificação de duplicidade contra as transações pré-existentes na conta `Cartao Nubank` (ID 14).
+  - Inserção de 13 novas despesas de cartão (ex: AliExpress, Outback, Centauro, TikTok, Shopee, iFood, etc.) e ajuste das datas de parcelamentos pré-existentes.
+  - Validação do valor final consolidado da fatura de cartão de crédito no banco de dados em **R$ 1.193,30** (22 itens).
+- **Motivação**: Atualização e calibração da fatura do cartão de crédito de julho/2026 a pedido do usuário.
+- **Impacto**: Fatura de cartão de crédito no banco PostgreSQL Neon calibrada com 100% de exatidão em R$ 1.193,30.
+- **Riscos**: Nulo.
+- **Necessita Validação Humana?**: Não.
+
+---
+
+## [1.3.0] - 2026-07-29
+
+- **Data**: 2026-07-29
+- **Agente**: Antigravity
+- **Modelo**: Gemini 3.6 Flash (High)
+- **Objetivo**: Padronização do Protocolo de Inicialização da IA com a adição do checklist obrigatório e regras permanentes de leitura e validação de arquivos.
+- **Arquivos Modificados / Criados**:
+  - `.ai/AI_CONVENTIONS.md` -> [.ai/AI_CONVENTIONS.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/.ai/AI_CONVENTIONS.md)
+  - `.ai/MEMORY.md` -> [.ai/MEMORY.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/.ai/MEMORY.md)
+  - `CHANGELOG_AI.md` -> [CHANGELOG_AI.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/CHANGELOG_AI.md)
+- **Resumo Técnico**:
+  - Inclusão do aviso de prioridade máxima "CHECKLIST OBRIGATÓRIO DE INICIALIZAÇÃO DA IA" no início de `.ai/AI_CONVENTIONS.md`.
+  - Inclusão da seção 4 "Protocolo de Inicialização Obrigatório" em `.ai/MEMORY.md` definindo leitura mandatória prévia, validação de diretórios de destino e proibição de geração de arquivos indevidos na raiz.
+- **Motivação**: Garantir o alinhamento e padronização permanente do protocolo de operação de IA no projeto.
+- **Impacto**: Governança reforçada para todas as futuras execuções de agentes de IA neste repositório.
+- **Riscos**: Nulo.
+- **Necessita Validação Humana?**: Não.
+
+---
+
+## [1.2.0] - 2026-07-29
+
+- **Data**: 2026-07-29
+- **Agente**: Antigravity
+- **Modelo**: Gemini 3.6 Flash (High)
+- **Objetivo**: Importação automática do extrato bancário em formato OFX (`NU_166504429_01JUL2026_28JUL2026.ofx`) para o banco de dados Neon (`neondb`) do usuário Gabriel Cezar.
+- **Arquivos Modificados / Criados**:
+  - `CHANGELOG_AI.md` -> [CHANGELOG_AI.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/CHANGELOG_AI.md)
+- **Resumo Técnico**:
+  - Leitura e parsing de 131 transações contidas no extrato OFX do Nubank.
+  - Verificação de duplicidade contra as transações pré-existentes na tabela `transactions`.
+  - Descarte de 8 transações duplicadas e inserção direta de 123 novas transações limpas e categorizadas para a conta Nubank (ID 13) do usuário Gabriel Cezar (ID 1).
+- **Motivação**: Atualização de extrato bancário de julho/2026 a pedido do usuário.
+- **Impacto**: Atualização completa da base de transações de julho/2026 no banco PostgreSQL Neon.
+- **Riscos**: Nulo.
+- **Necessita Validação Humana?**: Não.
+
+---
+
 ## [1.1.0] - 2026-07-21
 
 - **Data**: 2026-07-21

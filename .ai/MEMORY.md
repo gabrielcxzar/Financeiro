@@ -27,6 +27,15 @@ Este documento armazena o conhecimento permanente, estável e consolidado do pro
 
 ---
 
+## 4. Protocolo de Inicialização Obrigatório
+
+- **Primeira Ação Mandatória:** Antes de qualquer ação envolvendo arquivos, ler obrigatoriamente [.ai/AI_CONVENTIONS.md](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/.ai/AI_CONVENTIONS.md).
+- **Validação de Destino:** Nunca criar, mover, copiar ou modificar arquivos sem validar previamente o diretório correto conforme a estrutura catalogada do projeto.
+- **Proibição:** Não gerar arquivos na raiz do repositório quando existir um diretório apropriado definido pelas convenções.
+- **Persistência:** Este protocolo deve ser considerado uma regra permanente para todas as tarefas futuras realizadas neste projeto.
+
+---
+
 ## Confidence
 
 ### Alta
