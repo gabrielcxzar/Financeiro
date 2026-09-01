@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid, Collapse, List } from 'antd';
+import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid, Collapse, List, Segmented } from 'antd';
 import { DeleteOutlined, EditOutlined, CloudUploadOutlined, PlusOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import ImportModal from '../components/ImportModal';
@@ -30,6 +30,7 @@ export default function Transactions({ month, year }) {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [importBatches, setImportBatches] = useState([]);
+  const [view, setView] = useState('consumption');
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -40,14 +41,15 @@ export default function Transactions({ month, year }) {
     loadImportBatches(controller.signal);
 
     return () => controller.abort();
-  }, [month, year]);
+  }, [month, year, view]);
 
   const loadTransactions = async (signal) => {
     setLoading(true);
     setTransactions([]);
     try {
-      const query = month && year ? `?month=${month}&year=${year}` : '';
-      const response = await api.get(`/transactions${query}`, { signal });
+      const params = new URLSearchParams({ view });
+      if (month && year) { params.set('month', month); params.set('year', year); }
+      const response = await api.get(`/transactions?${params.toString()}`, { signal });
       setTransactions(response.data || []);
     } catch (error) {
       if (signal?.aborted || error?.code === 'ERR_CANCELED') {
@@ -181,6 +183,7 @@ export default function Transactions({ month, year }) {
       >
         <h2 style={{ margin: 0 }}>Extrato de Transações</h2>
         <div style={{ display: 'flex', gap: 10, width: isCompact ? '100%' : 'auto', flexWrap: 'wrap' }}>
+          <Segmented value={view} onChange={setView} options={[{ label: 'Consumo', value: 'consumption' }, { label: 'Liquidações', value: 'settlements' }, { label: 'Todas', value: 'all' }]} />
           <Button
             type="primary"
             icon={<PlusOutlined />}

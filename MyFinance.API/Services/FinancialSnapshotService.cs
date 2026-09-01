@@ -121,7 +121,7 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
 
             foreach (var transaction in monthTransactions.Where(t => !IsCreditCardAccount(accounts, t.AccountId)))
             {
-                if (transaction.ExcludeFromReports || ReportingKinds.ExcludedByDefault.Contains(transaction.ReportingKind))
+                if (!ReportingPolicy.IsOperational(transaction))
                 {
                     continue;
                 }
@@ -216,7 +216,7 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
                 t.AccountId == account.Id &&
                 t.Date >= window.StartDate &&
                 t.Date < window.CloseDate &&
-                !t.IsTransfer)
+                ReportingPolicy.IsOperational(t))
             .Sum(CardSignedAmount);
     }
 

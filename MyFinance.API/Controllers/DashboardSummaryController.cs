@@ -84,6 +84,9 @@ namespace MyFinance.API.Controllers
                         ? null
                         : new CategoryDto(t.Category.Id, t.Category.Name, t.Category.Type, t.Category.Icon, t.Category.Color)))
                 .ToList();
+            var operationalTransactions = snapshot.Transactions
+                .Where(ReportingPolicy.IsOperational)
+                .ToList();
             _logger.LogInformation(
                 "Dashboard summary transactions query completed in {ElapsedMs} ms. UserId: {UserId}, Count: {Count}",
                 stepStopwatch.ElapsedMilliseconds,
@@ -127,19 +130,26 @@ namespace MyFinance.API.Controllers
             var pendingNetWorth = pendingTotal - normalizedPendingCardLiability;
             var projectedNetWorth = projectedTotal - normalizedProjectedCardLiability;
 
-            var totalIncome = transactions
-                .Where(t => t.Type == "Income" && !t.IsTransfer && t.Paid && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
+            var totalIncome = operationalTransactions
+                .Where(t => t.Type == "Income" && t.Paid)
                 .Sum(t => t.Amount);
 
-            var totalExpense = transactions
-                .Where(t => t.Type == "Expense" && !t.IsTransfer && t.Paid && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
+            var totalExpense = operationalTransactions
+                .Where(t => t.Type == "Expense" && t.Paid)
                 .Sum(t => t.Amount);
+            var invoicePayments = transactions
+                .Where(t => t.ReportingKind == ReportingKinds.InvoicePayment && t.Type == "Expense")
+                .Sum(t => t.Amount);
+            var recentSettlements = transactions
+                .Where(t => t.ReportingKind == ReportingKinds.InvoicePayment)
+                .Take(5)
+                .ToList();
 
             var predictedFixed = recurringRules
                 .Where(r => r.Type == "Expense" && (!r.AccountId.HasValue || accounts.First(a => a.Id == r.AccountId.Value).IsCreditCard == false))
                 .Sum(r => r.Amount);
-            var categorySummary = transactions
-                .Where(t => t.Type == "Expense" && !t.IsTransfer && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
+            var categorySummary = operationalTransactions
+                .Where(t => t.Type == "Expense")
                 .GroupBy(t => new { Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
                 .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.Amount)))
                 .OrderByDescending(g => g.Total)
@@ -199,9 +209,11 @@ namespace MyFinance.API.Controllers
                     netWorth,
                     pendingNetWorth,
                     projectedNetWorth,
-                    freeToSpend.FreeToSpendAmount),
+                    freeToSpend.FreeToSpendAmount,
+                    invoicePayments),
                 transactions,
-                transactions.Take(5).ToList(),
+                transactions.Where(t => t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports).Take(5).ToList(),
+                recentSettlements,
                 snapshot.Accounts
                     .Where(a => a.IsCreditCard)
                     .Select(a => new AccountSnapshotDto(
@@ -254,6 +266,7 @@ namespace MyFinance.API.Controllers
             DashboardSummaryDto Summary,
             List<TransactionSummaryDto> Transactions,
             List<TransactionSummaryDto> RecentTransactions,
+            List<TransactionSummaryDto> RecentSettlements,
             List<AccountSnapshotDto> Cards,
             List<CategorySummaryDto> CategorySummary,
             ProjectionDto Projection,
@@ -275,7 +288,8 @@ namespace MyFinance.API.Controllers
             decimal NetWorth,
             decimal PendingNetWorth,
             decimal ProjectedNetWorth,
-            decimal FreeToSpend);
+            decimal FreeToSpend,
+            decimal InvoicePayments);
 
         public sealed record AccountSnapshotDto(
             int Id,

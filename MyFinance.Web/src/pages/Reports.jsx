@@ -14,6 +14,7 @@ const formatMoney = (value) => value.toLocaleString('pt-BR', { style: 'currency'
 export default function Reports({ month, year }) {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
+  const [settlements, setSettlements] = useState([]);
   const screens = useBreakpoint();
   const isCompact = !screens.md;
 
@@ -26,7 +27,9 @@ export default function Reports({ month, year }) {
       setLoading(true);
       const query = month && year ? `?month=${month}&year=${year}` : '';
       const response = await api.get(`/transactions${query}`);
-    setTransactions((response.data || []).filter((t) => !t.excludeFromReports && !['internal_transfer', 'invoice_payment', 'pass_through', 'technical_adjustment'].includes(t.reportingKind)));
+      const rows = response.data || [];
+      setTransactions(rows.filter((t) => t.reportingKind === 'normal' && !t.isTransfer && !t.excludeFromReports));
+      setSettlements(rows.filter((t) => t.reportingKind === 'invoice_payment' || t.isTransfer));
     } catch (error) {
       console.error(error);
       message.error('Erro ao carregar dados.');
@@ -176,6 +179,11 @@ export default function Reports({ month, year }) {
             </Col>
           </Row>
         </>
+      )}
+      {settlements.filter((t) => t.type === 'Expense').length > 0 && (
+        <Card title="Faturas pagas" variant="borderless">
+          {settlements.filter((t) => t.type === 'Expense').map((t) => <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 6 }}><span>{t.description}</span><strong>{formatMoney(t.amount)}</strong></div>)}
+        </Card>
       )}
     </div>
   );
