@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid } from 'antd';
+import { Table, Tag, Button, Modal, message, Card, Tooltip, Grid, Collapse, List } from 'antd';
 import { DeleteOutlined, EditOutlined, CloudUploadOutlined, PlusOutlined } from '@ant-design/icons';
 import AddTransactionModal from '../components/AddTransactionModal';
 import ImportModal from '../components/ImportModal';
@@ -29,6 +29,7 @@ export default function Transactions({ month, year }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [importBatches, setImportBatches] = useState([]);
 
   const screens = useBreakpoint();
   const isCompact = !screens.md;
@@ -36,6 +37,7 @@ export default function Transactions({ month, year }) {
   useEffect(() => {
     const controller = new AbortController();
     loadTransactions(controller.signal);
+    loadImportBatches(controller.signal);
 
     return () => controller.abort();
   }, [month, year]);
@@ -57,6 +59,24 @@ export default function Transactions({ month, year }) {
         setLoading(false);
       }
     }
+  };
+
+  const loadImportBatches = async (signal) => {
+    try {
+      const response = await api.get('/import/batches', { signal });
+      setImportBatches((response.data || []).filter((batch) => batch.reviewCount > 0 && batch.status !== 'confirmed'));
+    } catch (error) {
+      if (!signal?.aborted && error?.code !== 'ERR_CANCELED') console.error(error);
+    }
+  };
+
+  const ignoreImportItem = async (itemId, batchId) => {
+    try {
+      await api.post(`/import/items/${itemId}/ignore`);
+      message.success('Item ignorado.');
+      const detail = await api.get(`/import/batches/${batchId}`);
+      setImportBatches((current) => current.map((batch) => batch.id === batchId ? detail.data.batch : batch).filter((batch) => batch.reviewCount > 0));
+    } catch { message.error('Não foi possível ignorar o item.'); }
   };
 
   const executeDelete = async (id, deleteAll) => {
@@ -177,7 +197,7 @@ export default function Transactions({ month, year }) {
             onClick={() => setIsImportOpen(true)}
             block={isCompact}
           >
-            Importar CSV
+            Importar extrato
           </Button>
         </div>
       </div>
@@ -208,6 +228,14 @@ export default function Transactions({ month, year }) {
         )}
       </Card>
 
+      {importBatches.length > 0 && <Card title="Revisão de importação" variant="borderless" style={{ marginTop: 16, borderRadius: 16 }}>
+        <Collapse items={importBatches.map((batch) => ({
+          key: batch.id,
+          label: `${batch.fileName} · ${batch.reviewCount} item(ns) pendente(s)`,
+          children: <ImportReviewItems batchId={batch.id} onIgnore={(id) => ignoreImportItem(id, batch.id)} />,
+        }))} />
+      </Card>}
+
       <AddTransactionModal
         visible={isModalOpen}
         transactionToEdit={editingItem}
@@ -218,7 +246,13 @@ export default function Transactions({ month, year }) {
         onSuccess={() => loadTransactions()}
       />
 
-      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={() => loadTransactions()} />
+      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={() => { loadTransactions(); loadImportBatches(); }} />
     </div>
   );
+}
+
+function ImportReviewItems({ batchId, onIgnore }) {
+  const [items, setItems] = useState([]);
+  useEffect(() => { api.get(`/import/batches/${batchId}`).then((response) => setItems((response.data.items || []).filter((item) => item.status === 'needs_review'))).catch(() => {}); }, [batchId]);
+  return <List size="small" dataSource={items} locale={{ emptyText: 'Nenhum item pendente.' }} renderItem={(item) => <List.Item actions={[<Button key="ignore" size="small" onClick={() => onIgnore(item.id)}>Ignorar</Button>]}><List.Item.Meta title={item.memo} description={`${new Date(item.postedAt).toLocaleDateString('pt-BR')} · ${item.reason || 'Revisão necessária'}`} /></List.Item>} />;
 }

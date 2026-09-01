@@ -48,5 +48,51 @@ namespace MyFinance.API.Models
 
         [Column("installment_id")]
         public string? InstallmentId { get; set; }
+
+        [Column("source")]
+        public string? Source { get; set; }
+
+        [Column("source_file")]
+        public string? SourceFile { get; set; }
+
+        [Column("external_id")]
+        public string? ExternalId { get; set; }
+
+        [Column("raw_memo")]
+        public string? RawMemo { get; set; }
+
+        [Column("imported_at")]
+        public DateTime? ImportedAt { get; set; }
+
+        [Column("import_batch_id")]
+        public int? ImportBatchId { get; set; }
+
+        public ImportBatch? ImportBatch { get; set; }
+
+        [Column("exclude_from_reports")]
+        public bool ExcludeFromReports { get; set; }
+
+        [Column("reporting_kind")]
+        public string ReportingKind { get; set; } = ReportingKinds.Normal;
+    }
+
+    public static class ReportingKinds
+    {
+        public const string Normal = "normal";
+        public const string InternalTransfer = "internal_transfer";
+        public const string InvoicePayment = "invoice_payment";
+        public const string PassThrough = "pass_through";
+        public const string TechnicalAdjustment = "technical_adjustment";
+
+        public static readonly HashSet<string> ExcludedByDefault =
+        [
+            InternalTransfer,
+            InvoicePayment,
+            PassThrough,
+            TechnicalAdjustment
+        ];
+
+        public static bool IsValid(string? value) =>
+            value is Normal or InternalTransfer or InvoicePayment or PassThrough or TechnicalAdjustment;
     }
 }

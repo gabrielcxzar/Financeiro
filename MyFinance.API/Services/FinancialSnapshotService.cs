@@ -121,6 +121,11 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
 
             foreach (var transaction in monthTransactions.Where(t => !IsCreditCardAccount(accounts, t.AccountId)))
             {
+                if (transaction.ExcludeFromReports || ReportingKinds.ExcludedByDefault.Contains(transaction.ReportingKind))
+                {
+                    continue;
+                }
+
                 if (transaction.IsTransfer)
                 {
                     if (ShouldExcludeTransferFromCashFlow(accounts, monthTransactions, transaction))

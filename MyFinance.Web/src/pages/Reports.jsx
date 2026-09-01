@@ -26,7 +26,7 @@ export default function Reports({ month, year }) {
       setLoading(true);
       const query = month && year ? `?month=${month}&year=${year}` : '';
       const response = await api.get(`/transactions${query}`);
-      setTransactions(response.data);
+    setTransactions((response.data || []).filter((t) => !t.excludeFromReports && !['internal_transfer', 'invoice_payment', 'pass_through', 'technical_adjustment'].includes(t.reportingKind)));
     } catch (error) {
       console.error(error);
       message.error('Erro ao carregar dados.');
