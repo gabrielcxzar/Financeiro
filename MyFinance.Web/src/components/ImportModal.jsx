@@ -1,5 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Modal, Select, Upload, Button, message, Grid } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Modal, Select, Upload, Button, message, Grid, Steps, Table, Tag, Statistic, Row, Col } from 'antd';
 import { InboxOutlined, BankOutlined, CreditCardOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
@@ -11,118 +11,47 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [fileList, setFileList] = useState([]);
-  const [uploading, setUploading] = useState(false);
-
+  const [batch, setBatch] = useState(null);
+  const [step, setStep] = useState(0);
+  const [loading, setLoading] = useState(false);
   const screens = useBreakpoint();
-  const isCompact = !screens.md;
 
   useEffect(() => {
-    if (visible) {
-      loadAccounts();
-      setFileList([]);
-      setSelectedAccount(null);
-    }
+    if (visible) { api.get('/accounts').then((r) => setAccounts(r.data || [])).catch(() => message.error('Erro ao carregar contas')); setFileList([]); setSelectedAccount(null); setBatch(null); setStep(0); }
   }, [visible]);
 
-  const loadAccounts = async () => {
-    try {
-      const response = await api.get('/accounts');
-      setAccounts(response.data);
-    } catch {
-      message.error('Erro ao carregar contas');
-    }
+  const upload = async () => {
+    if (!selectedAccount || !fileList.length) return message.error('Selecione a conta e o arquivo.');
+    const form = new FormData(); form.append('file', fileList[0]); setLoading(true);
+    try { const response = await api.post(`/import/upload?accountId=${selectedAccount}`, form, { headers: { 'Content-Type': 'multipart/form-data' } }); setBatch(response.data); setStep(1); }
+    catch (error) { message.error(error.response?.data || 'Erro na importacao.'); }
+    finally { setLoading(false); }
   };
 
-  const handleUpload = async () => {
-    if (!selectedAccount) return message.error('Selecione uma conta de destino!');
-    if (fileList.length === 0) return message.error('Selecione um arquivo CSV ou XLSX!');
-
-    const formData = new FormData();
-    formData.append('file', fileList[0]);
-
-    setUploading(true);
-    try {
-      const response = await api.post(`/import/upload?accountId=${selectedAccount}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      message.success(response.data.message);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error(error);
-      message.error('Erro na importacao. Verifique se o CSV e valido.');
-    } finally {
-      setUploading(false);
-    }
+  const confirm = async () => {
+    setLoading(true);
+    try { await api.post(`/import/batches/${batch.batch.id}/confirm`); message.success('Importacao confirmada.'); onSuccess(); onClose(); }
+    catch (error) { message.error(error.response?.data || 'Erro ao confirmar importacao.'); }
+    finally { setLoading(false); }
   };
 
-  const uploadProps = {
-    onRemove: () => setFileList([]),
-    beforeUpload: (file) => {
-      const fileName = file.name.toLowerCase();
-      const isSupported =
-        file.type === 'text/csv' ||
-        fileName.endsWith('.csv') ||
-        fileName.endsWith('.xlsx') ||
-        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const columns = [
+    { title: 'Data', dataIndex: 'postedAt', render: (v) => new Date(v).toLocaleDateString('pt-BR') },
+    { title: 'Descricao', dataIndex: 'memo' },
+    { title: 'Valor', dataIndex: 'signedAmount', render: (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+    { title: 'Status', dataIndex: 'status', render: (v) => <Tag color={v === 'needs_review' ? 'orange' : v === 'probable_duplicate' ? 'red' : 'green'}>{v}</Tag> },
+  ];
 
-      if (!isSupported) {
-        message.error('Apenas arquivos CSV ou XLSX sao permitidos!');
-        return Upload.LIST_IGNORE;
-      }
-      setFileList([file]);
-      return false;
-    },
-    fileList,
-  };
-
-  return (
-    <Modal
-      title="Importar Extrato / Fatura"
-      open={visible}
-      onCancel={onClose}
-      width={isCompact ? 'calc(100vw - 20px)' : 560}
-      footer={[
-        <Button key="back" onClick={onClose}>
-          Cancelar
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          loading={uploading}
-          onClick={handleUpload}
-          disabled={fileList.length === 0}
-        >
-          Processar Arquivo
-        </Button>,
-      ]}
-      destroyOnClose
-    >
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: 'block', marginBottom: 8 }}>Para qual conta esses dados vao</label>
-        <Select
-          style={{ width: '100%' }}
-          placeholder="Selecione a conta ou cartao"
-          onChange={setSelectedAccount}
-          showSearch
-          optionFilterProp="children"
-        >
-          {accounts.map((acc) => (
-            <Option key={acc.id} value={acc.id}>
-              {acc.isCreditCard ? <CreditCardOutlined /> : <BankOutlined />} {acc.name}
-            </Option>
-          ))}
-        </Select>
-      </div>
-
-      <Dragger {...uploadProps} style={{ padding: isCompact ? 10 : 20 }}>
-        <p className="ant-upload-drag-icon">
-          <InboxOutlined />
-        </p>
-        <p className="ant-upload-text">Clique ou arraste o arquivo CSV ou XLSX aqui</p>
-        <p className="ant-upload-hint">Suporta arquivos exportados do Nubank para extrato ou fatura.</p>
-      </Dragger>
-    </Modal>
-  );
+  return <Modal title="Importar extrato" open={visible} onCancel={onClose} width={screens.md ? 760 : 'calc(100vw - 20px)'} destroyOnClose footer={step === 0 ? [<Button key="cancel" onClick={onClose}>Cancelar</Button>, <Button key="upload" type="primary" loading={loading} onClick={upload}>Gerar prévia</Button>] : [<Button key="back" onClick={() => setStep(0)}>Voltar</Button>, <Button key="confirm" type="primary" loading={loading} onClick={confirm}>Confirmar itens seguros</Button>]}>
+    <Steps current={step} items={[{ title: 'Upload' }, { title: 'Prévia e revisão' }]} style={{ marginBottom: 24 }} />
+    {step === 0 ? <>
+      <Select style={{ width: '100%', marginBottom: 16 }} placeholder="Conta ou cartão" value={selectedAccount} onChange={setSelectedAccount} showSearch optionFilterProp="children">{accounts.map((a) => <Option key={a.id} value={a.id}>{a.isCreditCard ? <CreditCardOutlined /> : <BankOutlined />} {a.name}</Option>)}</Select>
+      <Dragger beforeUpload={(file) => { const ok = /\.(csv|xlsx|ofx)$/i.test(file.name); if (!ok) message.error('Apenas OFX, CSV ou XLSX.'); else setFileList([file]); return false; }} onRemove={() => setFileList([])} fileList={fileList}><p className="ant-upload-drag-icon"><InboxOutlined /></p><p className="ant-upload-text">Arraste OFX, CSV ou XLSX</p><p className="ant-upload-hint">A prévia não altera seus lançamentos.</p></Dragger>
+    </> : <>
+      <Row gutter={12} style={{ marginBottom: 16 }}>{[['Importados', batch?.batch.importedCount], ['Revisao', batch?.batch.reviewCount], ['Duplicados', batch?.batch.duplicateCount], ['Ignorados', batch?.batch.ignoredCount]].map(([title, value]) => <Col span={6} key={title}><Statistic title={title} value={value || 0} /></Col>)}</Row>
+      {batch?.reconciliation?.ledgerBalance != null && <p>Saldo oficial: <strong>{Number(batch.reconciliation.ledgerBalance).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong> · Diferença: {Number(batch.reconciliation.difference || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
+      <Table size="small" rowKey="id" columns={columns} dataSource={batch?.items || []} pagination={{ pageSize: 6 }} />
+      <p style={{ color: '#666' }}>Itens em revisão não serão lançados. Resolva-os na seção de revisão de importação antes de confirmar.</p>
+    </>}
+  </Modal>;
 }

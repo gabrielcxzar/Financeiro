@@ -78,6 +78,8 @@ namespace MyFinance.API.Controllers
                     t.AccountId,
                     t.InstallmentId,
                     t.IsTransfer,
+                    t.ExcludeFromReports,
+                    t.ReportingKind,
                     t.Category == null
                         ? null
                         : new CategoryDto(t.Category.Id, t.Category.Name, t.Category.Type, t.Category.Icon, t.Category.Color)))
@@ -126,18 +128,18 @@ namespace MyFinance.API.Controllers
             var projectedNetWorth = projectedTotal - normalizedProjectedCardLiability;
 
             var totalIncome = transactions
-                .Where(t => t.Type == "Income" && !t.IsTransfer && t.Paid)
+                .Where(t => t.Type == "Income" && !t.IsTransfer && t.Paid && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
                 .Sum(t => t.Amount);
 
             var totalExpense = transactions
-                .Where(t => t.Type == "Expense" && !t.IsTransfer && t.Paid)
+                .Where(t => t.Type == "Expense" && !t.IsTransfer && t.Paid && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
                 .Sum(t => t.Amount);
 
             var predictedFixed = recurringRules
                 .Where(r => r.Type == "Expense" && (!r.AccountId.HasValue || accounts.First(a => a.Id == r.AccountId.Value).IsCreditCard == false))
                 .Sum(r => r.Amount);
             var categorySummary = transactions
-                .Where(t => t.Type == "Expense" && !t.IsTransfer)
+                .Where(t => t.Type == "Expense" && !t.IsTransfer && !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal)
                 .GroupBy(t => new { Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
                 .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.Amount)))
                 .OrderByDescending(g => g.Total)
@@ -304,6 +306,8 @@ namespace MyFinance.API.Controllers
             int AccountId,
             string? InstallmentId,
             bool IsTransfer,
+            bool ExcludeFromReports,
+            string ReportingKind,
             CategoryDto? Category
         );
 
@@ -383,6 +387,7 @@ namespace MyFinance.API.Controllers
                     t.Type == "Income" &&
                     t.Paid &&
                     !t.IsTransfer &&
+                    !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 
@@ -393,6 +398,7 @@ namespace MyFinance.API.Controllers
                     t.Type == "Income" &&
                     !t.Paid &&
                     !t.IsTransfer &&
+                    !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 
@@ -403,6 +409,7 @@ namespace MyFinance.API.Controllers
                     t.Type == "Expense" &&
                     t.Paid &&
                     !t.IsTransfer &&
+                    !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 
@@ -413,6 +420,7 @@ namespace MyFinance.API.Controllers
                     t.Type == "Expense" &&
                     !t.Paid &&
                     !t.IsTransfer &&
+                    !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
                 .Sum(t => t.Amount);
 

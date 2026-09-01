@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Data;
@@ -7,817 +7,165 @@ using MyFinance.API.Services;
 using System.Globalization;
 using System.IO.Compression;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-namespace MyFinance.API.Controllers
+namespace MyFinance.API.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize]
+public class ImportController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    [Authorize]
-    public class ImportController : ControllerBase
+    private static readonly string[] DateFormats = ["dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss", "dd-MM-yyyy", "d-M-yyyy", "MM/dd/yyyy", "M/d/yyyy"];
+    private static readonly Regex InstallmentPattern = new(@"(?:parcela\s*)?(?<current>\d{1,2})\s*/\s*(?<total>\d{1,2})", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private readonly AppDbContext _context;
+    private readonly IFinancialSnapshotService _financialSnapshotService;
+    public ImportController(AppDbContext context, IFinancialSnapshotService financialSnapshotService) { _context = context; _financialSnapshotService = financialSnapshotService; }
+    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    [HttpPost("upload")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<IActionResult> UploadStatement(IFormFile file, [FromQuery] int accountId, CancellationToken cancellationToken)
     {
-        private static readonly string[] DateFormats =
-        [
-            "dd/MM/yyyy",
-            "d/M/yyyy",
-            "yyyy-MM-dd",
-            "yyyy-MM-dd HH:mm:ss",
-            "dd-MM-yyyy",
-            "d-M-yyyy",
-            "MM/dd/yyyy",
-            "M/d/yyyy"
-        ];
+        if (file == null || file.Length == 0) return BadRequest("Nenhum arquivo enviado.");
+        if (accountId <= 0) return BadRequest("Conta invalida.");
+        if (file.Length > 10 * 1024 * 1024) return BadRequest("Arquivo muito grande. Limite de 10MB.");
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension is not ".csv" and not ".xlsx" and not ".ofx") return BadRequest("Formato nao suportado. Envie um arquivo OFX, CSV ou XLSX.");
+        var userId = GetUserId();
+        var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId, cancellationToken);
+        if (account == null) return BadRequest("Conta invalida.");
+        byte[] bytes;
+        await using (var input = file.OpenReadStream()) await using (var memory = new MemoryStream()) { await input.CopyToAsync(memory, cancellationToken); bytes = memory.ToArray(); }
+        ParsedStatement parsed;
+        try { parsed = extension == ".ofx" ? ParseOfx(bytes) : await ParseTabularAsync(bytes, extension, account, cancellationToken); }
+        catch (InvalidDataException e) { return BadRequest(e.Message); }
+        if (parsed.Candidates.Count == 0) return BadRequest("Arquivo sem transacoes validas para importacao.");
 
-        private readonly AppDbContext _context;
-        private readonly IFinancialSnapshotService _financialSnapshotService;
-
-        public ImportController(AppDbContext context, IFinancialSnapshotService financialSnapshotService)
+        var categories = await EnsureCategoriesAndRulesAsync(userId, cancellationToken);
+        var rules = await _context.CategorizationRules.AsNoTracking().Where(r => r.UserId == userId && r.Active).OrderByDescending(r => r.Priority).ToListAsync(cancellationToken);
+        var recurring = await _context.RecurringTransactions.AsNoTracking().Where(r => r.UserId == userId && r.Active).ToListAsync(cancellationToken);
+        var accounts = await _context.Accounts.AsNoTracking().Where(a => a.UserId == userId).ToListAsync(cancellationToken);
+        var existing = await _context.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.AccountId == accountId).ToListAsync(cancellationToken);
+        var priorItems = await _context.ImportedStatementItems.AsNoTracking().Where(i => i.UserId == userId && i.AccountId == accountId).ToListAsync(cancellationToken);
+        var source = extension.TrimStart('.');
+        var batch = new ImportBatch { UserId = userId, AccountId = accountId, FileName = Path.GetFileName(file.FileName), FileType = extension, Source = source, FileHash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), LedgerBalance = parsed.LedgerBalance, PeriodStart = parsed.PeriodStart ?? parsed.Candidates.Min(c => c.Date), PeriodEnd = parsed.PeriodEnd ?? parsed.Candidates.Max(c => c.Date) };
+        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in parsed.Candidates)
         {
-            _context = context;
-            _financialSnapshotService = financialSnapshotService;
+            var item = new ImportedStatementItem { UserId = userId, ImportBatch = batch, AccountId = accountId, Source = source, ExternalId = string.IsNullOrWhiteSpace(candidate.ExternalId) ? null : candidate.ExternalId, PostedAt = candidate.Date, SignedAmount = candidate.SignedAmount, Memo = candidate.Description, RawData = candidate.RawData, ResolvedDescription = candidate.Description, ResolvedDate = candidate.Date, ResolvedAmount = Math.Abs(candidate.SignedAmount), ResolvedType = candidate.SignedAmount < 0 ? "Expense" : "Income" };
+            Classify(item, candidate, account, accounts, categories, rules, recurring, existing, priorItems, seenIds);
+            batch.Items.Add(item);
         }
-
-        private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadStatement(IFormFile file, [FromQuery] int accountId, CancellationToken cancellationToken)
-        {
-            if (file == null || file.Length == 0)
-                return BadRequest("Nenhum arquivo enviado.");
-            if (accountId <= 0)
-                return BadRequest("Conta invalida.");
-            if (file.Length > 10 * 1024 * 1024)
-                return BadRequest("Arquivo muito grande. Limite de 10MB.");
-
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension is not ".csv" and not ".xlsx")
-                return BadRequest("Formato nao suportado. Envie um arquivo CSV ou XLSX.");
-
-            var userId = GetUserId();
-            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.UserId == userId, cancellationToken);
-
-            if (account == null)
-                return BadRequest("Conta invalida.");
-
-            var rows = await ReadRowsAsync(file, extension, cancellationToken);
-            if (rows.Count < 2)
-                return BadRequest("Arquivo sem dados suficientes para importacao.");
-
-            var layout = DetectLayout(rows);
-            if (layout == null)
-                return BadRequest("Nao foi possivel identificar as colunas do arquivo do Nubank.");
-
-            var categories = await _context.Categories.Where(c => c.UserId == userId).ToListAsync(cancellationToken);
-            categories = await EnsureImportCategoriesAsync(categories, userId, cancellationToken);
-            var userAccounts = await _context.Accounts.Where(a => a.UserId == userId).ToListAsync(cancellationToken);
-
-            var importedCount = 0;
-            var skippedCount = 0;
-            var manualReviewCount = 0;
-
-            foreach (var row in rows.Skip(1))
-            {
-                if (!TryBuildTransactionCandidate(row, layout, account, out var candidate))
-                {
-                    skippedCount++;
-                    continue;
-                }
-
-                if (!account.IsCreditCard &&
-                    candidate.Type == "Expense" &&
-                    LooksLikeInvoicePayment(candidate.Description))
-                {
-                    var paymentResolution = await ResolveCreditCardForPaymentAsync(
-                        candidate.Description,
-                        account,
-                        userAccounts,
-                        userId,
-                        cancellationToken);
-                    if (paymentResolution.Status is InvoicePaymentResolutionStatus.SingleMatch or InvoicePaymentResolutionStatus.AutoProvisioned)
-                    {
-                        var transferExists = await TransferAlreadyImportedAsync(
-                            userId,
-                            account.Id,
-                            paymentResolution.Account!.Id,
-                            candidate,
-                            cancellationToken);
-
-                        if (transferExists)
-                        {
-                            skippedCount++;
-                            continue;
-                        }
-
-                        CreateTransferTransactions(userId, account.Id, paymentResolution.Account!.Id, candidate);
-                        importedCount++;
-                        continue;
-                    }
-
-                    CreateManualReviewTransaction(userId, account.Id, candidate, categories);
-                    manualReviewCount++;
-                    continue;
-                }
-
-                bool exists = await _context.Transactions.AnyAsync(t =>
-                    t.UserId == userId &&
-                    t.AccountId == accountId &&
-                    t.Date.Date == candidate.Date.Date &&
-                    t.Amount == candidate.Amount &&
-                    t.Type == candidate.Type &&
-                    t.Description == candidate.Description &&
-                    !t.IsTransfer,
-                    cancellationToken);
-
-                if (exists)
-                {
-                    skippedCount++;
-                    continue;
-                }
-
-                var categoryId = ResolveCategoryId(candidate, categories);
-                var transaction = new Transaction
-                {
-                    UserId = userId,
-                    AccountId = accountId,
-                    CategoryId = categoryId,
-                    Date = candidate.Date,
-                    Description = candidate.Description,
-                    Amount = candidate.Amount,
-                    Type = candidate.Type,
-                    Paid = true
-                };
-
-                _context.Transactions.Add(transaction);
-                importedCount++;
-            }
-
-            await _context.SaveChangesAsync(cancellationToken);
-            await _financialSnapshotService.RecalculateAccountBalancesAsync(userId, cancellationToken);
-
-            return Ok(new
-            {
-                message = $"{importedCount} transacoes importadas com sucesso.",
-                importedCount,
-                skippedCount,
-                manualReviewCount,
-                detectedLayout = layout.Kind
-            });
-        }
-
-        private static async Task<List<List<string>>> ReadRowsAsync(IFormFile file, string extension, CancellationToken cancellationToken)
-        {
-            await using var stream = file.OpenReadStream();
-
-            return extension switch
-            {
-                ".csv" => await ReadCsvRowsAsync(stream, cancellationToken),
-                ".xlsx" => await ReadXlsxRowsAsync(stream, cancellationToken),
-                _ => throw new InvalidOperationException("Formato nao suportado.")
-            };
-        }
-
-        private static async Task<List<List<string>>> ReadCsvRowsAsync(Stream stream, CancellationToken cancellationToken)
-        {
-            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
-            var rows = new List<List<string>>();
-            string? line;
-            char? delimiter = null;
-
-            while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
-
-                delimiter ??= DetectDelimiter(line);
-                rows.Add(ParseDelimitedLine(line, delimiter.Value));
-            }
-
-            return rows;
-        }
-
-        private static async Task<List<List<string>>> ReadXlsxRowsAsync(Stream stream, CancellationToken cancellationToken)
-        {
-            using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory, cancellationToken);
-            memory.Position = 0;
-
-            using var archive = new ZipArchive(memory, ZipArchiveMode.Read, leaveOpen: false);
-            var sharedStrings = ReadSharedStrings(archive);
-            var sheetPath = GetFirstWorksheetPath(archive);
-            var sheetEntry = archive.GetEntry(sheetPath)
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: primeira aba nao encontrada.");
-
-            var document = XDocument.Load(sheetEntry.Open());
-            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-            var rows = new List<List<string>>();
-
-            foreach (var row in document.Descendants(ns + "row"))
-            {
-                var values = new List<string>();
-                var currentColumn = 0;
-
-                foreach (var cell in row.Elements(ns + "c"))
-                {
-                    var reference = cell.Attribute("r")?.Value;
-                    var targetColumn = GetColumnIndex(reference);
-                    while (currentColumn < targetColumn)
-                    {
-                        values.Add(string.Empty);
-                        currentColumn++;
-                    }
-
-                    values.Add(ReadCellValue(cell, sharedStrings, ns));
-                    currentColumn++;
-                }
-
-                if (values.Any(value => !string.IsNullOrWhiteSpace(value)))
-                    rows.Add(values);
-            }
-
-            return rows;
-        }
-
-        private static List<string> ReadSharedStrings(ZipArchive archive)
-        {
-            var entry = archive.GetEntry("xl/sharedStrings.xml");
-            if (entry == null)
-                return [];
-
-            var document = XDocument.Load(entry.Open());
-            XNamespace ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-            return document
-                .Descendants(ns + "si")
-                .Select(si => string.Concat(si.Descendants(ns + "t").Select(t => t.Value)))
-                .ToList();
-        }
-
-        private static string GetFirstWorksheetPath(ZipArchive archive)
-        {
-            var workbookEntry = archive.GetEntry("xl/workbook.xml")
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: workbook.xml nao encontrado.");
-
-            var relsEntry = archive.GetEntry("xl/_rels/workbook.xml.rels")
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: workbook rels nao encontrado.");
-
-            XNamespace mainNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-            XNamespace relNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-            XNamespace pkgNs = "http://schemas.openxmlformats.org/package/2006/relationships";
-
-            var workbook = XDocument.Load(workbookEntry.Open());
-            var rels = XDocument.Load(relsEntry.Open());
-
-            var firstSheet = workbook.Descendants(mainNs + "sheet").FirstOrDefault()
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: nenhuma aba encontrada.");
-
-            var relationshipId = firstSheet.Attribute(relNs + "id")?.Value
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: aba sem relacionamento.");
-
-            var target = rels.Descendants(pkgNs + "Relationship")
-                .FirstOrDefault(rel => string.Equals(rel.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal))
-                ?.Attribute("Target")?.Value
-                ?? throw new InvalidOperationException("Planilha XLSX invalida: destino da aba nao encontrado.");
-
-            return target.StartsWith("xl/", StringComparison.OrdinalIgnoreCase)
-                ? target
-                : $"xl/{target.TrimStart('/')}";
-        }
-
-        private static string ReadCellValue(XElement cell, List<string> sharedStrings, XNamespace ns)
-        {
-            var type = cell.Attribute("t")?.Value;
-
-            if (type == "inlineStr")
-                return string.Concat(cell.Descendants(ns + "t").Select(t => t.Value));
-
-            var rawValue = cell.Element(ns + "v")?.Value ?? string.Empty;
-
-            if (type == "s" && int.TryParse(rawValue, out var sharedIndex) && sharedIndex >= 0 && sharedIndex < sharedStrings.Count)
-                return sharedStrings[sharedIndex];
-
-            return rawValue;
-        }
-
-        private static int GetColumnIndex(string? reference)
-        {
-            if (string.IsNullOrWhiteSpace(reference))
-                return 0;
-
-            int column = 0;
-            foreach (var character in reference)
-            {
-                if (!char.IsLetter(character))
-                    break;
-
-                column = (column * 26) + (char.ToUpperInvariant(character) - 'A' + 1);
-            }
-
-            return Math.Max(column - 1, 0);
-        }
-
-        private static char DetectDelimiter(string line)
-        {
-            var commaCount = line.Count(ch => ch == ',');
-            var semicolonCount = line.Count(ch => ch == ';');
-            return semicolonCount > commaCount ? ';' : ',';
-        }
-
-        private static List<string> ParseDelimitedLine(string line, char delimiter)
-        {
-            var result = new List<string>();
-            var current = new StringBuilder();
-            bool inQuotes = false;
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-
-                if (c == '"')
-                {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                    {
-                        current.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        inQuotes = !inQuotes;
-                    }
-
-                    continue;
-                }
-
-                if (c == delimiter && !inQuotes)
-                {
-                    result.Add(current.ToString().Trim());
-                    current.Clear();
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-
-            result.Add(current.ToString().Trim());
-            return result;
-        }
-
-        private static ImportLayout? DetectLayout(List<List<string>> rows)
-        {
-            var headers = rows[0].Select(NormalizeHeader).ToList();
-            var dateIndex = FindHeaderIndex(headers, "data", "date");
-            var amountIndex = FindHeaderIndex(headers, "valor", "amount", "quantia");
-            var descriptionIndex = FindHeaderIndex(headers, "descricao", "title", "titulo", "historico", "nome");
-            var categoryIndex = FindHeaderIndex(headers, "categoria", "category");
-
-            if (dateIndex >= 0 && amountIndex >= 0 && descriptionIndex >= 0)
-                return new ImportLayout("header-mapped", dateIndex, amountIndex, descriptionIndex, categoryIndex);
-
-            var sample = rows.Skip(1).FirstOrDefault(row => row.Any(cell => !string.IsNullOrWhiteSpace(cell)));
-            if (sample == null)
-                return null;
-
-            if (sample.Count >= 4 && LooksLikeDate(GetCell(sample, 0)) && LooksLikeAmount(GetCell(sample, 1)))
-                return new ImportLayout("legacy-four-columns", 0, 1, 3, 2);
-
-            if (sample.Count >= 3 && LooksLikeDate(GetCell(sample, 0)) && LooksLikeAmount(GetCell(sample, sample.Count - 1)))
-                return new ImportLayout("nubank-three-columns", 0, sample.Count - 1, 1, 2 < sample.Count - 1 ? 2 : null);
-
-            if (sample.Count >= 3 && LooksLikeDate(GetCell(sample, 0)) && LooksLikeAmount(GetCell(sample, 1)))
-                return new ImportLayout("date-amount-description", 0, 1, 2, 3 < sample.Count ? 3 : null);
-
-            return null;
-        }
-
-        private static int FindHeaderIndex(List<string> headers, params string[] acceptedNames)
-        {
-            for (int i = 0; i < headers.Count; i++)
-            {
-                if (acceptedNames.Any(name => headers[i].Contains(name, StringComparison.Ordinal)))
-                    return i;
-            }
-
-            return -1;
-        }
-
-        private static string NormalizeHeader(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return string.Empty;
-
-            var normalized = value.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
-            var builder = new StringBuilder();
-
-            foreach (var character in normalized)
-            {
-                var category = CharUnicodeInfo.GetUnicodeCategory(character);
-                if (category == UnicodeCategory.NonSpacingMark)
-                    continue;
-
-                if (char.IsLetterOrDigit(character))
-                    builder.Append(character);
-            }
-
-            return builder.ToString();
-        }
-
-        private static string GetCell(List<string> row, int index) => index >= 0 && index < row.Count ? row[index] : string.Empty;
-
-        private static bool TryBuildTransactionCandidate(List<string> row, ImportLayout layout, Account account, out ImportCandidate candidate)
-        {
-            candidate = default!;
-
-            var rawDate = GetCell(row, layout.DateIndex);
-            var rawAmount = GetCell(row, layout.AmountIndex);
-            var rawDescription = GetCell(row, layout.DescriptionIndex);
-            var rawCategory = layout.CategoryIndex.HasValue ? GetCell(row, layout.CategoryIndex.Value) : string.Empty;
-
-            if (!TryParseDate(rawDate, out var date))
-                return false;
-
-            if (!TryParseAmount(rawAmount, out var signedAmount))
-                return false;
-
-            var description = CleanValue(rawDescription);
-            if (string.IsNullOrWhiteSpace(description))
-                return false;
-
-            var type = signedAmount < 0 ? "Expense" : "Income";
-            var amount = Math.Abs(signedAmount);
-
-            if (amount == 0)
-                return false;
-
-            candidate = new ImportCandidate(
-                DateTime.SpecifyKind(date.Date, DateTimeKind.Utc),
-                amount,
-                type,
-                description,
-                CleanValue(rawCategory),
-                account.IsCreditCard);
-
-            return true;
-        }
-
-        private static bool TryParseDate(string? rawValue, out DateTime date)
-        {
-            rawValue = CleanValue(rawValue);
-
-            if (double.TryParse(rawValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var excelSerial) && excelSerial > 20000 && excelSerial < 80000)
-            {
-                date = DateTime.FromOADate(excelSerial);
-                return true;
-            }
-
-            return DateTime.TryParseExact(rawValue, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
-                || DateTime.TryParse(rawValue, new CultureInfo("pt-BR"), DateTimeStyles.None, out date)
-                || DateTime.TryParse(rawValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
-        }
-
-        private static bool TryParseAmount(string? rawValue, out decimal amount)
-        {
-            rawValue = CleanValue(rawValue);
-            rawValue = rawValue.Replace("R$", string.Empty, StringComparison.OrdinalIgnoreCase);
-            rawValue = rawValue.Replace("BRL", string.Empty, StringComparison.OrdinalIgnoreCase);
-            rawValue = Regex.Replace(rawValue, @"\s+", string.Empty);
-
-            if (decimal.TryParse(rawValue, NumberStyles.Any, CultureInfo.InvariantCulture, out amount))
-                return true;
-
-            if (decimal.TryParse(rawValue, NumberStyles.Any, new CultureInfo("pt-BR"), out amount))
-                return true;
-
-            var normalized = rawValue;
-            if (normalized.Contains(',') && normalized.Contains('.'))
-            {
-                if (normalized.LastIndexOf(',') > normalized.LastIndexOf('.'))
-                    normalized = normalized.Replace(".", string.Empty).Replace(',', '.');
-                else
-                    normalized = normalized.Replace(",", string.Empty);
-            }
-            else if (normalized.Count(ch => ch == ',') == 1 && normalized.Count(ch => ch == '.') == 0)
-            {
-                normalized = normalized.Replace(',', '.');
-            }
-
-            return decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out amount);
-        }
-
-        private static bool LooksLikeDate(string? rawValue) => TryParseDate(rawValue, out _);
-
-        private static bool LooksLikeAmount(string? rawValue) => TryParseAmount(rawValue, out _);
-
-        private static string CleanValue(string? value)
-        {
-            return (value ?? string.Empty).Replace("\"", string.Empty).Trim();
-        }
-
-        private async Task<List<Category>> EnsureImportCategoriesAsync(List<Category> categories, int userId, CancellationToken cancellationToken)
-        {
-            var changed = false;
-
-            if (!categories.Any(c => c.UserId == userId && c.Type == "Expense" && c.Name.Equals("Importacao", StringComparison.OrdinalIgnoreCase)))
-            {
-                categories.Add(new Category
-                {
-                    Name = "Importacao",
-                    Type = "Expense",
-                    Color = "#595959",
-                    Icon = "IM",
-                    UserId = userId
-                });
-                changed = true;
-            }
-
-            if (!categories.Any(c => c.UserId == userId && c.Type == "Income" && c.Name.Equals("Importacao", StringComparison.OrdinalIgnoreCase)))
-            {
-                categories.Add(new Category
-                {
-                    Name = "Importacao",
-                    Type = "Income",
-                    Color = "#595959",
-                    Icon = "IM",
-                    UserId = userId
-                });
-                changed = true;
-            }
-
-            if (!categories.Any(c => c.UserId == userId && c.Type == "Income" && c.Name.Equals("Estorno", StringComparison.OrdinalIgnoreCase)))
-            {
-                categories.Add(new Category
-                {
-                    Name = "Estorno",
-                    Type = "Income",
-                    Color = "#52c41a",
-                    Icon = "ES",
-                    UserId = userId
-                });
-                changed = true;
-            }
-
-            if (!categories.Any(c => c.UserId == userId && c.Type == "Expense" && c.Name.Equals("Revisar Importacao", StringComparison.OrdinalIgnoreCase)))
-            {
-                categories.Add(new Category
-                {
-                    Name = "Revisar Importacao",
-                    Type = "Expense",
-                    Color = "#faad14",
-                    Icon = "RV",
-                    UserId = userId
-                });
-                changed = true;
-            }
-
-            if (changed)
-            {
-                _context.Categories.AddRange(categories.Where(c => c.Id == 0));
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-
-            return categories;
-        }
-
-        private int? ResolveCategoryId(ImportCandidate candidate, List<Category> categories)
-        {
-            if (!string.IsNullOrWhiteSpace(candidate.RawCategory))
-            {
-                var directMatch = categories.FirstOrDefault(category =>
-                    category.Type == candidate.Type &&
-                    category.Name.Equals(candidate.RawCategory, StringComparison.OrdinalIgnoreCase));
-
-                if (directMatch != null)
-                    return directMatch.Id;
-            }
-
-            var guessed = GuessCategory(candidate.Description, candidate.Type, categories);
-            if (guessed.HasValue)
-                return guessed.Value;
-
-            return categories
-                .FirstOrDefault(category => category.Type == candidate.Type && category.Name.Equals("Importacao", StringComparison.OrdinalIgnoreCase))
-                ?.Id;
-        }
-
-        private async Task<bool> TransferAlreadyImportedAsync(
-            int userId,
-            int fromAccountId,
-            int toAccountId,
-            ImportCandidate candidate,
-            CancellationToken cancellationToken)
-        {
-            return await _context.Transactions.AnyAsync(t =>
-                    t.UserId == userId &&
-                    t.IsTransfer &&
-                    t.AccountId == fromAccountId &&
-                    t.Type == "Expense" &&
-                    t.Amount == candidate.Amount &&
-                    t.Date.Date == candidate.Date.Date &&
-                    t.Description == candidate.Description,
-                cancellationToken)
-                || await _context.Transactions.AnyAsync(t =>
-                    t.UserId == userId &&
-                    t.IsTransfer &&
-                    t.AccountId == toAccountId &&
-                    t.Type == "Income" &&
-                    t.Amount == candidate.Amount &&
-                    t.Date.Date == candidate.Date.Date &&
-                    t.Description == "Pagamento de fatura importado",
-                cancellationToken);
-        }
-
-        private void CreateTransferTransactions(int userId, int fromAccountId, int toAccountId, ImportCandidate candidate)
-        {
-            var transferGroupId = Guid.NewGuid().ToString("N");
-            _context.Transactions.Add(new Transaction
-            {
-                UserId = userId,
-                AccountId = fromAccountId,
-                Date = candidate.Date,
-                Description = candidate.Description,
-                Amount = candidate.Amount,
-                Type = "Expense",
-                Paid = true,
-                IsTransfer = true,
-                TransferGroupId = transferGroupId
-            });
-
-            _context.Transactions.Add(new Transaction
-            {
-                UserId = userId,
-                AccountId = toAccountId,
-                Date = candidate.Date,
-                Description = "Pagamento de fatura importado",
-                Amount = candidate.Amount,
-                Type = "Income",
-                Paid = true,
-                IsTransfer = true,
-                TransferGroupId = transferGroupId
-            });
-        }
-
-        private void CreateManualReviewTransaction(int userId, int accountId, ImportCandidate candidate, List<Category> categories)
-        {
-            var reviewCategoryId = categories
-                .FirstOrDefault(category =>
-                    category.Type == "Expense" &&
-                    category.Name.Equals("Revisar Importacao", StringComparison.OrdinalIgnoreCase))
-                ?.Id;
-
-            _context.Transactions.Add(new Transaction
-            {
-                UserId = userId,
-                AccountId = accountId,
-                CategoryId = reviewCategoryId,
-                Date = candidate.Date,
-                Description = $"REVISAR MANUALMENTE: {candidate.Description}",
-                Amount = candidate.Amount,
-                Type = candidate.Type,
-                Paid = false
-            });
-        }
-
-        private static bool LooksLikeInvoicePayment(string description)
-        {
-            var normalized = description.ToLowerInvariant();
-            return normalized.Contains("pagamento fatura", StringComparison.Ordinal)
-                || normalized.Contains("pagamento de fatura", StringComparison.Ordinal)
-                || normalized.Contains("pgto fatura", StringComparison.Ordinal)
-                || normalized.Contains("fatura", StringComparison.Ordinal) && normalized.Contains("cartao", StringComparison.Ordinal);
-        }
-
-        private async Task<InvoicePaymentResolution> ResolveCreditCardForPaymentAsync(
-            string description,
-            Account sourceAccount,
-            List<Account> accounts,
-            int userId,
-            CancellationToken cancellationToken)
-        {
-            var resolution = ResolveCreditCardForPayment(description, accounts);
-            if (resolution.Status != InvoicePaymentResolutionStatus.NoCreditCard)
-            {
-                return resolution;
-            }
-
-            if (!CanAutoProvisionCreditCard(sourceAccount, description))
-            {
-                return resolution;
-            }
-
-            var inferredCard = new Account
-            {
-                UserId = userId,
-                Name = BuildAutoProvisionedCreditCardName(sourceAccount),
-                Type = "Checking",
-                IsCreditCard = true,
-                InitialBalance = 0m,
-                CurrentBalance = 0m
-            };
-
-            _context.Accounts.Add(inferredCard);
-            await _context.SaveChangesAsync(cancellationToken);
-            accounts.Add(inferredCard);
-
-            return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.AutoProvisioned, inferredCard);
-        }
-
-        private static InvoicePaymentResolution ResolveCreditCardForPayment(string description, IEnumerable<Account> accounts)
-        {
-            var creditCards = accounts.Where(a => a.IsCreditCard).ToList();
-            var normalized = description.ToLowerInvariant();
-            var matches = creditCards
-                .Where(card => normalized.Contains(card.Name.ToLowerInvariant(), StringComparison.Ordinal))
-                .ToList();
-
-            if (matches.Count == 1)
-            {
-                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.SingleMatch, matches[0]);
-            }
-
-            if (creditCards.Count == 1)
-            {
-                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.SingleMatch, creditCards[0]);
-            }
-
-            if (matches.Count > 1)
-            {
-                return new InvoicePaymentResolution(InvoicePaymentResolutionStatus.Ambiguous, null);
-            }
-
-            return new InvoicePaymentResolution(
-                creditCards.Count == 0 ? InvoicePaymentResolutionStatus.NoCreditCard : InvoicePaymentResolutionStatus.UnknownCard,
-                null);
-        }
-
-        private static bool CanAutoProvisionCreditCard(Account sourceAccount, string description)
-        {
-            if (sourceAccount.IsCreditCard)
-            {
-                return false;
-            }
-
-            if (!LooksLikeInvoicePayment(description))
-            {
-                return false;
-            }
-
-            return !string.IsNullOrWhiteSpace(sourceAccount.Name);
-        }
-
-        private static string BuildAutoProvisionedCreditCardName(Account sourceAccount)
-        {
-            var trimmedName = sourceAccount.Name.Trim();
-            return trimmedName.StartsWith("cartao", StringComparison.OrdinalIgnoreCase)
-                ? trimmedName
-                : $"Cartao {trimmedName}";
-        }
-
-        private int? GuessCategory(string description, string type, List<Category> categories)
-        {
-            var desc = description.ToLowerInvariant();
-            string categoryName;
-
-            if (desc.Contains("posto") || desc.Contains("uber") || desc.Contains("99"))
-                categoryName = categories.Any(c => c.Name.Equals("Combustivel", StringComparison.OrdinalIgnoreCase)) ? "Combustivel" : "Transporte";
-            else if (desc.Contains("ifood") || desc.Contains("food") || desc.Contains("mercado") || desc.Contains("assai"))
-                categoryName = categories.Any(c => c.Name.Equals("Mercado", StringComparison.OrdinalIgnoreCase)) ? "Mercado" : "Alimentacao";
-            else if (desc.Contains("claro") || desc.Contains("tim") || desc.Contains("energia") || desc.Contains("enel") || desc.Contains("neoenergia"))
-                categoryName = "Contas";
-            else if (desc.Contains("spotify") || desc.Contains("netflix") || desc.Contains("cinema"))
-                categoryName = "Lazer";
-            else if (desc.Contains("shopee") || desc.Contains("amazon") || desc.Contains("magalu") || desc.Contains("mercadolivre"))
-                categoryName = "Compras";
-            else if (desc.Contains("salario") || desc.Contains("salário") || desc.Contains("pix recebido"))
-                categoryName = "Salario";
-            else if (desc.Contains("pagamento de fatura") || desc.Contains("pagamento fatura"))
-                categoryName = "Pagamento Fatura";
-            else if (desc.Contains("estorno") || desc.Contains("chargeback"))
-                categoryName = "Estorno";
-            else
-                categoryName = "Importacao";
-
-            var directMatch = categories.FirstOrDefault(c =>
-                c.Type == type &&
-                c.Name.Equals(categoryName, StringComparison.OrdinalIgnoreCase));
-
-            return directMatch?.Id
-                ?? categories.FirstOrDefault(c => c.Type == type && c.Name.Equals("Importacao", StringComparison.OrdinalIgnoreCase))?.Id;
-        }
-
-        private sealed record ImportLayout(string Kind, int DateIndex, int AmountIndex, int DescriptionIndex, int? CategoryIndex);
-
-        private sealed record ImportCandidate(DateTime Date, decimal Amount, string Type, string Description, string RawCategory, bool IsCreditCard);
-
-        private sealed record InvoicePaymentResolution(InvoicePaymentResolutionStatus Status, Account? Account);
-
-        private enum InvoicePaymentResolutionStatus
-        {
-            SingleMatch,
-            AutoProvisioned,
-            Ambiguous,
-            UnknownCard,
-            NoCreditCard
-        }
+        RefreshCounts(batch); _context.ImportBatches.Add(batch); await _context.SaveChangesAsync(cancellationToken);
+        var calculatedBalance = await CalculateBalanceAsync(batch, userId, cancellationToken);
+        return Ok(new { message = "Prévia gerada. Confirme os itens seguros para lançar.", batch = Summary(batch), importedCount = batch.ImportedCount, skippedCount = batch.DuplicateCount, manualReviewCount = batch.ReviewCount, items = batch.Items.Select(ItemResponse), reconciliation = new { ledgerBalance = batch.LedgerBalance, calculatedBalance, difference = batch.LedgerBalance.HasValue ? batch.LedgerBalance.Value - calculatedBalance : (decimal?)null } });
     }
+
+    [HttpGet("batches")]
+    public async Task<IActionResult> GetBatches(CancellationToken ct) => Ok((await _context.ImportBatches.AsNoTracking().Include(b => b.Account).Where(b => b.UserId == GetUserId()).OrderByDescending(b => b.CreatedAt).ToListAsync(ct)).Select(Summary));
+
+    [HttpGet("batches/{id:int}")]
+    public async Task<IActionResult> GetBatch(int id, CancellationToken ct) { var value = await BuildBatchResponseAsync(id, GetUserId(), ct); return value == null ? NotFound() : Ok(value); }
+
+    [HttpPost("batches/{id:int}/confirm")]
+    public async Task<IActionResult> Confirm(int id, CancellationToken ct)
+    {
+        var userId = GetUserId(); var batch = await _context.ImportBatches.Include(b => b.Account).Include(b => b.Items).FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId, ct);
+        if (batch == null) return NotFound(); if (batch.Status == ImportBatchStatuses.Confirmed) return Conflict("Este lote ja foi confirmado.");
+        var created = 0;
+        foreach (var item in batch.Items.Where(i => i.Status == ImportItemStatuses.Ready))
+        {
+            if (await DuplicateOnConfirm(item, ct)) { item.Status = ImportItemStatuses.Duplicate; continue; }
+            var tx = item.ReportingKind == ReportingKinds.InvoicePayment ? await CreateInvoicePayment(batch, item, userId, ct) : CreateImported(batch, item, userId);
+            item.Transaction = tx; item.Status = ImportItemStatuses.Committed; created++;
+        }
+        batch.Status = ImportBatchStatuses.Confirmed; batch.ConfirmedAt = DateTime.UtcNow; RefreshCounts(batch); await _context.SaveChangesAsync(ct); await _financialSnapshotService.RecalculateAccountBalancesAsync(userId, ct);
+        return Ok(new { message = $"{created} itens confirmados.", createdCount = created, batch = await BuildBatchResponseAsync(id, userId, ct) });
+    }
+
+    [HttpPost("items/{id:int}/resolve")]
+    public async Task<IActionResult> Resolve(int id, [FromBody] ResolveImportItemRequest request, CancellationToken ct)
+    {
+        var userId = GetUserId(); var item = await _context.ImportedStatementItems.Include(i => i.ImportBatch).FirstOrDefaultAsync(i => i.Id == id && i.UserId == userId, ct);
+        if (item == null) return NotFound(); if (item.ImportBatch?.Status == ImportBatchStatuses.Confirmed || item.Status == ImportItemStatuses.Committed) return Conflict("O item pertence a um lote ja confirmado.");
+        var accountId = request.AccountId ?? item.AccountId; if (!await _context.Accounts.AnyAsync(a => a.Id == accountId && a.UserId == userId, ct)) return BadRequest("Conta invalida.");
+        var type = request.Type ?? (item.SignedAmount < 0 ? "Expense" : "Income"); if (type is not "Expense" and not "Income") return BadRequest("Tipo invalido.");
+        if (request.Amount is <= 0) return BadRequest("Valor deve ser maior que zero.");
+        var kind = request.ReportingKind ?? item.ReportingKind; if (!ReportingKinds.IsValid(kind)) return BadRequest("Classificacao de relatorio invalida.");
+        if (kind == ReportingKinds.TechnicalAdjustment && string.IsNullOrWhiteSpace(request.Justification)) return BadRequest("Informe uma justificativa para o ajuste tecnico.");
+        if (request.CategoryId.HasValue && !await _context.Categories.AnyAsync(c => c.Id == request.CategoryId && c.UserId == userId && c.Type == type, ct)) return BadRequest("Categoria invalida para o tipo selecionado.");
+        if (kind == ReportingKinds.InvoicePayment && (!request.TargetAccountId.HasValue || !await _context.Accounts.AnyAsync(a => a.Id == request.TargetAccountId && a.UserId == userId && a.IsCreditCard, ct))) return BadRequest("Selecione o cartao pago.");
+        item.AccountId = accountId; item.CategoryId = request.CategoryId ?? item.CategoryId; item.TargetAccountId = request.TargetAccountId ?? item.TargetAccountId; item.ReportingKind = kind; item.ResolvedDescription = string.IsNullOrWhiteSpace(request.Description) ? item.Memo : request.Description.Trim(); item.ResolvedDate = request.Date?.ToUniversalTime() ?? item.PostedAt; item.ResolvedAmount = request.Amount ?? Math.Abs(item.SignedAmount); item.ResolvedType = type; item.InstallmentNumber = request.InstallmentNumber; item.TotalInstallments = request.TotalInstallments; item.Status = ImportItemStatuses.Ready; item.Reason = request.Justification ?? "Revisado manualmente."; item.ResolvedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(ct); await RefreshCountsStored(item.ImportBatchId, ct); return Ok(ItemResponse(item));
+    }
+
+    [HttpPost("items/{id:int}/ignore")]
+    public async Task<IActionResult> Ignore(int id, CancellationToken ct)
+    {
+        var item = await _context.ImportedStatementItems.Include(i => i.ImportBatch).FirstOrDefaultAsync(i => i.Id == id && i.UserId == GetUserId(), ct); if (item == null) return NotFound(); if (item.ImportBatch?.Status == ImportBatchStatuses.Confirmed || item.Status == ImportItemStatuses.Committed) return Conflict("O item pertence a um lote ja confirmado."); item.Status = ImportItemStatuses.Ignored; item.Reason = "Ignorado pelo usuario."; await _context.SaveChangesAsync(ct); await RefreshCountsStored(item.ImportBatchId, ct); return Ok(ItemResponse(item));
+    }
+
+    private static void Classify(ImportedStatementItem i, ImportCandidate c, Account account, IReadOnlyCollection<Account> accounts, IReadOnlyCollection<Category> categories, IReadOnlyCollection<CategorizationRule> rules, IReadOnlyCollection<RecurringTransaction> recurring, IReadOnlyCollection<Transaction> existing, IReadOnlyCollection<ImportedStatementItem> prior, HashSet<string> seen)
+    {
+        var type = i.ResolvedType!; var amount = i.ResolvedAmount!.Value;
+        if ((!string.IsNullOrWhiteSpace(i.ExternalId) && (!seen.Add(i.ExternalId) || existing.Any(t => t.Source == i.Source && t.ExternalId == i.ExternalId) || prior.Any(p => p.Source == i.Source && p.ExternalId == i.ExternalId && p.Status != ImportItemStatuses.Ignored))) || (string.IsNullOrWhiteSpace(i.ExternalId) && (existing.Any(t => t.Date.Date == i.PostedAt.Date && t.Amount == amount && t.Type == type && t.Description.Equals(i.Memo, StringComparison.OrdinalIgnoreCase) && !t.IsTransfer) || prior.Any(p => p.ExternalId == null && p.PostedAt.Date == i.PostedAt.Date && Math.Abs(p.SignedAmount) == amount && p.Memo.Equals(i.Memo, StringComparison.OrdinalIgnoreCase) && p.Status != ImportItemStatuses.Ignored)))) { i.Status = ImportItemStatuses.Duplicate; i.Reason = "Identificador externo ou lancamento equivalente ja importado."; return; }
+        var installment = InstallmentPattern.Match(i.Memo); if (installment.Success && int.TryParse(installment.Groups["current"].Value, out var current) && int.TryParse(installment.Groups["total"].Value, out var total) && total > 1 && current <= total) { i.InstallmentNumber = current; i.TotalInstallments = total; i.Status = ImportItemStatuses.NeedsReview; i.Reason = "Parcelamento detectado; confirme antes de importar."; return; }
+        if (!account.IsCreditCard && type == "Expense" && LooksLikeInvoice(i.Memo)) { var card = ResolveCard(i.Memo, accounts); if (card == null) { i.Status = ImportItemStatuses.NeedsReview; i.Reason = "Pagamento de fatura sem cartao inequivoco."; } else { i.TargetAccountId = card.Id; i.ReportingKind = ReportingKinds.InvoicePayment; i.Status = ImportItemStatuses.Ready; i.Reason = "Pagamento de fatura identificado."; } return; }
+        var recur = recurring.FirstOrDefault(r => (!r.AccountId.HasValue || r.AccountId == i.AccountId) && r.Type == type && r.Amount == amount && Math.Abs(r.DayOfMonth - i.PostedAt.Day) <= 3 && Overlap(r.Description, i.Memo)); if (recur != null) { i.CategoryId = recur.CategoryId; i.RecurringRuleId = recur.Id; i.Status = ImportItemStatuses.Ready; i.Reason = "Recorrencia casada."; return; }
+        var rule = rules.FirstOrDefault(r => MatchRule(r, i)); if (rule != null) { i.CategoryId = rule.CategoryId; i.Status = rule.Confidence >= .9m ? ImportItemStatuses.Ready : ImportItemStatuses.NeedsReview; i.Reason = "Regra de categorizacao aplicada."; return; }
+        var direct = !string.IsNullOrWhiteSpace(c.RawCategory) ? categories.FirstOrDefault(x => x.Type == type && x.Name.Equals(c.RawCategory, StringComparison.OrdinalIgnoreCase)) : null; if (direct != null) { i.CategoryId = direct.Id; i.Status = ImportItemStatuses.Ready; i.Reason = "Categoria reconhecida no arquivo."; return; }
+        i.Status = ImportItemStatuses.NeedsReview; i.Reason = "Sem regra ou recorrencia com confianca suficiente.";
+    }
+
+    private static bool MatchRule(CategorizationRule r, ImportedStatementItem i) { if (r.Type != i.ResolvedType || r.AccountId.HasValue && r.AccountId != i.AccountId || !r.TextPattern.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Any(p => i.Memo.Contains(p, StringComparison.OrdinalIgnoreCase))) return false; var a = i.ResolvedAmount ?? Math.Abs(i.SignedAmount); return r.ValueOperator switch { "<" => a < r.ValueThreshold, "<=" => a <= r.ValueThreshold, ">" => a > r.ValueThreshold, ">=" => a >= r.ValueThreshold, "=" => a == r.ValueThreshold, _ => true }; }
+    private static bool Overlap(string a, string b) => Normalize(a).Split(' ').Where(x => x.Length >= 4).Intersect(Normalize(b).Split(' ')).Any();
+    private static string Normalize(string s) => string.Concat(s.ToLowerInvariant().Normalize(NormalizationForm.FormD).Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark));
+    private static bool LooksLikeInvoice(string s) { var n = Normalize(s); return n.Contains("pagamento fatura") || n.Contains("pagamento de fatura") || n.Contains("pgto fatura") || n.Contains("fatura cartao"); }
+    private static Account? ResolveCard(string text, IEnumerable<Account> accounts) { var cards = accounts.Where(a => a.IsCreditCard).ToList(); var named = cards.Where(a => text.Contains(a.Name, StringComparison.OrdinalIgnoreCase)).ToList(); return named.Count == 1 ? named[0] : named.Count == 0 && cards.Count == 1 ? cards[0] : null; }
+
+    private Transaction CreateImported(ImportBatch b, ImportedStatementItem i, int userId) {
+        var account = _context.Accounts.Local.FirstOrDefault(a => a.Id == i.AccountId) ?? _context.Accounts.First(a => a.Id == i.AccountId);
+        var total = Math.Max(i.TotalInstallments ?? 1, 1); var current = Math.Clamp(i.InstallmentNumber ?? 1, 1, total); var totalCents = decimal.ToInt64(decimal.Round((i.ResolvedAmount ?? Math.Abs(i.SignedAmount)) * 100m, 0, MidpointRounding.AwayFromZero)); var remaining = total - current + 1; var baseCents = totalCents / remaining; var remainder = totalCents % remaining; var date = i.ResolvedDate ?? i.PostedAt; var series = total > 1 ? Guid.NewGuid().ToString("N") : null; Transaction? first = null;
+        for (var index = 0; index < remaining; index++) {
+            var number = current + index; var tx = new Transaction { UserId = userId, AccountId = i.AccountId, CategoryId = i.CategoryId, Date = date, Description = total > 1 ? $"{StripInstallment(i.ResolvedDescription ?? i.Memo)} ({number}/{total})" : i.ResolvedDescription ?? i.Memo, Amount = (baseCents + (index < remainder ? 1 : 0)) / 100m, Type = i.ResolvedType ?? "Expense", Paid = true, RecurringRuleId = i.RecurringRuleId, Source = b.Source, SourceFile = b.FileName, ExternalId = index == 0 ? i.ExternalId : null, RawMemo = i.Memo, ImportedAt = DateTime.UtcNow, ImportBatchId = b.Id, ReportingKind = i.ReportingKind, ExcludeFromReports = i.ReportingKind != ReportingKinds.Normal, InstallmentId = series }; _context.Transactions.Add(tx); first ??= tx; if (number < total) date = NextInstallmentDate(account, date); }
+        return first!;
+    }
+    private DateTime NextInstallmentDate(Account account, DateTime current) { if (!account.IsCreditCard) return current.AddMonths(1); foreach (var offset in new[] { -1, 0, 1 }) { var reference = new DateTime(current.Year, current.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(offset); var window = _financialSnapshotService.GetInvoiceWindow(account, reference.Month, reference.Year); if (current >= window.StartDate && current < window.CloseDate) { var next = reference.AddMonths(1); return _financialSnapshotService.GetInvoiceWindow(account, next.Month, next.Year).StartDate.Add(current.TimeOfDay == TimeSpan.Zero ? TimeSpan.FromHours(12) : current.TimeOfDay); } } return current.AddMonths(1); }
+    private static string StripInstallment(string value) => InstallmentPattern.Replace(value, string.Empty).Trim(' ', '-', '(', ')');
+    private async Task<Transaction> CreateInvoicePayment(ImportBatch b, ImportedStatementItem i, int userId, CancellationToken ct) { if (!i.TargetAccountId.HasValue) throw new InvalidOperationException("Pagamento sem cartao."); var group = Guid.NewGuid().ToString("N"); var tx = CreateImported(b, i, userId); tx.Type = "Expense"; tx.IsTransfer = true; tx.TransferGroupId = group; tx.ReportingKind = ReportingKinds.InvoicePayment; tx.ExcludeFromReports = true; var card = new Transaction { UserId = userId, AccountId = i.TargetAccountId.Value, Date = tx.Date, Description = "Pagamento de fatura importado", Amount = tx.Amount, Type = "Income", Paid = true, IsTransfer = true, TransferGroupId = group, Source = b.Source, SourceFile = b.FileName, RawMemo = i.Memo, ImportedAt = DateTime.UtcNow, ImportBatchId = b.Id, ReportingKind = ReportingKinds.InvoicePayment, ExcludeFromReports = true }; _context.Transactions.Add(card); await Task.CompletedTask; return tx; }
+    private async Task<bool> DuplicateOnConfirm(ImportedStatementItem i, CancellationToken ct) { if (!string.IsNullOrWhiteSpace(i.ExternalId)) return await _context.Transactions.AnyAsync(t => t.UserId == i.UserId && t.AccountId == i.AccountId && t.Source == i.Source && t.ExternalId == i.ExternalId, ct); var d = i.ResolvedDate ?? i.PostedAt; return await _context.Transactions.AnyAsync(t => t.UserId == i.UserId && t.AccountId == i.AccountId && t.Date.Date == d.Date && t.Amount == (i.ResolvedAmount ?? Math.Abs(i.SignedAmount)) && t.Type == (i.ResolvedType ?? "Expense") && t.Description == (i.ResolvedDescription ?? i.Memo) && !t.IsTransfer, ct); }
+
+    private async Task<List<Category>> EnsureCategoriesAndRulesAsync(int userId, CancellationToken ct) { var categories = await _context.Categories.Where(c => c.UserId == userId).ToListAsync(ct); foreach (var x in new[] { ("Alimentacao", "Expense", "#FF6B6B", "AL"), ("Contas", "Expense", "#7FCDCD", "CT"), ("Salario", "Income", "#4CAF50", "SL"), ("Lazer", "Expense", "#BA68C8", "LZ"), ("Outros", "Expense", "#9E9E9E", "OT") }) if (!categories.Any(c => c.Name == x.Item1 && c.Type == x.Item2)) { var c = new Category { UserId = userId, Name = x.Item1, Type = x.Item2, Color = x.Item3, Icon = x.Item4 }; categories.Add(c); _context.Categories.Add(c); } await _context.SaveChangesAsync(ct); if (!await _context.CategorizationRules.AnyAsync(r => r.UserId == userId, ct)) { int C(string n, string t) => categories.First(x => x.Name == n && x.Type == t).Id; _context.CategorizationRules.AddRange(new CategorizationRule { UserId = userId, TextPattern = "Posto Shell|Posto Sumare", ValueOperator = "<", ValueThreshold = 30, Type = "Expense", CategoryId = C("Alimentacao", "Expense"), Priority = 100 }, new CategorizationRule { UserId = userId, TextPattern = "Claro", Type = "Expense", CategoryId = C("Contas", "Expense"), Priority = 90 }, new CategorizationRule { UserId = userId, TextPattern = "Receita Federal", Type = "Expense", CategoryId = C("Contas", "Expense"), Priority = 90 }, new CategorizationRule { UserId = userId, TextPattern = "Gnaritas|TechSallus|Felipe e Menezes", Type = "Income", CategoryId = C("Salario", "Income"), Priority = 90 }, new CategorizationRule { UserId = userId, TextPattern = "Socio Bahia|Socio Esquadr", Type = "Expense", CategoryId = C("Lazer", "Expense"), Priority = 90 }); await _context.SaveChangesAsync(ct); } return categories; }
+    private static void RefreshCounts(ImportBatch b) { b.TotalItems = b.Items.Count; b.ImportedCount = b.Items.Count(i => i.Status is ImportItemStatuses.Ready or ImportItemStatuses.Committed); b.DuplicateCount = b.Items.Count(i => i.Status == ImportItemStatuses.Duplicate); b.ReviewCount = b.Items.Count(i => i.Status == ImportItemStatuses.NeedsReview); b.IgnoredCount = b.Items.Count(i => i.Status == ImportItemStatuses.Ignored); }
+    private async Task RefreshCountsStored(int id, CancellationToken ct) { var b = await _context.ImportBatches.Include(x => x.Items).FirstAsync(x => x.Id == id, ct); RefreshCounts(b); await _context.SaveChangesAsync(ct); }
+    private static object Summary(ImportBatch b) => new { b.Id, b.AccountId, accountName = b.Account?.Name, b.FileName, b.FileType, b.Source, b.FileHash, b.LedgerBalance, b.PeriodStart, b.PeriodEnd, b.Status, b.TotalItems, b.ImportedCount, b.DuplicateCount, b.ReviewCount, b.IgnoredCount, b.CreatedAt, b.ConfirmedAt };
+    private static object ItemResponse(ImportedStatementItem i) => new { i.Id, i.ImportBatchId, i.AccountId, i.ExternalId, i.PostedAt, i.SignedAmount, i.Memo, i.Status, i.Reason, i.TransactionId, i.CategoryId, categoryName = i.Category?.Name, i.TargetAccountId, i.ReportingKind, i.ResolvedDescription, i.ResolvedDate, i.ResolvedAmount, i.ResolvedType, i.InstallmentNumber, i.TotalInstallments };
+    private async Task<object?> BuildBatchResponseAsync(int id, int userId, CancellationToken ct) { var b = await _context.ImportBatches.AsNoTracking().Include(x => x.Account).Include(x => x.Items).ThenInclude(x => x.Category).FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct); if (b == null) return null; var calculated = await CalculateBalanceAsync(b, userId, ct); return new { batch = Summary(b), items = b.Items.OrderBy(x => x.PostedAt).Select(ItemResponse), reconciliation = new { ledgerBalance = b.LedgerBalance, calculatedBalance = calculated, difference = b.LedgerBalance.HasValue ? b.LedgerBalance.Value - calculated : (decimal?)null } }; }
+    private async Task<decimal> CalculateBalanceAsync(ImportBatch b, int userId, CancellationToken ct) { var account = b.Account ?? await _context.Accounts.FirstAsync(a => a.Id == b.AccountId, ct); var end = (b.PeriodEnd ?? DateTime.UtcNow).Date.AddDays(1); var tx = await _context.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.AccountId == b.AccountId && t.Paid && t.Date < end).ToListAsync(ct); return account.IsCreditCard ? tx.Where(t => !t.IsTransfer).Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount) : account.InitialBalance + tx.Sum(t => t.Type == "Income" ? t.Amount : -t.Amount); }
+
+    private static ParsedStatement ParseOfx(byte[] bytes) { var text = Decode(bytes); var list = new List<ImportCandidate>(); foreach (Match m in Regex.Matches(text, @"<STMTTRN>(.*?)(?=<STMTTRN>|</STMTTRN>|</BANKTRANLIST>)", RegexOptions.IgnoreCase | RegexOptions.Singleline)) { var amount = Value(m.Value, "TRNAMT"); var date = Value(m.Value, "DTPOSTED"); if (!TryAmount(amount, out var signed) || !TryOfxDate(date, out var d) || signed == 0) continue; list.Add(new ImportCandidate(d, signed, Value(m.Value, "MEMO") ?? Value(m.Value, "NAME") ?? "Lancamento OFX", "", Value(m.Value, "FITID"), m.Value)); } if (list.Count == 0) throw new InvalidDataException("OFX sem transacoes reconheciveis."); decimal? balance = null; var balances = Regex.Matches(text, @"<BALAMT>\s*([^<\r\n]+)", RegexOptions.IgnoreCase); if (balances.Count > 0 && TryAmount(balances[^1].Groups[1].Value, out var b)) balance = b; return new ParsedStatement(list, balance, OptionalOfx(Value(text, "DTSTART")), OptionalOfx(Value(text, "DTEND"))); }
+    private static string? Value(string text, string tag) { var m = Regex.Match(text, $@"<{tag}>\s*([^<\r\n]+)", RegexOptions.IgnoreCase); return m.Success ? m.Groups[1].Value.Trim() : null; }
+    private static string Decode(byte[] bytes) { var head = Encoding.ASCII.GetString(bytes, 0, Math.Min(bytes.Length, 512)); return head.Contains("ENCODING:1252", StringComparison.OrdinalIgnoreCase) ? Encoding.Latin1.GetString(bytes) : Encoding.UTF8.GetString(bytes); }
+    private static bool TryOfxDate(string? raw, out DateTime date) { date = default; var d = new string((raw ?? "").TakeWhile(char.IsDigit).ToArray()); if (d.Length < 8 || !DateTime.TryParseExact(d[..8], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)) return false; date = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc); return true; }
+    private static DateTime? OptionalOfx(string? value) => TryOfxDate(value, out var d) ? d : null;
+    private static async Task<ParsedStatement> ParseTabularAsync(byte[] bytes, string ext, Account account, CancellationToken ct) { List<List<string>> rows; await using var s = new MemoryStream(bytes, false); rows = ext == ".csv" ? await Csv(s, ct) : Xlsx(s); if (rows.Count < 2) throw new InvalidDataException("Arquivo sem dados suficientes para importacao."); var l = Layout(rows) ?? throw new InvalidDataException("Nao foi possivel identificar as colunas do arquivo."); var list = rows.Skip(1).Select(r => TryCandidate(r, l, out var c) ? c : null).Where(c => c != null).Cast<ImportCandidate>().ToList(); return new ParsedStatement(list, null, null, null); }
+    private static async Task<List<List<string>>> Csv(Stream s, CancellationToken ct) { using var r = new StreamReader(s, Encoding.UTF8, true, leaveOpen: true); var result = new List<List<string>>(); char? delim = null; while (await r.ReadLineAsync(ct) is { } line) { if (string.IsNullOrWhiteSpace(line)) continue; delim ??= line.Count(c => c == ';') > line.Count(c => c == ',') ? ';' : ','; result.Add(Split(line, delim.Value)); } return result; }
+    private static List<List<string>> Xlsx(Stream s) { using var a = new ZipArchive(s, ZipArchiveMode.Read, true); var sh = a.GetEntry("xl/sharedStrings.xml"); var shared = sh == null ? [] : XDocument.Load(sh.Open()).Descendants(XName.Get("t", "http://schemas.openxmlformats.org/spreadsheetml/2006/main")).Select(x => x.Value).ToList(); var path = a.GetEntry("xl/worksheets/sheet1.xml") != null ? "xl/worksheets/sheet1.xml" : a.Entries.First(e => e.FullName.StartsWith("xl/worksheets/sheet")).FullName; var doc = XDocument.Load(a.GetEntry(path)!.Open()); XNamespace n = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"; return doc.Descendants(n + "row").Select(row => row.Elements(n + "c").Select(c => c.Attribute("t")?.Value == "s" && int.TryParse(c.Element(n + "v")?.Value, out var i) && i < shared.Count ? shared[i] : c.Element(n + "v")?.Value ?? string.Empty).ToList()).Where(r => r.Any(x => x != "")).ToList(); }
+    private static List<string> Split(string line, char d) { var result = new List<string>(); var current = new StringBuilder(); var q = false; foreach (var c in line) { if (c == '"') q = !q; else if (c == d && !q) { result.Add(current.ToString().Trim()); current.Clear(); } else current.Append(c); } result.Add(current.ToString().Trim()); return result; }
+    private static ImportLayout? Layout(List<List<string>> rows) { var h = rows[0].Select(x => Normalize(x).Replace(" ", "")).ToList(); var d = Header(h, "data", "date"); var a = Header(h, "valor", "amount", "quantia"); var x = Header(h, "descricao", "title", "titulo", "historico", "nome"); var c = Header(h, "categoria", "category"); if (d >= 0 && a >= 0 && x >= 0) return new ImportLayout(d, a, x, c); var s = rows[1]; if (s.Count >= 4 && TryDate(s[0], out _) && TryAmount(s[1], out _)) return new ImportLayout(0, 1, 3, 2); if (s.Count >= 3 && TryDate(s[0], out _) && TryAmount(s[^1], out _)) return new ImportLayout(0, s.Count - 1, 1, s.Count > 3 ? 2 : -1); return null; }
+    private static int Header(List<string> h, params string[] names) => h.FindIndex(x => names.Any(x.Contains));
+    private static bool TryCandidate(List<string> row, ImportLayout l, out ImportCandidate? candidate) { candidate = null; if (!TryDate(Cell(row, l.Date), out var d) || !TryAmount(Cell(row, l.Amount), out var a) || a == 0 || string.IsNullOrWhiteSpace(Cell(row, l.Description))) return false; candidate = new ImportCandidate(DateTime.SpecifyKind(d.Date, DateTimeKind.Utc), a, Clean(Cell(row, l.Description)), l.Category >= 0 ? Clean(Cell(row, l.Category)) : "", null, string.Join(" | ", row)); return true; }
+    private static string Cell(List<string> r, int i) => i >= 0 && i < r.Count ? r[i] : "";
+    private static string Clean(string? s) => (s ?? "").Replace("\"", "").Trim();
+    private static bool TryDate(string? s, out DateTime d) { s = Clean(s); if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var serial) && serial is > 20000 and < 80000) { d = DateTime.FromOADate(serial); return true; } return DateTime.TryParseExact(s, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out d) || DateTime.TryParse(s, new CultureInfo("pt-BR"), DateTimeStyles.None, out d) || DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out d); }
+    private static bool TryAmount(string? s, out decimal a) { s = Regex.Replace(Clean(s).Replace("R$", "", StringComparison.OrdinalIgnoreCase).Replace("BRL", "", StringComparison.OrdinalIgnoreCase), @"\s+", ""); if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out a)) return true; if (decimal.TryParse(s, NumberStyles.Any, new CultureInfo("pt-BR"), out a)) return true; var n = s; if (n.Contains(',') && n.Contains('.')) n = n.LastIndexOf(',') > n.LastIndexOf('.') ? n.Replace(".", "").Replace(',', '.') : n.Replace(",", ""); else if (n.Count(c => c == ',') == 1) n = n.Replace(',', '.'); return decimal.TryParse(n, NumberStyles.Any, CultureInfo.InvariantCulture, out a); }
+    private sealed record ImportLayout(int Date, int Amount, int Description, int Category);
+    private sealed record ImportCandidate(DateTime Date, decimal SignedAmount, string Description, string RawCategory, string? ExternalId, string RawData);
+    private sealed record ParsedStatement(List<ImportCandidate> Candidates, decimal? LedgerBalance, DateTime? PeriodStart, DateTime? PeriodEnd);
 }
+
+public sealed class ResolveImportItemRequest { public int? CategoryId { get; set; } public int? AccountId { get; set; } public int? TargetAccountId { get; set; } public string? Type { get; set; } public DateTime? Date { get; set; } public string? Description { get; set; } public decimal? Amount { get; set; } public string? ReportingKind { get; set; } public int? InstallmentNumber { get; set; } public int? TotalInstallments { get; set; } public string? Justification { get; set; } }
