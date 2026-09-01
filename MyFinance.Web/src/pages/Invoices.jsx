@@ -184,6 +184,12 @@ export default function Invoices() {
                     </List.Item>
                   )}
                 />
+                {invoiceData.categorySummary?.length > 0 && <Card size="small" title="Compras por categoria" style={{ marginTop: 16 }}>
+                  {invoiceData.categorySummary.map((item) => <div key={item.categoryId || item.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}><span>{item.name}</span><strong>{formatMoney(item.total)}</strong></div>)}
+                </Card>}
+                {invoiceData.settlements?.length > 0 && <Card size="small" title="Liquidações" style={{ marginTop: 16 }}>
+                  {invoiceData.settlements.map((item) => <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}><span>{dayjs(item.date).format('DD/MM/YYYY')} · Pagamento de fatura</span><strong>{formatMoney(item.amount)}</strong></div>)}
+                </Card>}
               </div>
             ) : (
               <p>Carregando...</p>

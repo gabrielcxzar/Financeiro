@@ -34,9 +34,11 @@ export default function Home({ month, year, onOpenOnboarding }) {
     netWorth: 0,
     pendingNetWorth: 0,
     projectedNetWorth: 0,
+    invoicePayments: 0,
   });
   const [prevExpense, setPrevExpense] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [recentSettlements, setRecentSettlements] = useState([]);
   const [categorySummary, setCategorySummary] = useState([]);
   const [predictedFixed, setPredictedFixed] = useState(0);
   const [projection, setProjection] = useState([]);
@@ -140,6 +142,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
           netWorth: apiSummary.netWorth || 0,
           pendingNetWorth: apiSummary.pendingNetWorth || 0,
           projectedNetWorth: apiSummary.projectedNetWorth || 0,
+          invoicePayments: apiSummary.invoicePayments || 0,
         });
 
         // Fetch previous month for Month-over-Month comparison
@@ -155,6 +158,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
         }
 
         setRecentTransactions(payload.recentTransactions || []);
+        setRecentSettlements(payload.recentSettlements || []);
         setCategorySummary(payload.categorySummary || []);
         setProjection(payload.projection?.items || []);
         setProjectionStart(payload.projection?.startBalance ?? apiSummary.total ?? 0);
@@ -343,6 +347,11 @@ export default function Home({ month, year, onOpenOnboarding }) {
           </Card>
         </Col>
       </Row>
+
+      {summary.invoicePayments > 0 && <Card size="small" title="Faturas pagas" bordered={false}>
+        <Statistic title="Liquidações no mês" value={summary.invoicePayments} formatter={formatMoney} />
+        {recentSettlements.length > 0 && <div style={{ marginTop: 8, color: '#64748B' }}>{recentSettlements.slice(0, 3).map((item) => <div key={item.id}>{item.description} · {formatMoney(item.amount)}</div>)}</div>}
+      </Card>}
 
       {/* FINANCIAL HEALTH - LIVRE PARA GASTAR */}
       <Card

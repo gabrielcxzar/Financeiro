@@ -28,6 +28,7 @@ namespace MyFinance.API.Controllers
         public async Task<ActionResult<IEnumerable<Transaction>>> GetTransactions(
             [FromQuery] int? month,
             [FromQuery] int? year,
+            [FromQuery] string? view,
             CancellationToken cancellationToken)
         {
             var userId = GetUserId();
@@ -43,6 +44,11 @@ namespace MyFinance.API.Controllers
                 var endDate = startDate.AddMonths(1);
                 query = query.Where(t => t.Date >= startDate && t.Date < endDate);
             }
+
+            if (string.Equals(view, "consumption", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(t => t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports);
+            else if (string.Equals(view, "settlements", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(t => t.ReportingKind == ReportingKinds.InvoicePayment || t.IsTransfer);
 
             return await query.OrderByDescending(t => t.Date).ToListAsync(cancellationToken);
         }
@@ -63,19 +69,38 @@ namespace MyFinance.API.Controllers
                     t.UserId == userId &&
                     t.Date >= invoiceWindow.StartDate &&
                     t.Date < invoiceWindow.CloseDate &&
-                    !t.IsTransfer)
+                    t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports)
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
 
             var total = _financialSnapshotService.CalculateInvoiceAmount(account, transactions, month, year);
+            var settlementGroupIds = await _context.Transactions
+                .Where(t => t.UserId == userId && t.ReportingKind == ReportingKinds.InvoicePayment && t.TransferGroupId != null)
+                .Where(t => _context.Transactions.Any(other => other.UserId == userId && other.TransferGroupId == t.TransferGroupId && other.AccountId == accountId))
+                .Select(t => t.TransferGroupId!)
+                .Distinct()
+                .ToListAsync();
+            var settlements = await _context.Transactions
+                .Where(t => t.UserId == userId && t.ReportingKind == ReportingKinds.InvoicePayment &&
+                            t.TransferGroupId != null && settlementGroupIds.Contains(t.TransferGroupId) && t.Type == "Expense")
+                .OrderByDescending(t => t.Date)
+                .ToListAsync();
+            var categorySummary = transactions
+                .GroupBy(t => new { Id = t.CategoryId, Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
+                .Select(g => new { categoryId = g.Key.Id, name = g.Key.Name, color = g.Key.Color, total = g.Sum(t => t.Type == "Expense" ? t.Amount : -t.Amount) })
+                .Where(x => x.total != 0)
+                .OrderByDescending(x => x.total)
+                .ToList();
 
             return new
             {
                 period = $"{invoiceWindow.StartDate:dd/MM} a {invoiceWindow.CloseDate.AddDays(-1):dd/MM}",
                 dueDate = invoiceWindow.DueDate,
                 total,
-                status = total > 0 ? "Aberta" : "Paga",
-                transactions
+                status = total <= 0 || settlements.Sum(t => t.Amount) >= total ? "Paga" : "Aberta",
+                transactions,
+                categorySummary,
+                settlements
             };
         }
 
@@ -186,7 +211,15 @@ namespace MyFinance.API.Controllers
                 InstallmentId = oldTransaction.InstallmentId,
                 IsTransfer = oldTransaction.IsTransfer,
                 TransferGroupId = oldTransaction.TransferGroupId,
-                RecurringRuleId = oldTransaction.RecurringRuleId
+                RecurringRuleId = oldTransaction.RecurringRuleId,
+                Source = oldTransaction.Source,
+                SourceFile = oldTransaction.SourceFile,
+                ExternalId = oldTransaction.ExternalId,
+                RawMemo = oldTransaction.RawMemo,
+                ImportedAt = oldTransaction.ImportedAt,
+                ImportBatchId = oldTransaction.ImportBatchId,
+                ExcludeFromReports = oldTransaction.ExcludeFromReports,
+                ReportingKind = oldTransaction.ReportingKind
             };
 
             var newAccount = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == transaction.AccountId && a.UserId == userId);
@@ -258,7 +291,9 @@ namespace MyFinance.API.Controllers
                 Date = dateUtc,
                 Paid = true,
                 IsTransfer = true,
-                TransferGroupId = Guid.NewGuid().ToString("N")
+                TransferGroupId = Guid.NewGuid().ToString("N"),
+                ReportingKind = toAcc.IsCreditCard ? ReportingKinds.InvoicePayment : ReportingKinds.InternalTransfer,
+                ExcludeFromReports = true
             };
 
             var income = new Transaction
@@ -271,7 +306,9 @@ namespace MyFinance.API.Controllers
                 Date = dateUtc,
                 Paid = true,
                 IsTransfer = true,
-                TransferGroupId = expense.TransferGroupId
+                TransferGroupId = expense.TransferGroupId,
+                ReportingKind = toAcc.IsCreditCard ? ReportingKinds.InvoicePayment : ReportingKinds.InternalTransfer,
+                ExcludeFromReports = true
             };
 
             _context.Transactions.Add(expense);
@@ -325,6 +362,13 @@ namespace MyFinance.API.Controllers
             otherSide.Description = otherDescription;
             otherSide.Date = transferDate;
             otherSide.Paid = true;
+            var reportingKind = updatedAccount.IsCreditCard || otherAccount.IsCreditCard
+                ? ReportingKinds.InvoicePayment
+                : ReportingKinds.InternalTransfer;
+            editedSide.ReportingKind = reportingKind;
+            otherSide.ReportingKind = reportingKind;
+            editedSide.ExcludeFromReports = true;
+            otherSide.ExcludeFromReports = true;
 
             _context.Transactions.UpdateRange(editedSide, otherSide);
             await _context.SaveChangesAsync();
@@ -441,6 +485,8 @@ namespace MyFinance.API.Controllers
                 transaction.IsTransfer = false;
                 transaction.TransferGroupId = null;
                 transaction.RecurringRuleId = null;
+                transaction.ExcludeFromReports = false;
+                transaction.ReportingKind = ReportingKinds.Normal;
 
                 desiredTransactions[installmentNumber] = transaction;
             }

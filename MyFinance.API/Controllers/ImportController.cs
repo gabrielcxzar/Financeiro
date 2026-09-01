@@ -96,6 +96,7 @@ public class ImportController : ControllerBase
         var type = request.Type ?? (item.SignedAmount < 0 ? "Expense" : "Income"); if (type is not "Expense" and not "Income") return BadRequest("Tipo invalido.");
         if (request.Amount is <= 0) return BadRequest("Valor deve ser maior que zero.");
         var kind = request.ReportingKind ?? item.ReportingKind; if (!ReportingKinds.IsValid(kind)) return BadRequest("Classificacao de relatorio invalida.");
+        if (kind == ReportingKinds.Normal && !(request.CategoryId ?? item.CategoryId).HasValue) return BadRequest("Compra de consumo exige categoria.");
         if (kind == ReportingKinds.TechnicalAdjustment && string.IsNullOrWhiteSpace(request.Justification)) return BadRequest("Informe uma justificativa para o ajuste tecnico.");
         if (request.CategoryId.HasValue && !await _context.Categories.AnyAsync(c => c.Id == request.CategoryId && c.UserId == userId && c.Type == type, ct)) return BadRequest("Categoria invalida para o tipo selecionado.");
         if (kind == ReportingKinds.InvoicePayment && (!request.TargetAccountId.HasValue || !await _context.Accounts.AnyAsync(a => a.Id == request.TargetAccountId && a.UserId == userId && a.IsCreditCard, ct))) return BadRequest("Selecione o cartao pago.");
