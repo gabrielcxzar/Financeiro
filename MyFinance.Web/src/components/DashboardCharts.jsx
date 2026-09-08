@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,6 +12,17 @@ import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+const modernMinimalistColors = [
+  '#0F172A', // Slate 900
+  '#334155', // Slate 700
+  '#64748B', // Slate 500
+  '#10B981', // Emerald
+  '#F43F5E', // Rose
+  '#F59E0B', // Amber
+  '#2563EB', // Blue
+  '#8B5CF6', // Purple
+];
+
 export default function DashboardCharts({ categorySummary = [], compact = false }) {
   const chartData = useMemo(() => {
     return {
@@ -20,10 +31,10 @@ export default function DashboardCharts({ categorySummary = [], compact = false 
         {
           label: 'Despesas (R$)',
           data: categorySummary.map((item) => item.total),
-          backgroundColor: 'rgba(24, 144, 255, 0.6)',
-          borderColor: 'rgba(24, 144, 255, 1)',
-          borderWidth: 1,
-          borderRadius: 4,
+          backgroundColor: categorySummary.map((_, i) => modernMinimalistColors[i % modernMinimalistColors.length]),
+          borderRadius: 6,
+          borderSkipped: false,
+          maxBarThickness: 40,
         },
       ],
     };
@@ -34,14 +45,35 @@ export default function DashboardCharts({ categorySummary = [], compact = false 
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: compact ? 'top' : 'bottom' },
-        title: { display: false },
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          titleFont: { family: 'Plus Jakarta Sans', size: 12 },
+          bodyFont: { family: 'Inter', size: 12 },
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: (context) => ` R$ ${Number(context.raw || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          },
+        },
       },
       scales: {
-        y: { beginAtZero: true },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: '#F1F5F9',
+          },
+          ticks: {
+            font: { family: 'Inter', size: 11 },
+            color: '#94A3B8',
+            callback: (value) => `R$ ${value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}`,
+          },
+        },
         x: {
           grid: { display: false },
           ticks: {
+            font: { family: 'Plus Jakarta Sans', size: 12 },
+            color: '#64748B',
             autoSkip: true,
             maxRotation: compact ? 35 : 0,
             minRotation: compact ? 25 : 0,
@@ -53,7 +85,7 @@ export default function DashboardCharts({ categorySummary = [], compact = false 
   );
 
   return (
-    <div style={{ height: compact ? 260 : 300 }}>
+    <div style={{ height: compact ? 260 : 300, width: '100%' }}>
       <Bar options={options} data={chartData} />
     </div>
   );

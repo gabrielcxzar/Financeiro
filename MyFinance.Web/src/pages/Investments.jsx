@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Button, Modal, Form, Input, InputNumber, Tabs, message, Tag, Grid } from 'antd';
 import api from '../services/api';
 
@@ -88,17 +88,65 @@ export default function Investments() {
     }
   };
 
+  const totalFiiInvested = holdings.reduce(
+    (acc, h) => acc + ((Number(h.shares) || 0) * (Number(h.avgPrice) || 0)),
+    0,
+  );
+
   const fiiColumns = [
-    { title: 'Ticker', dataIndex: 'ticker', key: 'ticker', render: (t) => <Tag>{t}</Tag> },
-    { title: 'Cotas', dataIndex: 'shares', key: 'shares' },
-    { title: 'Preco Medio', dataIndex: 'avgPrice', key: 'avgPrice', render: (v) => formatMoney(v) },
-    { title: 'Anotacoes', dataIndex: 'notes', key: 'notes' },
     {
-      title: 'Acoes',
+      title: 'Ticker',
+      dataIndex: 'ticker',
+      key: 'ticker',
+      render: (t) => (
+        <span
+          style={{
+            display: 'inline-block',
+            padding: '2px 10px',
+            borderRadius: 10,
+            background: '#F1F5F9',
+            border: '1px solid #E2E8F0',
+            fontWeight: 700,
+            color: '#0F172A',
+            fontSize: 13,
+          }}
+        >
+          {t}
+        </span>
+      ),
+    },
+    {
+      title: 'Cotas',
+      dataIndex: 'shares',
+      key: 'shares',
+      render: (v) => <span style={{ fontFeatureSettings: '"tnum" 1', fontWeight: 600 }}>{v}</span>,
+    },
+    {
+      title: 'Preço Médio',
+      dataIndex: 'avgPrice',
+      key: 'avgPrice',
+      render: (v) => <span style={{ fontFeatureSettings: '"tnum" 1' }}>{formatMoney(v)}</span>,
+    },
+    {
+      title: 'Total Investido',
+      key: 'total',
+      render: (_, record) => {
+        const total = (Number(record.shares) || 0) * (Number(record.avgPrice) || 0);
+        return <strong style={{ color: '#0F172A', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(total)}</strong>;
+      },
+    },
+    {
+      title: 'Anotações',
+      dataIndex: 'notes',
+      key: 'notes',
+      render: (t) => <span style={{ color: '#64748B', fontSize: 13 }}>{t || '-'}</span>,
+    },
+    {
+      title: 'Ações',
       key: 'actions',
       fixed: isCompact ? undefined : 'right',
       render: (_, record) => (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <Button size="small" onClick={() => openModal(record)}>
             Editar
           </Button>
@@ -112,19 +160,125 @@ export default function Investments() {
 
   const tesouroColumns = useMemo(
     () => [
-      { title: 'Titulo', dataIndex: 'title', key: 'title' },
-      { title: 'Tipo', dataIndex: 'type', key: 'type' },
-      { title: 'Taxa Compra', dataIndex: 'buyRate', key: 'buyRate', render: (v) => (v != null ? `${v}%` : '-') },
-      { title: 'Taxa Venda', dataIndex: 'sellRate', key: 'sellRate', render: (v) => (v != null ? `${v}%` : '-') },
-      { title: 'PU Compra', dataIndex: 'buyPrice', key: 'buyPrice', render: (v) => (v != null ? formatMoney(v) : '-') },
-      { title: 'PU Venda', dataIndex: 'sellPrice', key: 'sellPrice', render: (v) => (v != null ? formatMoney(v) : '-') },
+      {
+        title: 'Título',
+        dataIndex: 'title',
+        key: 'title',
+        render: (t) => <strong style={{ color: '#0F172A' }}>{t}</strong>,
+      },
+      {
+        title: 'Tipo',
+        dataIndex: 'type',
+        key: 'type',
+        render: (t) => (
+          <span
+            style={{
+              padding: '2px 8px',
+              borderRadius: 8,
+              background: '#F1F5F9',
+              fontSize: 12,
+              color: '#475569',
+            }}
+          >
+            {t}
+          </span>
+        ),
+      },
+      {
+        title: 'Taxa Compra',
+        dataIndex: 'buyRate',
+        key: 'buyRate',
+        render: (v) => (v != null ? <span style={{ fontFeatureSettings: '"tnum" 1', color: '#10B981', fontWeight: 600 }}>{v}%</span> : '-'),
+      },
+      {
+        title: 'Taxa Venda',
+        dataIndex: 'sellRate',
+        key: 'sellRate',
+        render: (v) => (v != null ? <span style={{ fontFeatureSettings: '"tnum" 1' }}>{v}%</span> : '-'),
+      },
+      {
+        title: 'PU Compra',
+        dataIndex: 'buyPrice',
+        key: 'buyPrice',
+        render: (v) => (v != null ? <span style={{ fontFeatureSettings: '"tnum" 1' }}>{formatMoney(v)}</span> : '-'),
+      },
+      {
+        title: 'PU Venda',
+        dataIndex: 'sellPrice',
+        key: 'sellPrice',
+        render: (v) => (v != null ? <span style={{ fontFeatureSettings: '"tnum" 1' }}>{formatMoney(v)}</span> : '-'),
+      },
     ],
     [],
   );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h2 style={{ margin: 0 }}>Investimentos</h2>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+        }}
+      >
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Investimentos
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Acompanhe posições em renda variável e taxas em tempo real do Tesouro Direto
+          </span>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isCompact ? '1fr' : 'repeat(2, 1fr)',
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Total em Custódia (FIIs)
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', marginTop: 4, fontFeatureSettings: '"tnum" 1' }}>
+            {formatMoney(totalFiiInvested)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Fundos em Carteira
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: '#3B82F6', marginTop: 4, fontFeatureSettings: '"tnum" 1' }}>
+            {holdings.length} {holdings.length === 1 ? 'ativo' : 'ativos'}
+          </div>
+        </div>
+      </div>
 
       <Tabs
         items={[
@@ -132,7 +286,15 @@ export default function Investments() {
             key: 'tesouro',
             label: 'Tesouro Direto',
             children: (
-              <Card variant="borderless" bodyStyle={{ padding: isCompact ? 12 : 24 }}>
+              <Card
+                variant="borderless"
+                style={{
+                  borderRadius: 14,
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+                }}
+                bodyStyle={{ padding: isCompact ? 12 : 20 }}
+              >
                 <div
                   style={{
                     display: 'flex',
@@ -140,14 +302,14 @@ export default function Investments() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: 10,
-                    marginBottom: 12,
+                    marginBottom: 16,
                   }}
                 >
-                  <span>
-                    Ultima data: <b>{tesouro.date || '-'}</b>
+                  <span style={{ color: '#64748B', fontSize: 13 }}>
+                    Última atualização: <b style={{ color: '#0F172A' }}>{tesouro.date || '-'}</b>
                   </span>
                   <Button onClick={loadTesouro} block={isCompact}>
-                    Atualizar
+                    Atualizar Dados
                   </Button>
                 </div>
                 <Table
@@ -166,7 +328,15 @@ export default function Investments() {
             key: 'fiis',
             label: 'FIIs (Manual)',
             children: (
-              <Card variant="borderless" bodyStyle={{ padding: isCompact ? 12 : 24 }}>
+              <Card
+                variant="borderless"
+                style={{
+                  borderRadius: 14,
+                  border: '1px solid #E2E8F0',
+                  boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+                }}
+                bodyStyle={{ padding: isCompact ? 12 : 20 }}
+              >
                 <div
                   style={{
                     display: 'flex',
@@ -174,12 +344,12 @@ export default function Investments() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     gap: 10,
-                    marginBottom: 12,
+                    marginBottom: 16,
                   }}
                 >
-                  <span>Gerencie suas posicoes manualmente</span>
+                  <span style={{ color: '#64748B', fontSize: 13 }}>Gerencie suas posições em fundos imobiliários</span>
                   <Button type="primary" onClick={() => openModal(null)} block={isCompact}>
-                    Nova posicao
+                    Nova Posição
                   </Button>
                 </div>
                 <Table

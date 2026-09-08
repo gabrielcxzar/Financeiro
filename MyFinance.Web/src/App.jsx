@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, theme, DatePicker, Button, Grid, Drawer, ConfigProvider, Tooltip, Tag } from 'antd';
+import { Layout, Menu, theme, DatePicker, Button, Grid, Drawer, ConfigProvider, Tooltip, Tag, Avatar } from 'antd';
 import {
   HomeOutlined,
   UnorderedListOutlined,
@@ -47,31 +47,45 @@ const { Header, Content, Footer, Sider } = Layout;
 const { useBreakpoint } = Grid;
 
 const Logo = styled.div`
-  height: 72px;
+  height: 68px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: #0B0D12;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 0 16px;
+  justify-content: flex-start;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 0 20px;
+  gap: 12px;
 `;
 
 const LogoMark = styled.img`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
 `;
 
-const LogoText = styled.span`
-  margin-left: 12px;
-  color: #FFFFFF;
-  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  
-  span {
-    color: #FF6600;
+const LogoText = styled.div`
+  display: flex;
+  flex-direction: column;
+
+  strong {
+    color: #0F172A;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+
+    span {
+      color: #10B981;
+    }
+  }
+
+  small {
+    color: #94A3B8;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 `;
 
@@ -87,7 +101,7 @@ const ContentWrap = styled.div`
 
   @media (max-width: 992px) {
     padding: 16px;
-    padding-bottom: 80px; /* Space for bottom nav */
+    padding-bottom: 80px;
   }
 
   @media (max-width: 576px) {
@@ -104,9 +118,9 @@ const InnerBrandBar = styled.div`
   gap: 12px;
   margin-bottom: 20px;
   padding: 12px 18px;
-  border-radius: 14px;
-  background: linear-gradient(90deg, rgba(255, 102, 0, 0.06), rgba(255, 136, 0, 0.02));
-  border: 1px solid rgba(255, 102, 0, 0.12);
+  border-radius: 12px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
 `;
 
 const InnerBrandMain = styled.div`
@@ -121,8 +135,8 @@ const InnerBrandTitle = styled.div`
 
   strong {
     color: #0F172A;
-    font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
-    font-size: 1rem;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.95rem;
     font-weight: 700;
   }
 
@@ -130,6 +144,40 @@ const InnerBrandTitle = styled.div`
     color: #64748B;
     font-size: 0.8rem;
     font-weight: 500;
+  }
+`;
+
+const UserProfileCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  margin-top: auto;
+`;
+
+const UserInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+
+  strong {
+    color: #0F172A;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  span {
+    color: #94A3B8;
+    font-size: 11px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
   }
 `;
 
@@ -298,9 +346,12 @@ const App = () => {
       <ConfigProvider
         theme={{
           token: {
-            colorPrimary: '#FF6600',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            borderRadius: 12,
+            colorPrimary: '#0F172A',
+            colorLink: '#2563EB',
+            colorSuccess: '#10B981',
+            colorError: '#F43F5E',
+            fontFamily: "'Plus Jakarta Sans', 'Inter', sans-serif",
+            borderRadius: 10,
           },
         }}
       >
@@ -310,28 +361,59 @@ const App = () => {
   }
 
   const sideMenu = (
-    <Menu
-      theme="dark"
-      selectedKeys={[activeKey]}
-      mode="inline"
-      items={menuItems}
-      onClick={handleMenuClick}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 68px)', justifyContent: 'space-between' }}>
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        <Menu
+          theme="light"
+          selectedKeys={[activeKey]}
+          mode="inline"
+          items={menuItems}
+          onClick={handleMenuClick}
+          style={{ borderRight: 'none', background: 'transparent' }}
+        />
+      </div>
+      <UserProfileCard>
+        <Avatar style={{ backgroundColor: '#F1F5F9', color: '#0F172A', fontWeight: 700, border: '1px solid #E2E8F0' }}>
+          G
+        </Avatar>
+        {!collapsed && (
+          <UserInfo>
+            <strong>Gabriel</strong>
+            <span>gabriel@email.com</span>
+          </UserInfo>
+        )}
+        {!collapsed && (
+          <Button
+            type="text"
+            size="small"
+            icon={<LogoutOutlined style={{ color: '#94A3B8' }} />}
+            onClick={handleLogout}
+            title="Sair"
+          />
+        )}
+      </UserProfileCard>
+    </div>
   );
 
   return (
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: '#FF6600',
-          colorLink: '#FF6600',
-          colorLinkHover: '#FF8800',
-          borderRadius: 12,
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          colorPrimary: '#0F172A',
+          colorLink: '#2563EB',
+          colorLinkHover: '#1D4ED8',
+          colorSuccess: '#10B981',
+          colorError: '#F43F5E',
+          colorWarning: '#F59E0B',
+          colorBgLayout: '#F8FAFC',
+          colorBgContainer: '#FFFFFF',
+          colorBorder: '#E2E8F0',
+          borderRadius: 10,
+          fontFamily: "'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif",
         },
       }}
     >
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', background: '#F8FAFC' }}>
         {!isMobile ? (
           <Sider
             width={260}
@@ -343,16 +425,18 @@ const App = () => {
               position: 'sticky',
               top: 0,
               height: '100vh',
-              overflow: 'auto',
+              overflow: 'hidden',
               left: 0,
-              background: '#0B0D12',
+              background: '#FFFFFF',
+              borderRight: '1px solid #E2E8F0',
             }}
           >
             <Logo>
               <LogoMark src="/brand-mark.svg" alt="Finflow" />
               {!collapsed && (
                 <LogoText>
-                  Fin<span>flow</span>
+                  <strong>Fin<span>flow</span></strong>
+                  <small>Inteligência Financeira</small>
                 </LogoText>
               )}
             </Logo>
@@ -364,20 +448,21 @@ const App = () => {
             open={isMobile && mobileMenuOpen}
             onClose={() => setMobileMenuOpen(false)}
             width={264}
-            bodyStyle={{ padding: 0, background: '#0B0D12' }}
+            bodyStyle={{ padding: 0, background: '#FFFFFF' }}
             styles={{ header: { display: 'none' } }}
           >
             <Logo>
               <LogoMark src="/brand-mark.svg" alt="Finflow" />
               <LogoText>
-                Fin<span>flow</span>
+                <strong>Fin<span>flow</span></strong>
+                <small>Inteligência Financeira</small>
               </LogoText>
             </Logo>
             {sideMenu}
           </Drawer>
         )}
 
-        <Layout style={{ minWidth: 0 }}>
+        <Layout style={{ minWidth: 0, background: '#F8FAFC' }}>
           <Header
             style={{
               padding: isMobile ? '10px 14px' : '0 28px',
@@ -391,10 +476,10 @@ const App = () => {
               gap: isMobile ? 10 : 16,
               position: 'sticky',
               top: 0,
-              zIndex: 1,
+              zIndex: 10,
               width: '100%',
-              borderBottom: '1px solid #F1F5F9',
-              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.02)',
+              borderBottom: '1px solid #E2E8F0',
+              boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
             }}
           >
             <HeaderTitle style={{ minWidth: 0 }}>
@@ -427,7 +512,7 @@ const App = () => {
                 display: 'flex',
                 flexWrap: 'wrap',
                 justifyContent: 'flex-end',
-                gap: isMobile ? 8 : 14,
+                gap: isMobile ? 8 : 12,
                 alignItems: 'center',
               }}
             >
@@ -435,11 +520,11 @@ const App = () => {
                 <Tooltip title="Buscar comandos e atalhos (Ctrl + K)">
                   <Button
                     type="default"
-                    icon={<SearchOutlined style={{ color: '#FF6600' }} />}
+                    icon={<SearchOutlined style={{ color: '#0F172A' }} />}
                     onClick={() => setIsCommandKOpen(true)}
-                    style={{ borderRadius: 10, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B' }}
+                    style={{ borderRadius: 8, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B' }}
                   >
-                    Buscar... <Tag style={{ borderRadius: 4, marginLeft: 6, fontSize: 10 }}>Ctrl+K</Tag>
+                    Buscar... <Tag style={{ borderRadius: 4, marginLeft: 6, fontSize: 10, border: 'none', background: '#E2E8F0' }}>Ctrl+K</Tag>
                   </Button>
                 </Tooltip>
               )}
@@ -447,9 +532,9 @@ const App = () => {
               <Tooltip title="Abrir Guia de Primeiros Passos">
                 <Button
                   type="default"
-                  icon={<StarOutlined style={{ color: '#FF6600' }} />}
+                  icon={<StarOutlined style={{ color: '#0F172A' }} />}
                   onClick={() => setIsOnboardingOpen(true)}
-                  style={{ borderRadius: 10 }}
+                  style={{ borderRadius: 8 }}
                 >
                   {!isMobile && 'Guia de Início'}
                 </Button>
@@ -461,7 +546,7 @@ const App = () => {
                   gap: 8,
                   alignItems: 'center',
                   padding: '4px 10px',
-                  borderRadius: 10,
+                  borderRadius: 8,
                   background: '#F8FAFC',
                   border: '1px solid #E2E8F0',
                 }}
@@ -476,6 +561,21 @@ const App = () => {
                   style={{ width: isMobile ? 122 : 150, border: 'none', background: 'transparent' }}
                 />
               </div>
+
+              <Button
+                type="primary"
+                icon={<PlusCircleOutlined />}
+                onClick={() => setIsModalOpen(true)}
+                style={{
+                  background: '#0F172A',
+                  borderColor: '#0F172A',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+                }}
+              >
+                {!isMobile ? '+ Nova Transação' : '+'}
+              </Button>
 
               <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
                 {!isMobile && 'Sair'}

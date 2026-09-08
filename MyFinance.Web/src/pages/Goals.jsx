@@ -201,18 +201,29 @@ export default function Goals() {
   );
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16,
-          gap: 12,
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
         }}
       >
-        <h2 style={{ margin: 0 }}>Metas Financeiras</h2>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Metas Financeiras
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Planeje objetivos de curto e longo prazo e acompanhe seu progresso de acumulação
+          </span>
+        </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} block={isCompact}>
           Nova Meta
         </Button>
@@ -227,48 +238,118 @@ export default function Goals() {
         />
       ) : (
         <Row gutter={[16, 16]}>
-          {goals.map((goal) => (
-            <Col xs={24} lg={12} xl={8} key={goal.id}>
-              <Card
-                loading={loading}
-                title={goal.name}
-                extra={<Tag color={statusColors[goal.status] || 'default'}>{statusOptions.find((item) => item.value === goal.status)?.label || goal.status}</Tag>}
-                style={{ borderRadius: 12, height: '100%' }}
-              >
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                    <Tag>{goalTypeOptions.find((item) => item.value === goal.goalType)?.label || goal.goalType}</Tag>
-                    {goal.linkedAccount?.name && <Tag color="blue">Conta: {goal.linkedAccount.name}</Tag>}
-                  </div>
-
-                  <Progress percent={Number(goal.progressPercent)} />
-
-                  <div style={{ display: 'grid', gap: 6 }}>
-                    <span>Acumulado: <b>{formatMoney(goal.currentAmount)}</b></span>
-                    <span>Valor alvo: <b>{formatMoney(goal.targetAmount)}</b></span>
-                    <span>Valor restante: <b>{formatMoney(goal.remainingAmount)}</b></span>
-                    <span>Contribuicao mensal planejada: <b>{formatMoney(goal.monthlyContribution)}</b></span>
-                    <span>
-                      Contribuicao mensal sugerida:{' '}
-                      <b>{goal.suggestedMonthlyContribution != null ? formatMoney(goal.suggestedMonthlyContribution) : 'Nao se aplica'}</b>
+          {goals.map((goal) => {
+            const isCompleted = goal.status === 'Completed';
+            const progress = Number(goal.progressPercent || 0);
+            return (
+              <Col xs={24} lg={12} xl={8} key={goal.id}>
+                <Card
+                  loading={loading}
+                  variant="borderless"
+                  title={<span style={{ fontWeight: 700, color: '#0F172A', fontSize: 16 }}>{goal.name}</span>}
+                  extra={
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 8,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        background: goal.status === 'Active' ? '#ECFDF5' : goal.status === 'Paused' ? '#FFFBEB' : '#F1F5F9',
+                        color: goal.status === 'Active' ? '#047857' : goal.status === 'Paused' ? '#B45309' : '#475569',
+                      }}
+                    >
+                      {statusOptions.find((item) => item.value === goal.status)?.label || goal.status}
                     </span>
-                    <span>
-                      Prazo final:{' '}
-                      <b>{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('pt-BR') : 'Nao definido'}</b>
-                    </span>
-                  </div>
-
-                  {goal.notes && (
-                    <div style={{ color: '#595959', fontSize: 13 }}>
-                      {goal.notes}
+                  }
+                  style={{
+                    borderRadius: 14,
+                    border: '1px solid #E2E8F0',
+                    background: '#FFFFFF',
+                    boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+                    height: '100%',
+                  }}
+                >
+                  <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          padding: '2px 8px',
+                          borderRadius: 8,
+                          background: '#F8FAFC',
+                          border: '1px solid #E2E8F0',
+                          fontSize: 11,
+                          fontWeight: 500,
+                          color: '#475569',
+                        }}
+                      >
+                        {goalTypeOptions.find((item) => item.value === goal.goalType)?.label || goal.goalType}
+                      </span>
+                      {goal.linkedAccount?.name && (
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: 8,
+                            background: '#EFF6FF',
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: '#3B82F6',
+                          }}
+                        >
+                          {goal.linkedAccount.name}
+                        </span>
+                      )}
                     </div>
-                  )}
 
-                  {renderActions(goal)}
-                </Space>
-              </Card>
-            </Col>
-          ))}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
+                        <span style={{ color: '#64748B' }}>Progresso</span>
+                        <strong style={{ color: isCompleted ? '#10B981' : '#0F172A', fontFeatureSettings: '"tnum" 1' }}>
+                          {progress.toFixed(0)}%
+                        </strong>
+                      </div>
+                      <Progress
+                        percent={progress}
+                        strokeColor={isCompleted ? '#10B981' : '#0F172A'}
+                        showInfo={false}
+                        size={['100%', 6]}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gap: 6, fontSize: 13, background: '#F8FAFC', padding: 12, borderRadius: 10, border: '1px solid #E2E8F0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Acumulado:</span>
+                        <strong style={{ color: '#10B981', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(goal.currentAmount)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Valor Alvo:</span>
+                        <strong style={{ color: '#0F172A', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(goal.targetAmount)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Restante:</span>
+                        <strong style={{ color: '#F43F5E', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(goal.remainingAmount)}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748B' }}>Prazo Final:</span>
+                        <span style={{ color: '#475569', fontFeatureSettings: '"tnum" 1' }}>
+                          {goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('pt-BR') : 'Não definido'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {goal.notes && (
+                      <div style={{ color: '#64748B', fontSize: 12, fontStyle: 'italic' }}>
+                        {goal.notes}
+                      </div>
+                    )}
+
+                    <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: 8 }}>
+                      {renderActions(goal)}
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
       )}
 

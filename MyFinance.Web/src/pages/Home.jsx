@@ -201,27 +201,27 @@ export default function Home({ month, year, onOpenOnboarding }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }} className="animate-fade-in">
       
-      {/* HERO HEADER BAR */}
+      {/* HEADER BAR */}
       <Card
         bordered={false}
         style={{
-          background: 'linear-gradient(135deg, #0B0D12 0%, #161922 100%)',
-          color: '#FFFFFF',
-          borderRadius: 20,
-          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+          background: '#FFFFFF',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
         }}
-        bodyStyle={{ padding: isCompact ? '18px 16px' : '24px 28px' }}
+        bodyStyle={{ padding: isCompact ? '16px 14px' : '20px 24px' }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <StarOutlined style={{ color: '#FF6600', fontSize: 18 }} />
-              <span style={{ color: '#94A3B8', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Resumo Financeiro • {formatMonthYear(month, year)}
+              <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#10B981' }} />
+              <span style={{ color: '#64748B', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Painel Geral • {formatMonthYear(month, year)}
               </span>
             </div>
-            <h2 style={{ color: '#FFFFFF', margin: 0, fontSize: isCompact ? 20 : 26, fontWeight: 800 }}>
-              {isSystemEmpty ? 'Bem-vindo ao seu novo painel!' : 'Visão Geral das Suas Finanças'}
+            <h2 style={{ color: '#0F172A', margin: 0, fontSize: isCompact ? 19 : 24, fontWeight: 800, letterSpacing: '-0.02em' }}>
+              {isSystemEmpty ? 'Bem-vindo ao Finflow' : 'Visão Geral das Suas Finanças'}
             </h2>
           </div>
 
@@ -229,9 +229,9 @@ export default function Home({ month, year, onOpenOnboarding }) {
             {onOpenOnboarding && (
               <Button
                 type="default"
-                icon={<StarOutlined />}
+                icon={<StarOutlined style={{ color: '#0F172A' }} />}
                 onClick={onOpenOnboarding}
-                style={{ background: 'rgba(255, 102, 0, 0.15)', borderColor: '#FF6600', color: '#FF6600', borderRadius: 10, fontWeight: 600 }}
+                style={{ borderRadius: 8, fontWeight: 600 }}
               >
                 Guia de Início
               </Button>
@@ -240,7 +240,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
               type="text"
               icon={visible ? <EyeOutlined /> : <EyeInvisibleOutlined />}
               onClick={() => setVisible(!visible)}
-              style={{ color: '#CBD5E1' }}
+              style={{ color: '#64748B', fontWeight: 500 }}
             >
               {visible ? 'Ocultar Valores' : 'Mostrar Valores'}
             </Button>
@@ -251,43 +251,45 @@ export default function Home({ month, year, onOpenOnboarding }) {
       {/* ZERO STATE BANNER FOR NEW USERS */}
       {isSystemEmpty && (
         <Alert
-          type="warning"
+          type="info"
           showIcon
-          icon={<StarOutlined style={{ color: '#FF6600' }} />}
-          message={<strong>Você ainda não possui dados cadastrados este mês.</strong>}
+          message={<strong>Você ainda não possui lançamentos cadastrados neste mês.</strong>}
           description={
-            <div style={{ marginTop: 6 }}>
-              Clique em <strong>Guia de Início</strong> para configurar suas contas e categorias com 1 clique, ou use o botão <strong>+</strong> no canto da tela para criar sua primeira transação.
+            <div style={{ marginTop: 6, color: '#475569' }}>
+              Clique em <strong>Guia de Início</strong> para configurar suas contas e categorias com 1 clique, ou use o botão <strong>+ Nova Transação</strong> para criar seu primeiro registro.
             </div>
           }
-          style={{ borderRadius: 14, border: '1px solid rgba(255, 102, 0, 0.3)', background: 'rgba(255, 102, 0, 0.05)' }}
+          style={{ borderRadius: 12, border: '1px solid #E2E8F0', background: '#FFFFFF' }}
         />
       )}
 
-      {/* TOP 3 PRIMARY METRIC CARDS */}
+      {/* TOP PRIMARY METRIC CARDS */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8}>
           <Card
             bordered={false}
             style={{
-              background: 'linear-gradient(135deg, #FF6600 0%, #FF8800 100%)',
-              color: '#FFFFFF',
-              borderRadius: 18,
-              boxShadow: '0 8px 24px rgba(255, 102, 0, 0.3)',
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '1px solid #E2E8F0',
             }}
             bodyStyle={{ padding: '20px 22px' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: 13, fontWeight: 600 }}>Saldo em Contas</span>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255, 255, 255, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <WalletOutlined style={{ fontSize: 18, color: '#FFF' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ color: '#64748B', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Saldo em Contas
+              </span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <WalletOutlined style={{ fontSize: 16, color: '#0F172A' }} />
               </div>
             </div>
-            <div style={{ fontSize: isCompact ? 24 : 30, fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em' }}>
+            <div style={{ fontSize: isCompact ? 24 : 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.03em' }} className="font-tabular">
               {formatMoney(summary.total)}
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.8)', marginTop: 6 }}>
-              Patrimônio Líquido: {formatMoney(summary.netWorth)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+              <Tag style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569', margin: 0, fontSize: 11 }}>
+                Patrimônio: {formatMoney(summary.netWorth)}
+              </Tag>
             </div>
           </Card>
         </Col>
@@ -295,20 +297,28 @@ export default function Home({ month, year, onOpenOnboarding }) {
         <Col xs={24} sm={12} lg={8}>
           <Card
             bordered={false}
-            style={{ borderRadius: 18, borderLeft: '5px solid #10B981' }}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '1px solid #E2E8F0',
+            }}
             bodyStyle={{ padding: '20px 22px' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ color: '#64748B', fontSize: 13, fontWeight: 600 }}>Receitas (Neste Mês)</span>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ArrowUpOutlined style={{ fontSize: 18, color: '#10B981' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ color: '#64748B', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Receitas do Mês
+              </span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ArrowUpOutlined style={{ fontSize: 16, color: '#10B981' }} />
               </div>
             </div>
-            <div style={{ fontSize: isCompact ? 24 : 30, fontWeight: 800, color: '#10B981', letterSpacing: '-0.02em' }}>
+            <div style={{ fontSize: isCompact ? 24 : 28, fontWeight: 800, color: '#10B981', letterSpacing: '-0.03em' }} className="font-tabular">
               {formatMoney(summary.income)}
             </div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 6 }}>
-              Confirmadas + previstas
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
+              <Tag style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', margin: 0, fontSize: 11 }}>
+                Confirmadas + previstas
+              </Tag>
             </div>
           </Card>
         </Col>
@@ -316,29 +326,35 @@ export default function Home({ month, year, onOpenOnboarding }) {
         <Col xs={24} sm={12} lg={8}>
           <Card
             bordered={false}
-            style={{ borderRadius: 18, borderLeft: '5px solid #EF4444' }}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '1px solid #E2E8F0',
+            }}
             bodyStyle={{ padding: '20px 22px' }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ color: '#64748B', fontSize: 13, fontWeight: 600 }}>Despesas (Neste Mês)</span>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <ArrowDownOutlined style={{ fontSize: 18, color: '#EF4444' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ color: '#64748B', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Despesas do Mês
+              </span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#FFF1F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ArrowDownOutlined style={{ fontSize: 16, color: '#F43F5E' }} />
               </div>
             </div>
-            <div style={{ fontSize: isCompact ? 24 : 30, fontWeight: 800, color: '#EF4444', letterSpacing: '-0.02em' }}>
+            <div style={{ fontSize: isCompact ? 24 : 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.03em' }} className="font-tabular">
               {formatMoney(summary.expense)}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
               <span style={{ fontSize: 12, color: '#64748B' }}>
-                Fixas cadastradas: {formatMoney(predictedFixed)}
+                Fixas: {formatMoney(predictedFixed)}
               </span>
               {prevExpense > 0 && summary.expense > 0 && (
                 (() => {
                   const momDiff = Math.round(((summary.expense - prevExpense) / prevExpense) * 100);
                   const isBetter = momDiff <= 0;
                   return (
-                    <Tag color={isBetter ? 'green' : 'red'} style={{ borderRadius: 6, fontWeight: 700, margin: 0 }}>
-                      {momDiff > 0 ? `+${momDiff}%` : `${momDiff}%`} vs mês ant. {isBetter ? '🎉' : '⚠️'}
+                    <Tag style={{ background: isBetter ? '#ECFDF5' : '#FFF1F2', border: `1px solid ${isBetter ? '#A7F3D0' : '#FECDD3'}`, color: isBetter ? '#047857' : '#BE123C', borderRadius: 9999, margin: 0, fontSize: 11 }}>
+                      {momDiff > 0 ? `+${momDiff}%` : `${momDiff}%`} vs mês ant.
                     </Tag>
                   );
                 })()
@@ -348,49 +364,57 @@ export default function Home({ month, year, onOpenOnboarding }) {
         </Col>
       </Row>
 
-      {summary.invoicePayments > 0 && <Card size="small" title="Faturas pagas" bordered={false}>
-        <Statistic title="Liquidações no mês" value={summary.invoicePayments} formatter={formatMoney} />
-        {recentSettlements.length > 0 && <div style={{ marginTop: 8, color: '#64748B' }}>{recentSettlements.slice(0, 3).map((item) => <div key={item.id}>{item.description} · {formatMoney(item.amount)}</div>)}</div>}
-      </Card>}
+      {summary.invoicePayments > 0 && (
+        <Card size="small" title={<strong>Liquidação de Faturas</strong>} bordered={false} style={{ borderRadius: 12, border: '1px solid #E2E8F0' }}>
+          <Statistic title="Total Liquidado no Mês" value={summary.invoicePayments} formatter={formatMoney} />
+          {recentSettlements.length > 0 && (
+            <div style={{ marginTop: 8, color: '#64748B', fontSize: 13 }}>
+              {recentSettlements.slice(0, 3).map((item) => (
+                <div key={item.id}>{item.description} · {formatMoney(item.amount)}</div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* FINANCIAL HEALTH - LIVRE PARA GASTAR */}
       <Card
         bordered={false}
         style={{
-          borderRadius: 18,
-          border: `1px solid ${freeToSpend.isNegative ? '#FEE2E2' : '#E0F2FE'}`,
-          background: freeToSpend.isNegative ? '#FEF2F2' : '#F0F9FF',
+          borderRadius: 14,
+          border: `1px solid ${freeToSpend.isNegative ? '#FECDD3' : '#E2E8F0'}`,
+          background: freeToSpend.isNegative ? '#FFF1F2' : '#FFFFFF',
         }}
-        bodyStyle={{ padding: '20px 24px' }}
+        bodyStyle={{ padding: '18px 22px' }}
       >
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} md={10}>
             <Statistic
               title={
                 <Space size={6}>
-                  <strong style={{ color: '#0F172A', fontSize: 15 }}>Livre para Gastar este mês</strong>
+                  <strong style={{ color: '#0F172A', fontSize: 14 }}>Livre para Gastar este mês</strong>
                   <Tooltip title="Calculado a partir das receitas confirmadas/previstas subtraindo despesas recorrentes, metas, orçamentos e cartões.">
-                    <InfoCircleOutlined style={{ color: '#0284C7', cursor: 'help' }} />
+                    <InfoCircleOutlined style={{ color: '#64748B', cursor: 'help' }} />
                   </Tooltip>
                 </Space>
               }
               value={freeToSpend.freeToSpendAmount}
               formatter={(val) => (
-                <div style={{ color: freeToSpend.isNegative ? '#EF4444' : '#0284C7', fontWeight: 800, fontSize: isCompact ? 26 : 32, margin: '4px 0' }}>
+                <div style={{ color: freeToSpend.isNegative ? '#BE123C' : '#0F172A', fontWeight: 800, fontSize: isCompact ? 24 : 30, margin: '4px 0' }} className="font-tabular">
                   {formatMoney(val)}
                 </div>
               )}
             />
           </Col>
           <Col xs={24} md={14}>
-            <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
               {freeToSpend.isNegative ? (
-                <span style={{ color: '#DC2626', fontWeight: 600 }}>
+                <span style={{ color: '#BE123C', fontWeight: 600 }}>
                   ⚠️ Atenção: Suas despesas e metas superam o valor livre estimado para este mês.
                 </span>
               ) : (
-                <span style={{ color: '#0369A1', fontWeight: 600 }}>
-                  ✨ Excelente! Este valor indica o saldo disponível livre para gastos discricionários sem comprometer suas contas.
+                <span style={{ color: '#334155' }}>
+                  Saldo disponível estimado para gastos discricionários sem comprometer contas fixas ou metas planejadas.
                 </span>
               )}
             </div>

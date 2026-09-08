@@ -2,6 +2,33 @@
 
 Este arquivo registra todas as alterações estruturais, de código e de documentação executadas por Agentes de Inteligência Artificial no repositório **Finflow**.
 
+## [1.5.0] - 2026-09-08
+
+- **Data**: 2026-09-08
+- **Agente**: Antigravity
+- **Modelo**: Gemini 3.6 Flash (High) / Claude 3.7 Sonnet
+- **Objetivo**: Redesenho completo do sistema Finflow utilizando o Google Stitch MCP, modernizando toda a identidade visual para o estilo Swiss Minimalist (Finflow Minimalist Core), em português brasileiro (pt-BR) e moeda Real (R$).
+- **Arquivos Modificados / Criados**:
+  - `MyFinance.Web/src/index.css` -> Design tokens, paleta neutra, tipografia `Plus Jakarta Sans` + `Inter` (`tnum`).
+  - `MyFinance.Web/src/App.jsx` -> ConfigProvider AntD (`colorPrimary: #0F172A`), Sidebar limpa e unificada, rodapé com perfil de Gabriel e logout.
+  - `MyFinance.Web/src/pages/Home.jsx` -> Header bar, cards de métricas brancos com micro-sombras e tags de variação.
+  - `MyFinance.Web/src/components/DashboardCharts.jsx` -> Gráficos de barras e rosca com paleta moderna e tooltips refinados.
+  - `MyFinance.Web/src/pages/Transactions.jsx` -> Resumo do período com mini-cards, badges arredondados, tabela limpa.
+  - `MyFinance.Web/src/pages/Accounts.jsx` -> Cartões de crédito em dark slate (`#0F172A`), contas com ícones e micro-sombras.
+  - `MyFinance.Web/src/pages/Invoices.jsx` -> Fatura do cartão estilizada com status e detalhamento elegante.
+  - `MyFinance.Web/src/pages/Investments.jsx` -> Cards de patrimônio em custódia e ativos em carteira, tabelas limpas.
+  - `MyFinance.Web/src/pages/Budgets.jsx` -> Orçamentos por categoria com barras sutis e aviso de saldo restante.
+  - `MyFinance.Web/src/pages/Goals.jsx` -> Metas financeiras com cards elegantes, metas acumuladas e progresso limpo.
+  - `CHANGELOG.md` e `CHANGELOG_AI.md`
+- **Resumo Técnico**:
+  - Conexão e sincronização das telas com o Stitch MCP (`Finflow - Modern & Minimalist`).
+  - Todas as páginas secundárias refatoradas para o padrão do Stitch aprovado pelo usuário.
+  - Build do Vite (`npm run build`) validado com 0 erros e 0 quebras de contrato de API.
+- **Motivação**: Solicitação direta do usuário para modernizar todo o sistema com minimalismo, em português e sem esforço mental.
+- **Impacto**: UX/UI totalmente renovada, profissional e coesa.
+- **Riscos**: Nulo.
+- **Necessita Validação Humana?**: Não.
+
 ---
 
 ## [1.4.0] - 2026-07-29

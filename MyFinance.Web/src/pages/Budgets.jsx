@@ -95,62 +95,84 @@ export default function Budgets({ month, year }) {
       .reduce((acc, t) => acc + t.amount, 0);
 
     const percent = Math.min((spent / budget.amount) * 100, 100);
-    const status = percent >= 100 ? 'exception' : percent > 80 ? 'active' : 'success';
-    const strokeColor = percent >= 100 ? '#ff4d4f' : percent > 80 ? '#faad14' : '#52c41a';
+    const strokeColor = percent >= 100 ? '#F43F5E' : percent > 80 ? '#F59E0B' : '#10B981';
 
     return (
       <Col xs={24} sm={12} xl={8} key={budget.id}>
         <Card
+          variant="borderless"
           title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span
                 style={{
-                  width: 12,
-                  height: 12,
+                  width: 10,
+                  height: 10,
                   borderRadius: '50%',
-                  background: budget.category?.color || '#ccc',
+                  background: budget.category?.color || '#94A3B8',
                 }}
               />
-              {budget.category?.name}
+              <span style={{ fontWeight: 700, color: '#0F172A', fontSize: 15 }}>{budget.category?.name}</span>
             </div>
           }
           extra={
-            <Popconfirm title="Remover orcamento?" onConfirm={() => handleDelete(budget.id)}>
+            <Popconfirm title="Remover orçamento?" onConfirm={() => handleDelete(budget.id)}>
               <Button type="text" danger icon={<DeleteOutlined />} size="small" />
             </Popconfirm>
           }
-          style={{ borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}
+          style={{
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            background: '#FFFFFF',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
           loading={loading}
         >
-          <div style={{ marginBottom: 8 }}>
-            <Tag color={budget.isEssential ? 'gold' : 'default'}>
-              {budget.isEssential ? 'Essencial no planejamento' : 'Nao essencial'}
-            </Tag>
+          <div style={{ marginBottom: 12 }}>
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: 8,
+                fontSize: 11,
+                fontWeight: 600,
+                background: budget.isEssential ? '#FEF3C7' : '#F1F5F9',
+                color: budget.isEssential ? '#92400E' : '#475569',
+              }}
+            >
+              {budget.isEssential ? 'Essencial no planejamento' : 'Discricionário'}
+            </span>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-            <span style={{ color: '#888' }}>
-              Gasto: <b>{formatMoney(spent)}</b>
+          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Gasto: <strong style={{ color: '#0F172A', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(spent)}</strong>
             </span>
-            <span style={{ color: '#888' }}>
-              Meta: <b>{formatMoney(budget.amount)}</b>
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Meta: <strong style={{ color: '#0F172A', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(budget.amount)}</strong>
             </span>
           </div>
 
           <Progress
             percent={percent}
             strokeColor={strokeColor}
-            status={status}
-            format={(p) => `${p.toFixed(0)}%`}
+            showInfo={false}
+            size={['100%', 6]}
           />
 
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, fontSize: 12 }}>
+            <span style={{ color: '#64748B' }}>Consumo</span>
+            <strong style={{ color: strokeColor, fontFeatureSettings: '"tnum" 1' }}>{percent.toFixed(0)}%</strong>
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 12 }}>
             {spent > budget.amount ? (
-              <span style={{ color: '#ff4d4f', fontWeight: 'bold' }}>
-                Voce estourou em {formatMoney(spent - budget.amount)}.
+              <span style={{ color: '#F43F5E', fontWeight: 600 }}>
+                Estourou em {formatMoney(spent - budget.amount)}.
               </span>
             ) : (
-              <span style={{ color: '#52c41a' }}>Ainda restam {formatMoney(budget.amount - spent)}.</span>
+              <span style={{ color: '#10B981', fontWeight: 600 }}>
+                Restam {formatMoney(budget.amount - spent)}.
+              </span>
             )}
           </div>
         </Card>
@@ -159,20 +181,31 @@ export default function Budgets({ month, year }) {
   };
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 16,
-          gap: 12,
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
         }}
       >
-        <h2 style={{ margin: 0 }}>Orcamentos por Categoria</h2>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Orçamentos por Categoria
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Defina e monitore limites mensais de despesas para manter as contas sob controle
+          </span>
+        </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)} block={isCompact}>
-          Definir Orcamento
+          Definir Orçamento
         </Button>
       </div>
 

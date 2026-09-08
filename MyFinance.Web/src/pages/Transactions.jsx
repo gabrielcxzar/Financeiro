@@ -121,48 +121,110 @@ export default function Transactions({ month, year }) {
     setIsModalOpen(true);
   };
 
+  const totalIncomes = transactions
+    .filter((t) => t.type === 'Income')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+  const totalExpenses = transactions
+    .filter((t) => t.type === 'Expense')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+  const netBalance = totalIncomes - totalExpenses;
+
   const columns = [
-    { title: 'Descrição', dataIndex: 'description', key: 'desc', render: (t) => <strong>{t}</strong> },
+    {
+      title: 'Descrição',
+      dataIndex: 'description',
+      key: 'desc',
+      render: (t, record) => (
+        <div>
+          <span style={{ fontWeight: 600, color: '#0F172A', fontSize: 14 }}>{t}</span>
+          {record.installmentId && (
+            <Tag style={{ marginLeft: 8, fontSize: 11, borderRadius: 10, background: '#F1F5F9', border: '1px solid #E2E8F0', color: '#64748B' }}>
+              Parcelado
+            </Tag>
+          )}
+        </div>
+      ),
+    },
     {
       title: 'Categoria',
       dataIndex: ['category', 'name'],
       key: 'cat',
-      render: (t) => <Tag color="orange">{t || 'Geral'}</Tag>,
+      render: (t) => (
+        <span
+          style={{
+            display: 'inline-block',
+            padding: '2px 10px',
+            borderRadius: 12,
+            background: '#F1F5F9',
+            border: '1px solid #E2E8F0',
+            fontSize: 12,
+            fontWeight: 500,
+            color: '#475569',
+          }}
+        >
+          {t || 'Geral'}
+        </span>
+      ),
     },
     {
       title: 'Valor',
       dataIndex: 'amount',
       key: 'amt',
-      render: (value, record) => (
-        <span style={{ color: record.type === 'Expense' ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>
-          {record.type === 'Expense' ? '- ' : '+ '}
-          {formatMoney(value)}
-        </span>
-      ),
+      render: (value, record) => {
+        const isExpense = record.type === 'Expense';
+        return (
+          <span
+            style={{
+              color: isExpense ? '#F43F5E' : '#10B981',
+              fontWeight: 700,
+              fontSize: 14,
+              fontFeatureSettings: '"tnum" 1',
+            }}
+          >
+            {isExpense ? '- ' : '+ '}
+            {formatMoney(value)}
+          </span>
+        );
+      },
     },
     {
       title: 'Data',
       dataIndex: 'date',
       key: 'date',
-      render: (d) => new Date(d).toLocaleDateString('pt-BR'),
+      render: (d) => (
+        <span style={{ color: '#64748B', fontSize: 13, fontFeatureSettings: '"tnum" 1' }}>
+          {new Date(d).toLocaleDateString('pt-BR')}
+        </span>
+      ),
     },
     {
       title: 'Conta',
       dataIndex: ['account', 'name'],
       key: 'acc',
-      render: (t) => t || '-',
+      render: (t) => <span style={{ color: '#475569', fontSize: 13 }}>{t || '-'}</span>,
     },
     {
       title: 'Ações',
       key: 'actions',
       render: (_, record) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
           <Tooltip title="Editar">
-            <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined style={{ color: '#64748B' }} />}
+              onClick={() => handleEdit(record)}
+            />
           </Tooltip>
 
           <Tooltip title="Excluir">
-            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            />
           </Tooltip>
         </div>
       ),
@@ -170,20 +232,39 @@ export default function Transactions({ month, year }) {
   ];
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: 12,
-          marginBottom: 16,
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
         }}
       >
-        <h2 style={{ margin: 0 }}>Extrato de Transações</h2>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Transações
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Acompanhe e categorize suas entradas e saídas no período
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 10, width: isCompact ? '100%' : 'auto', flexWrap: 'wrap' }}>
-          <Segmented value={view} onChange={setView} options={[{ label: 'Consumo', value: 'consumption' }, { label: 'Liquidações', value: 'settlements' }, { label: 'Todas', value: 'all' }]} />
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { label: 'Consumo', value: 'consumption' },
+              { label: 'Liquidações', value: 'settlements' },
+              { label: 'Todas', value: 'all' },
+            ]}
+          />
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -205,7 +286,83 @@ export default function Transactions({ month, year }) {
         </div>
       </div>
 
-      <Card variant="borderless" style={{ borderRadius: 16 }} bodyStyle={{ padding: isCompact ? 12 : 24 }}>
+      {/* Mini-Cards de Resumo do Período */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isCompact ? '1fr' : 'repeat(3, 1fr)',
+          gap: 16,
+        }}
+      >
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Entradas do Período
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#10B981', marginTop: 4, fontFeatureSettings: '"tnum" 1' }}>
+            +{formatMoney(totalIncomes)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Saídas do Período
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#F43F5E', marginTop: 4, fontFeatureSettings: '"tnum" 1' }}>
+            -{formatMoney(totalExpenses)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            padding: '16px 20px',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Resultado Líquido
+          </div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: netBalance >= 0 ? '#0F172A' : '#F43F5E',
+              marginTop: 4,
+              fontFeatureSettings: '"tnum" 1',
+            }}
+          >
+            {formatMoney(netBalance)}
+          </div>
+        </div>
+      </div>
+
+      <Card
+        variant="borderless"
+        style={{
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+        }}
+        bodyStyle={{ padding: isCompact ? 12 : 20 }}
+      >
         {!loading && transactions.length === 0 ? (
           <ActionableEmptyState
             title="Nenhuma transação encontrada no mês"
@@ -231,13 +388,26 @@ export default function Transactions({ month, year }) {
         )}
       </Card>
 
-      {importBatches.length > 0 && <Card title="Revisão de importação" variant="borderless" style={{ marginTop: 16, borderRadius: 16 }}>
-        <Collapse items={importBatches.map((batch) => ({
-          key: batch.id,
-          label: `${batch.fileName} · ${batch.reviewCount} item(ns) pendente(s)`,
-          children: <ImportReviewItems batchId={batch.id} onIgnore={(id) => ignoreImportItem(id, batch.id)} />,
-        }))} />
-      </Card>}
+      {importBatches.length > 0 && (
+        <Card
+          title="Revisão de importação"
+          variant="borderless"
+          style={{
+            marginTop: 8,
+            borderRadius: 14,
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+          }}
+        >
+          <Collapse
+            items={importBatches.map((batch) => ({
+              key: batch.id,
+              label: `${batch.fileName} · ${batch.reviewCount} item(ns) pendente(s)`,
+              children: <ImportReviewItems batchId={batch.id} onIgnore={(id) => ignoreImportItem(id, batch.id)} />,
+            }))}
+          />
+        </Card>
+      )}
 
       <AddTransactionModal
         visible={isModalOpen}
@@ -249,7 +419,14 @@ export default function Transactions({ month, year }) {
         onSuccess={() => loadTransactions()}
       />
 
-      <ImportModal visible={isImportOpen} onClose={() => setIsImportOpen(false)} onSuccess={() => { loadTransactions(); loadImportBatches(); }} />
+      <ImportModal
+        visible={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={() => {
+          loadTransactions();
+          loadImportBatches();
+        }}
+      />
     </div>
   );
 }

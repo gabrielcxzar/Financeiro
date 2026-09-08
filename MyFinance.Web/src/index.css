@@ -1,34 +1,37 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 :root {
-  /* Brand Black & Orange Tokens */
-  --ff-black-900: #0B0D12;
-  --ff-black-800: #12151E;
-  --ff-black-700: #1A1E2B;
-  --ff-black-600: #262B3D;
-  
-  --ff-orange-primary: #FF6600;
-  --ff-orange-hover: #FF7714;
-  --ff-orange-active: #E65C00;
-  --ff-orange-light: rgba(255, 102, 0, 0.08);
-  --ff-orange-glow: rgba(255, 102, 0, 0.25);
-  
-  /* Status Colors */
-  --ff-income: #10B981;
-  --ff-income-light: rgba(16, 185, 129, 0.1);
-  --ff-expense: #EF4444;
-  --ff-expense-light: rgba(239, 68, 68, 0.1);
-  --ff-warning: #F59E0B;
-  --ff-info: #3B82F6;
+  /* Finflow Minimalist Core Design Tokens */
+  --ff-primary: #0F172A;
+  --ff-primary-hover: #1E293B;
+  --ff-primary-active: #020617;
+  --ff-primary-light: #F1F5F9;
+  --ff-primary-selected: #EFF6FF;
 
-  /* Surfaces & Text */
+  /* Semantic Financial Accents */
+  --ff-income: #10B981;
+  --ff-income-light: #ECFDF5;
+  --ff-income-border: #A7F3D0;
+  
+  --ff-expense: #F43F5E;
+  --ff-expense-light: #FFF1F2;
+  --ff-expense-border: #FECDD3;
+  
+  --ff-warning: #F59E0B;
+  --ff-warning-light: #FEF3C7;
+  --ff-info: #2563EB;
+  --ff-info-light: #EFF6FF;
+
+  /* Surfaces, Borders & Text */
   --ff-bg-surface: #F8FAFC;
   --ff-card-bg: #FFFFFF;
   --ff-text-main: #0F172A;
+  --ff-text-secondary: #475569;
   --ff-text-muted: #64748B;
   --ff-border: #E2E8F0;
+  --ff-border-light: #F1F5F9;
 
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -44,71 +47,157 @@ body {
   min-height: 100vh;
   background-color: var(--ff-bg-surface);
   color: var(--ff-text-main);
-  background-image: 
-    radial-gradient(40rem 20rem at 0% 0%, rgba(255, 102, 0, 0.05), transparent 70%),
-    radial-gradient(35rem 20rem at 100% 100%, rgba(255, 102, 0, 0.03), transparent 70%);
-  background-attachment: fixed;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -0.02em;
+  color: var(--ff-text-main);
 }
 
-/* Ant Design Global Overrides & Enhancements */
+/* Tabular lining figures for numbers, money and dates */
+.font-tabular,
+.ant-statistic-content-value,
+.tabular-nums,
+table td {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+/* Ant Design Sider & Navigation Refinements */
 .ant-layout-sider {
-  background: var(--ff-black-900) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #FFFFFF !important;
+  border-right: 1px solid var(--ff-border) !important;
 }
 
-.ant-menu-dark {
-  background: var(--ff-black-900) !important;
+.ant-layout-sider .ant-layout-sider-trigger {
+  background: #FFFFFF !important;
+  color: var(--ff-text-muted) !important;
+  border-right: 1px solid var(--ff-border);
+  border-top: 1px solid var(--ff-border);
 }
 
-.ant-menu-dark .ant-menu-item-selected {
-  background-color: var(--ff-orange-primary) !important;
-  color: #FFFFFF !important;
-  font-weight: 600;
-  box-shadow: 0 4px 14px var(--ff-orange-glow);
+.ant-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
 }
 
-.ant-menu-dark .ant-menu-item:hover:not(.ant-menu-item-selected) {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  color: #FF994D !important;
+.ant-menu .ant-menu-item {
+  border-radius: 10px !important;
+  margin-inline: 10px !important;
+  margin-block: 3px !important;
+  color: var(--ff-text-secondary) !important;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 
+.ant-menu .ant-menu-item:hover {
+  background-color: #F8FAFC !important;
+  color: var(--ff-primary) !important;
+}
+
+.ant-menu .ant-menu-item-selected {
+  background-color: var(--ff-primary-selected) !important;
+  color: #1D4ED8 !important;
+  font-weight: 600 !important;
+}
+
+.ant-menu-item-group-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  color: #94A3B8 !important;
+  padding-inline-start: 22px !important;
+  margin-top: 12px !important;
+}
+
+/* Primary and Secondary Buttons */
 .ant-btn-primary {
-  background-color: var(--ff-orange-primary) !important;
-  border-color: var(--ff-orange-primary) !important;
-  box-shadow: 0 4px 12px var(--ff-orange-glow) !important;
-  font-weight: 600;
+  background-color: var(--ff-primary) !important;
+  border-color: var(--ff-primary) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
 }
 
 .ant-btn-primary:hover {
-  background-color: var(--ff-orange-hover) !important;
-  border-color: var(--ff-orange-hover) !important;
+  background-color: var(--ff-primary-hover) !important;
+  border-color: var(--ff-primary-hover) !important;
 }
 
-/* Card Improvements */
+.ant-btn-default {
+  border-color: var(--ff-border) !important;
+  color: var(--ff-text-main) !important;
+  border-radius: 8px !important;
+  font-weight: 500;
+}
+
+.ant-btn-default:hover {
+  border-color: #CBD5E1 !important;
+  background-color: #F8FAFC !important;
+  color: var(--ff-primary) !important;
+}
+
+/* Card Improvements - Swiss Minimalist Architecture */
 .ant-card {
-  border-radius: 16px !important;
-  border: 1px solid #EEF2F6 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 14px !important;
+  border: 1px solid var(--ff-border) !important;
+  background: var(--ff-card-bg) !important;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.03) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .ant-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 4px 12px 0 rgba(15, 23, 42, 0.05) !important;
+}
+
+.ant-card-head {
+  border-bottom: 1px solid var(--ff-border-light) !important;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+/* Tables */
+.ant-table-wrapper .ant-table {
+  border-radius: 12px !important;
+}
+
+.ant-table-thead > tr > th {
+  background: #F8FAFC !important;
+  color: #64748B !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  border-bottom: 1px solid var(--ff-border) !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #F1F5F9 !important;
+  font-size: 14px;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #F8FAFC !important;
+}
+
+/* Badges and Tags */
+.ant-tag {
+  border-radius: 9999px !important;
+  font-weight: 500 !important;
+  padding: 2px 10px !important;
+  font-size: 12px !important;
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.35s ease-out forwards;
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Custom Scrollbars */

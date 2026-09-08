@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, Select, Tabs, List, Tag, Statistic, Grid, message, Skeleton } from 'antd';
 import api from '../services/api';
 import dayjs from 'dayjs';
@@ -102,22 +102,42 @@ export default function Invoices() {
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
           marginBottom: 16,
-          gap: 12,
         }}
       >
-        <h2 style={{ margin: 0 }}>Faturas do Cartao</h2>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Faturas de Cartão
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Acompanhe o fechamento, vencimento e gastos detalhados de cada cartão
+          </span>
+        </div>
         <Select
-          style={{ width: isCompact ? '100%' : 240 }}
+          style={{ width: isCompact ? '100%' : 260 }}
           value={selectedCard}
           onChange={setSelectedCard}
-          placeholder="Selecione um cartao"
+          placeholder="Selecione um cartão"
           loading={cardsLoading}
           options={cards.map((c) => ({ label: c.name, value: c.id }))}
         />
       </div>
 
-      <Card bodyStyle={{ padding: isCompact ? 10 : 24 }}>
+      <Card
+        variant="borderless"
+        style={{
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+        }}
+        bodyStyle={{ padding: isCompact ? 12 : 24 }}
+      >
         <Tabs
           activeKey={currentMonth.format('YYYY-MM')}
           onChange={(key) => setCurrentMonth(dayjs(key))}
@@ -136,63 +156,130 @@ export default function Invoices() {
                     flexDirection: isCompact ? 'column' : 'row',
                     justifyContent: 'space-between',
                     alignItems: isCompact ? 'stretch' : 'center',
-                    gap: 12,
-                    marginBottom: 16,
-                    padding: isCompact ? 12 : 20,
-                    background: '#f9f9f9',
-                    borderRadius: 8,
+                    gap: 16,
+                    marginBottom: 20,
+                    padding: isCompact ? 16 : 20,
+                    background: '#F8FAFC',
+                    borderRadius: 12,
+                    border: '1px solid #E2E8F0',
                   }}
                 >
                   <div>
-                    <div style={{ color: '#888' }}>Vencimento {dayjs(invoiceData.dueDate).format('DD/MM/YYYY')}</div>
-                    <div style={{ fontWeight: 'bold' }}>
-                      Status:{' '}
-                      <Tag color={invoiceData.total > 0 ? 'orange' : 'green'}>
-                        {invoiceData.total > 0 ? 'Aberta' : 'Paga'}
-                      </Tag>
+                    <div style={{ color: '#64748B', fontSize: 13, fontWeight: 500 }}>
+                      Vencimento: <strong style={{ color: '#0F172A' }}>{dayjs(invoiceData.dueDate).format('DD/MM/YYYY')}</strong>
+                    </div>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, color: '#64748B' }}>Status:</span>
+                      <span
+                        style={{
+                          padding: '2px 10px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: invoiceData.total > 0 ? '#FFFBEB' : '#ECFDF5',
+                          border: `1px solid ${invoiceData.total > 0 ? '#FDE68A' : '#A7F3D0'}`,
+                          color: invoiceData.total > 0 ? '#B45309' : '#047857',
+                        }}
+                      >
+                        {invoiceData.total > 0 ? 'Fatura Aberta' : 'Fatura Liquidada'}
+                      </span>
                     </div>
                   </div>
-                  <Statistic title="Valor da Fatura" value={invoiceData.total} formatter={formatMoney} valueStyle={{ color: '#cf1322' }} />
+                  <div>
+                    <span style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+                      Valor Total da Fatura
+                    </span>
+                    <div
+                      style={{
+                        fontSize: isCompact ? 22 : 26,
+                        fontWeight: 700,
+                        color: invoiceData.total > 0 ? '#F43F5E' : '#10B981',
+                        marginTop: 2,
+                        fontFeatureSettings: '"tnum" 1',
+                      }}
+                    >
+                      {formatMoney(invoiceData.total)}
+                    </div>
+                  </div>
                 </div>
 
                 <List
                   itemLayout="horizontal"
                   dataSource={invoiceData.transactions}
-                  locale={{ emptyText: 'Nenhum lancamento nesta fatura.' }}
+                  locale={{ emptyText: 'Nenhum lançamento nesta fatura.' }}
                   renderItem={(invoiceItem) => (
-                    <List.Item>
+                    <List.Item style={{ padding: '12px 8px', borderBottom: '1px solid #F1F5F9' }}>
                       <List.Item.Meta
-                        avatar={
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              background: '#eef3fb',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          />
-                        }
-                        title={invoiceItem.description}
-                        description={dayjs(invoiceItem.date).format('DD/MM/YYYY')}
+                        title={<span style={{ fontWeight: 600, color: '#0F172A', fontSize: 14 }}>{invoiceItem.description}</span>}
+                        description={<span style={{ color: '#64748B', fontSize: 12 }}>{dayjs(invoiceItem.date).format('DD/MM/YYYY')}</span>}
                       />
-                      <div style={{ fontWeight: 'bold', textAlign: 'right', marginLeft: 10 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          textAlign: 'right',
+                          color: '#0F172A',
+                          fontSize: 14,
+                          fontFeatureSettings: '"tnum" 1',
+                        }}
+                      >
                         {formatMoney(invoiceItem.amount)}
                       </div>
                     </List.Item>
                   )}
                 />
-                {invoiceData.categorySummary?.length > 0 && <Card size="small" title="Compras por categoria" style={{ marginTop: 16 }}>
-                  {invoiceData.categorySummary.map((item) => <div key={item.categoryId || item.name} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}><span>{item.name}</span><strong>{formatMoney(item.total)}</strong></div>)}
-                </Card>}
-                {invoiceData.settlements?.length > 0 && <Card size="small" title="Liquidações" style={{ marginTop: 16 }}>
-                  {invoiceData.settlements.map((item) => <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0' }}><span>{dayjs(item.date).format('DD/MM/YYYY')} · Pagamento de fatura</span><strong>{formatMoney(item.amount)}</strong></div>)}
-                </Card>}
+
+                {invoiceData.categorySummary?.length > 0 && (
+                  <Card
+                    size="small"
+                    title={<span style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Compras por categoria</span>}
+                    variant="borderless"
+                    style={{ marginTop: 20, borderRadius: 12, border: '1px solid #E2E8F0', background: '#F8FAFC' }}
+                  >
+                    {invoiceData.categorySummary.map((item) => (
+                      <div
+                        key={item.categoryId || item.name}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #EDF2F7',
+                          fontSize: 13,
+                        }}
+                      >
+                        <span style={{ color: '#475569' }}>{item.name}</span>
+                        <strong style={{ color: '#0F172A', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(item.total)}</strong>
+                      </div>
+                    ))}
+                  </Card>
+                )}
+
+                {invoiceData.settlements?.length > 0 && (
+                  <Card
+                    size="small"
+                    title={<span style={{ fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Liquidações e Pagamentos</span>}
+                    variant="borderless"
+                    style={{ marginTop: 16, borderRadius: 12, border: '1px solid #E2E8F0', background: '#F8FAFC' }}
+                  >
+                    {invoiceData.settlements.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          padding: '8px 0',
+                          borderBottom: '1px solid #EDF2F7',
+                          fontSize: 13,
+                        }}
+                      >
+                        <span style={{ color: '#475569' }}>{dayjs(item.date).format('DD/MM/YYYY')} · Pagamento de fatura</span>
+                        <strong style={{ color: '#10B981', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(item.amount)}</strong>
+                      </div>
+                    ))}
+                  </Card>
+                )}
               </div>
             ) : (
-              <p>Carregando...</p>
+              <p style={{ color: '#64748B' }}>Carregando dados da fatura...</p>
             ),
           }))}
         />

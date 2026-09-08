@@ -88,22 +88,37 @@ export default function Accounts() {
   const totalChecking = checkingAccounts.reduce((acc, val) => acc + val.currentBalance, 0);
   const totalInvested = investmentAccounts.reduce((acc, val) => acc + val.currentBalance, 0);
 
-  const renderActions = (account) => [
+  const renderActions = (account, isDark = false) => [
     <Tooltip title="Ajustar saldo" key="adjust">
-      <ToolOutlined style={{ color: '#faad14' }} onClick={() => setAdjustAccount(account)} />
+      <Button
+        type="text"
+        size="small"
+        icon={<ToolOutlined style={{ color: isDark ? '#94A3B8' : '#64748B' }} />}
+        onClick={() => setAdjustAccount(account)}
+      />
     </Tooltip>,
     <Tooltip title="Editar" key="edit">
-      <EditOutlined style={{ color: '#1890ff' }} onClick={() => handleEdit(account)} />
+      <Button
+        type="text"
+        size="small"
+        icon={<EditOutlined style={{ color: isDark ? '#94A3B8' : '#64748B' }} />}
+        onClick={() => handleEdit(account)}
+      />
     </Tooltip>,
     <Popconfirm
       title="Apagar conta?"
-      description="Isso apaga tambem o historico."
+      description="Isso apaga também o histórico."
       onConfirm={() => handleDelete(account.id)}
       okText="Sim"
-      cancelText="Nao"
+      cancelText="Não"
       key="delete"
     >
-      <DeleteOutlined style={{ color: '#ff4d4f' }} />
+      <Button
+        type="text"
+        size="small"
+        danger
+        icon={<DeleteOutlined />}
+      />
     </Popconfirm>,
   ];
 
@@ -112,28 +127,65 @@ export default function Accounts() {
       <Card
         hoverable
         variant="borderless"
-        style={{ borderRadius: 12, marginBottom: 8, border: '1px solid #f0f0f0' }}
+        style={{
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          background: '#FFFFFF',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+        }}
         actions={renderActions(account)}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, minWidth: 0 }}>
-            {account.type === 'Investment' ? (
-              <RiseOutlined style={{ color: '#1890ff' }} />
-            ) : (
-              <BankOutlined style={{ color: '#52c41a' }} />
-            )}
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{account.name}</span>
-          </h4>
-          <Tag variant="borderless" color={account.type === 'Investment' ? 'blue' : 'success'}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: account.type === 'Investment' ? '#EFF6FF' : '#F0FDF4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: account.type === 'Investment' ? '#3B82F6' : '#10B981',
+                fontSize: 16,
+              }}
+            >
+              {account.type === 'Investment' ? <RiseOutlined /> : <BankOutlined />}
+            </div>
+            <span style={{ fontWeight: 600, color: '#0F172A', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {account.name}
+            </span>
+          </div>
+          <span
+            style={{
+              padding: '2px 8px',
+              borderRadius: 10,
+              fontSize: 11,
+              fontWeight: 600,
+              background: '#F1F5F9',
+              color: '#475569',
+            }}
+          >
             {account.type === 'Investment' ? 'Investimento' : 'Conta'}
-          </Tag>
+          </span>
         </div>
-        <Divider style={{ margin: '16px 0' }} />
-        <Statistic
-          value={account.currentBalance}
-          precision={2}
-          formatter={(val) => <span style={{ fontSize: isCompact ? 18 : 20, fontWeight: 600, color: '#333' }}>{formatMoney(val)}</span>}
-        />
+        <Divider style={{ margin: '14px 0', borderColor: '#F1F5F9' }} />
+        <div>
+          <span style={{ fontSize: 12, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+            Saldo Disponível
+          </span>
+          <div
+            style={{
+              fontSize: isCompact ? 20 : 22,
+              fontWeight: 700,
+              color: account.currentBalance >= 0 ? '#0F172A' : '#F43F5E',
+              marginTop: 4,
+              fontFeatureSettings: '"tnum" 1',
+            }}
+          >
+            {formatMoney(account.currentBalance)}
+          </div>
+        </div>
       </Card>
     </Col>
   );
@@ -151,44 +203,84 @@ export default function Accounts() {
         <Card
           hoverable
           variant="borderless"
-          style={{ borderRadius: 12, marginBottom: 8, background: 'linear-gradient(145deg, #2b2b2b 0%, #444 100%)' }}
-          actions={renderActions(card)}
+          style={{
+            borderRadius: 14,
+            background: '#0F172A',
+            border: '1px solid #1E293B',
+            boxShadow: '0 4px 12px 0 rgba(15, 23, 42, 0.08)',
+          }}
+          actions={renderActions(card, true)}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', gap: 8 }}>
-            <h4 style={{ margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, minWidth: 0 }}>
-              <CreditCardOutlined style={{ color: '#faad14' }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.name}</span>
-            </h4>
-            <Tag color="gold" style={{ color: '#333' }}>Fatura</Tag>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#F8FAFC',
+                  fontSize: 16,
+                }}
+              >
+                <CreditCardOutlined />
+              </div>
+              <span style={{ fontWeight: 600, color: '#F8FAFC', fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {card.name}
+              </span>
+            </div>
+            <span
+              style={{
+                padding: '2px 8px',
+                borderRadius: 10,
+                fontSize: 11,
+                fontWeight: 600,
+                background: 'rgba(255, 255, 255, 0.12)',
+                color: '#E2E8F0',
+              }}
+            >
+              Crédito
+            </span>
           </div>
 
-          <div style={{ marginTop: 18, color: '#fff' }}>
-            <span style={{ fontSize: 12, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 1 }}>Fatura Atual</span>
-            <div style={{ fontSize: isCompact ? 20 : 24, fontWeight: 'bold', color: '#fff', marginTop: 4 }}>
+          <div style={{ marginTop: 16 }}>
+            <span style={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
+              Fatura Atual
+            </span>
+            <div
+              style={{
+                fontSize: isCompact ? 22 : 24,
+                fontWeight: 700,
+                color: '#F8FAFC',
+                marginTop: 2,
+                fontFeatureSettings: '"tnum" 1',
+              }}
+            >
               {formatMoney(faturaAtual)}
             </div>
-            <div style={{ marginTop: 6, fontSize: 12, color: '#d9d9d9' }}>
-              Passivo atual: <b>{formatMoney(passivoAtual)}</b>
+            <div style={{ marginTop: 4, fontSize: 12, color: '#94A3B8' }}>
+              Passivo consolidado: <strong style={{ color: '#E2E8F0', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(passivoAtual)}</strong>
             </div>
           </div>
 
-          <div style={{ marginTop: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: 6 }}>
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94A3B8', marginBottom: 6 }}>
               <span>Limite Utilizado</span>
-              <span>{formatMoney(limiteUsado)}</span>
+              <span style={{ color: '#E2E8F0', fontWeight: 600, fontFeatureSettings: '"tnum" 1' }}>{percentualUso.toFixed(0)}%</span>
             </div>
             <Progress
               percent={percentualUso}
               showInfo={false}
-              strokeColor={percentualUso > 90 ? '#ff4d4f' : '#1890ff'}
-              trailColor="rgba(255,255,255,0.1)"
-              size={["100%", 8]}
+              strokeColor={percentualUso > 90 ? '#F43F5E' : '#3B82F6'}
+              trailColor="rgba(255, 255, 255, 0.12)"
+              size={['100%', 6]}
             />
-            <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 8 }}>
-              Limite total: <span style={{ color: '#fff' }}>{formatMoney(limite)}</span>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: 12, color: '#8c8c8c', marginTop: 4 }}>
-              Disponivel: <span style={{ color: '#fff' }}>{formatMoney(disponivel)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94A3B8', marginTop: 10 }}>
+              <span>Disponível: <strong style={{ color: '#F8FAFC', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(disponivel)}</strong></span>
+              <span>Total: <strong style={{ color: '#94A3B8', fontFeatureSettings: '"tnum" 1' }}>{formatMoney(limite)}</strong></span>
             </div>
           </div>
         </Card>
@@ -206,16 +298,21 @@ export default function Accounts() {
           flexWrap: 'wrap',
           justifyContent: 'space-between',
           alignItems: 'center',
-          gap: 12,
-          background: '#fff',
-          padding: isCompact ? '14px' : '16px 24px',
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          gap: 16,
+          background: '#FFFFFF',
+          padding: isCompact ? '16px' : '20px 24px',
+          borderRadius: 14,
+          border: '1px solid #E2E8F0',
+          boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: 20 }}>Carteiras e Contas</h2>
-          <span style={{ color: '#888' }}>Gerencie onde seu dinheiro esta guardado</span>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0F172A', letterSpacing: '-0.02em' }}>
+            Contas e Cartões
+          </h2>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            Gerencie onde seu dinheiro está alocado e acompanhe limites de crédito
+          </span>
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', width: isCompact ? '100%' : 'auto' }}>
@@ -244,26 +341,42 @@ export default function Accounts() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12}>
-          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic
-              title="Disponivel (Giro)"
-              value={totalChecking}
-              formatter={(v) => formatMoney(v)}
-              prefix={<BankOutlined />}
-              valueStyle={{ fontWeight: 'bold', color: '#3f8600' }}
-            />
-          </Card>
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '1px solid #E2E8F0',
+              padding: '16px 20px',
+              boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <BankOutlined style={{ color: '#10B981', fontSize: 14 }} />
+              Saldo Disponível (Giro)
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981', marginTop: 6, fontFeatureSettings: '"tnum" 1' }}>
+              {formatMoney(totalChecking)}
+            </div>
+          </div>
         </Col>
         <Col xs={24} sm={12}>
-          <Card variant="borderless" style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-            <Statistic
-              title="Total Investido"
-              value={totalInvested}
-              formatter={(v) => formatMoney(v)}
-              prefix={<RiseOutlined />}
-              valueStyle={{ fontWeight: 'bold', color: '#1890ff' }}
-            />
-          </Card>
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 14,
+              border: '1px solid #E2E8F0',
+              padding: '16px 20px',
+              boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <RiseOutlined style={{ color: '#3B82F6', fontSize: 14 }} />
+              Total em Investimentos
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', marginTop: 6, fontFeatureSettings: '"tnum" 1' }}>
+              {formatMoney(totalInvested)}
+            </div>
+          </div>
         </Col>
       </Row>
 
