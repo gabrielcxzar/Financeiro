@@ -1,35 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-  <defs>
-    <linearGradient id="orange-brand" x1="24" y1="24" x2="104" y2="104" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#FF7700" />
-      <stop offset="1" stop-color="#FF5500" />
-    </linearGradient>
-  </defs>
+  <!-- Fundo Dark Slate Suave -->
+  <rect width="128" height="128" rx="28" fill="#0F172A" />
+  <rect x="2" y="2" width="124" height="124" rx="26" stroke="#1E293B" stroke-width="2" fill="none" />
 
-  <!-- Deep Matte Obsidian Tile -->
-  <rect width="128" height="128" rx="30" fill="#0B0D12" />
-
-  <!-- Subtle Minimal Geometric Border -->
-  <rect x="4" y="4" width="120" height="120" rx="26" stroke="#222634" stroke-width="2" fill="none" />
-
-  <!-- Clean Precision "Finflow" Upward Chevron / Chart Icon -->
-  <path
-    d="M 32 86 L 56 62 L 74 76 L 96 42"
-    stroke="url(#orange-brand)"
-    stroke-width="10"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-
-  <!-- Top Arrow Chevron Accent -->
-  <path
-    d="M 76 42 H 96 V 62"
-    stroke="url(#orange-brand)"
-    stroke-width="10"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-
-  <!-- Solid Crisp Accent Dot -->
-  <circle cx="32" cy="86" r="6" fill="#FF5500" />
+  <!-- Monograma Finflow Minimalist -->
+  <!-- Haste Vertical -->
+  <rect x="36" y="32" width="14" height="64" rx="7" fill="#FFFFFF" />
+  <!-- Barra Superior -->
+  <rect x="36" y="32" width="56" height="14" rx="7" fill="#FFFFFF" />
+  <!-- Barra Média (Acento Esmeralda Finflow) -->
+  <rect x="36" y="58" width="40" height="14" rx="7" fill="#10B981" />
 </svg>
+

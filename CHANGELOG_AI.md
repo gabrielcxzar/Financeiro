@@ -2,6 +2,28 @@
 
 Este arquivo registra todas as alterações estruturais, de código e de documentação executadas por Agentes de Inteligência Artificial no repositório **Finflow**.
 
+## [1.5.1] - 2026-09-08
+
+- **Data**: 2026-09-08
+- **Agente**: Antigravity
+- **Modelo**: Gemini 3.6 Flash (High) / Claude 3.7 Sonnet
+- **Objetivo**: Modernização completa do favicon e do componente de carregamento (`BrandLoading`), alinhando 100% com o design Swiss Minimalist.
+- **Arquivos Modificados / Criados**:
+  - `MyFinance.Web/public/favicon.svg` -> Monograma Finflow 'F' em Dark Slate (`#0F172A`) com haste branca e acento Esmeralda (`#10B981`).
+  - `MyFinance.Web/public/brand-mark.svg` -> SVG oficial atualizado para a nova identidade da marca.
+  - `MyFinance.Web/src/components/BrandLoading.jsx` e `.css` -> Spinner desacoplado da logo (anel fino elegante em slate/esmeralda girando ao redor da logo estável com pulso suave, eliminando rotação torta da logo).
+  - `MyFinance.Web/src/pages/Login.css` -> Paleta de login sincronizada com Dark Slate `#0F172A` e acentos esmeralda.
+- **Resumo Técnico**:
+  - Correção da rotação indesejada da logo durante o loading.
+  - Eliminação de gradientes laranja legados no favicon e no loading.
+  - Build do Vite validado com sucesso (`exit code 0`).
+- **Motivação**: Feedback do usuário sobre inconsistência visual no loading e favicon.
+- **Impacto**: Identidade visual unificada em todos os pontos de contato da aplicação.
+- **Riscos**: Nulo.
+- **Necessita Validação Humana?**: Não.
+
+---
+
 ## [1.5.0] - 2026-09-08
 
 - **Data**: 2026-09-08

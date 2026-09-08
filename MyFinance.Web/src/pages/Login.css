@@ -1,8 +1,8 @@
 :root {
-  --login-black-900: #0B0D12;
-  --login-black-800: #12151E;
-  --login-orange-500: #FF6600;
-  --login-orange-400: #FF7714;
+  --login-black-900: #090D16;
+  --login-black-800: #0F172A;
+  --login-primary: #0F172A;
+  --login-accent: #10B981;
   --login-surface: #F8FAFC;
   --login-ink: #0F172A;
   --login-muted: #64748B;
@@ -15,9 +15,9 @@
   justify-content: center;
   padding: 28px;
   background:
-    radial-gradient(48rem 30rem at 12% 0%, rgba(255, 102, 0, 0.18), transparent 58%),
-    radial-gradient(52rem 28rem at 100% 100%, rgba(255, 119, 20, 0.15), transparent 62%),
-    linear-gradient(145deg, #090B0E 0%, #10131B 45%, #181C28 100%);
+    radial-gradient(48rem 30rem at 12% 0%, rgba(16, 185, 129, 0.08), transparent 58%),
+    radial-gradient(52rem 28rem at 100% 100%, rgba(15, 23, 42, 0.25), transparent 62%),
+    linear-gradient(145deg, #090D16 0%, #0F172A 50%, #1E293B 100%);
 }
 
 .login-layout {
@@ -27,8 +27,8 @@
   grid-template-columns: 1.05fr 0.95fr;
   border-radius: 28px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
 }
 
 .login-brand-panel {
@@ -36,8 +36,8 @@
   padding: 56px 52px;
   color: #F8FAFC;
   background:
-    radial-gradient(28rem 20rem at 20% 4%, rgba(255, 102, 0, 0.25), transparent 65%),
-    linear-gradient(160deg, #0B0D12 0%, #161922 100%);
+    radial-gradient(28rem 20rem at 20% 4%, rgba(16, 185, 129, 0.12), transparent 65%),
+    linear-gradient(160deg, #0B1120 0%, #0F172A 100%);
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -50,29 +50,31 @@
   width: 280px;
   height: 280px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 102, 0, 0.2) 0%, rgba(255, 102, 0, 0) 70%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
 }
 
 .login-brand-logo {
-  width: 66px;
-  height: 66px;
+  width: 58px;
+  height: 58px;
   object-fit: contain;
+  border-radius: 14px;
 }
 
 .login-brand-panel h1 {
   margin: 2px 0 0;
-  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: clamp(1.9rem, 3vw, 2.4rem);
   letter-spacing: -0.03em;
   color: #FFFFFF;
+  font-weight: 800;
 }
 
 .login-brand-panel p {
   max-width: 34ch;
   margin: 0;
-  color: rgba(248, 250, 252, 0.84);
+  color: rgba(248, 250, 252, 0.78);
   line-height: 1.6;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .login-brand-list {
@@ -80,7 +82,7 @@
   padding: 0;
   margin: 10px 0 0;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .login-brand-list li {
@@ -88,16 +90,17 @@
   align-items: center;
   gap: 10px;
   color: #F1F5F9;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.95rem;
 }
 
 .login-brand-list li::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: linear-gradient(145deg, #FF6600, #FFAA00);
-  box-shadow: 0 0 0 5px rgba(255, 102, 0, 0.2);
+  background: #10B981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
 }
 
 .login-form-panel {
@@ -111,74 +114,77 @@
 .login-card {
   width: min(440px, 100%);
   border-radius: 20px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.06);
+  border: 1px solid #E2E8F0;
 }
 
 .login-card .ant-card-body {
-  padding: 30px 28px 26px;
+  padding: 32px 28px 28px;
 }
 
 .login-card-header {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .login-card-logo {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
+  border-radius: 10px;
 }
 
 .login-title.ant-typography {
   margin: 0;
   color: var(--login-ink);
-  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -0.02em;
-  font-size: 1.62rem;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .login-subtitle {
   margin: 4px 0 0;
   color: var(--login-muted);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .login-tabs .ant-tabs-tab {
-  font-weight: 700;
-  font-family: 'Sora', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 600;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .login-tabs .ant-tabs-ink-bar {
-  background-color: #FF6600 !important;
+  background-color: #0F172A !important;
 }
 
 .login-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #FF6600 !important;
+  color: #0F172A !important;
 }
 
 .login-form .ant-input-affix-wrapper,
 .login-form .ant-input,
 .login-form .ant-input-password {
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .login-submit.ant-btn {
-  margin-top: 6px;
+  margin-top: 8px;
   height: 46px;
-  border-radius: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   border: none;
-  background: linear-gradient(135deg, #FF6600 0%, #FF8800 100%);
-  box-shadow: 0 10px 18px rgba(255, 102, 0, 0.3);
+  background: #0F172A;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
   color: #FFFFFF !important;
 }
 
 .login-submit.ant-btn:hover,
 .login-submit.ant-btn:focus {
-  background: linear-gradient(135deg, #FF7714 0%, #FFAA00 100%);
+  background: #1E293B !important;
 }
 
 @media (max-width: 980px) {
