@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using MyFinance.API.Data;
 using MyFinance.API.Services;
 using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
 using System.Threading.RateLimiting;
 using System.Text;
 
@@ -108,7 +109,8 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("McpRead", policy =>
-        policy.RequireAuthenticatedUser().RequireClaim("scope", "finflow.read"));
+        policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser().RequireClaim("scope", "finflow.read"));
 });
 
 builder.Services.AddOpenIddict()
@@ -124,6 +126,12 @@ builder.Services.AddOpenIddict()
         options.AddDevelopmentEncryptionCertificate()
                .AddDevelopmentSigningCertificate();
         options.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
+    })
+    .AddValidation(options =>
+    {
+        options.SetIssuer(new Uri(builder.Configuration["McpOAuth:Issuer"] ?? "https://localhost:10000/"));
+        options.UseLocalServer();
+        options.UseAspNetCore();
     });
 
 builder.Services.AddCors(options =>
@@ -160,6 +168,18 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/mcp") &&
+        !context.Request.Headers.ContainsKey("Authorization"))
+    {
+        var issuer = builder.Configuration["McpOAuth:Issuer"]?.TrimEnd('/') ?? "https://localhost:10000";
+        context.Response.Headers.WWWAuthenticate = $"Bearer resource_metadata=\"{issuer}/.well-known/oauth-protected-resource\"";
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();

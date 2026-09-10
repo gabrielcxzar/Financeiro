@@ -1,5 +1,11 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.8.0] - 2026-09-10
+
+- **Objetivo**: Recuperar e congelar a documentação da feature e avançar a fundação de validação OAuth/MCP sem iniciar P2.
+- **Alterações**: recuperação exata/parcial registrada em `docs/FINFLOW_MCP/RECOVERY.md`, matriz `TRACEABILITY.md`, checkpoint Git `42f9db9`, validação OpenIddict local, Protected Resource Metadata e resposta `401` com `WWW-Authenticate` para `/mcp` sem credencial.
+- **Validação**: baseline e working tree LogicTests mantêm 17 aprovados e 5 falhas preexistentes; build da API passa. Fluxo Authorization Code/PKCE, refresh, revogação, PostgreSQL real, isolamento A/B e P1 exit gate continuam pendentes.
+
 ## [1.7.0] - 2026-09-10
 
 - **Agente**: Codex (GPT-5)
