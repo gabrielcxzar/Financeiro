@@ -86,6 +86,8 @@ builder.Services.AddRateLimiter(options =>
 
 var token = builder.Configuration["AppSettings:Token"]
     ?? throw new InvalidOperationException("AppSettings:Token nao configurada.");
+if (string.IsNullOrWhiteSpace(token))
+    throw new InvalidOperationException("AppSettings:Token deve ser fornecida por secret store ou variável de ambiente.");
 
 var key = Encoding.ASCII.GetBytes(token);
 builder.Services.AddAuthentication(x =>
@@ -104,13 +106,21 @@ builder.Services.AddAuthentication(x =>
         ValidateIssuer = false,
         ValidateAudience = false
     };
+})
+.AddCookie("McpOAuthCookie", options =>
+{
+    options.Cookie.Name = "finflow_mcp_auth";
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
+    options.SlidingExpiration = false;
+    options.LoginPath = "/oauth/authorize";
 });
 
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("McpRead", policy =>
         policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser().RequireClaim("scope", "finflow.read"));
+            .RequireAuthenticatedUser()
+            .RequireAssertion(ctx => ctx.User.FindAll("scope").SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Contains("finflow.read", StringComparer.Ordinal)));
 });
 
 builder.Services.AddOpenIddict()
@@ -120,9 +130,14 @@ builder.Services.AddOpenIddict()
         options.SetIssuer(new Uri(builder.Configuration["McpOAuth:Issuer"] ?? "https://localhost:10000/"));
         options.SetAuthorizationEndpointUris("/oauth/authorize");
         options.SetTokenEndpointUris("/oauth/token");
+        options.SetRevocationEndpointUris("/oauth/revoke");
         options.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange();
         options.AllowRefreshTokenFlow();
+        options.AcceptAnonymousClients();
         options.RegisterScopes("finflow.read");
+        options.UseReferenceAccessTokens().UseReferenceRefreshTokens();
+        options.SetAccessTokenLifetime(TimeSpan.FromMinutes(15));
+        options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
         options.AddDevelopmentEncryptionCertificate()
                .AddDevelopmentSigningCertificate();
         options.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
@@ -162,6 +177,17 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var correlationId = context.TraceIdentifier;
+    var feature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>();
+    var code = feature?.Error is ArgumentException a ? a.Message : "INTERNAL_ERROR";
+    if (code is not ("PERIOD_TOO_LARGE" or "INVALID_CURSOR" or "PAGE_LIMIT_EXCEEDED")) code = "INTERNAL_ERROR";
+    context.Response.StatusCode = code == "INTERNAL_ERROR" ? 500 : 400;
+    context.Response.ContentType = "application/json";
+    await context.Response.WriteAsJsonAsync(new { error = new { code, message = code == "INTERNAL_ERROR" ? "Ocorreu um erro interno." : "Parâmetro inválido.", correlationId, retryable = false } });
+}));
 
 app.UseSwagger();
 app.UseSwaggerUI();

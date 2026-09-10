@@ -223,3 +223,9 @@ Este arquivo registra todas as alterações estruturais, de código e de documen
 
 ## Validação Humana Necessária
 - Nenhuma validação manual necessária para este documento.
+# [Unreleased] FinFlow MCP
+
+- Adicionada fundação MCP stateless em `/mcp`, autenticação OpenIddict OAuth 2.1/PKCE, metadata de Protected Resource, rate limiting por sujeito e tratamento de erros com correlation ID.
+- Implementadas as oito tools read-only de insights financeiros com filtragem por usuário, política de reporting e paginação keyset para transações.
+- Adicionadas tabelas OpenIddict via migration `20260910224039_AddOpenIddictMcp`.
+- O segredo legado `AppSettings:Token` foi removido do `appsettings.json`; configurar via secret store/env var e rotacionar qualquer valor anteriormente exposto.
