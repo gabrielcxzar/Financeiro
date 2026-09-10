@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using MyFinance.API.Mcp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MyFinance.API.Data;
 using MyFinance.API.Services;
+using OpenIddict.Abstractions;
+using System.Threading.RateLimiting;
 using System.Text;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -24,6 +27,11 @@ else
 }
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
+builder.Services.AddMcpServer()
+    .WithHttpTransport(options => options.Stateless = true)
+    .WithTools<FinflowMcpTools>();
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
@@ -67,6 +75,13 @@ builder.Services.AddScoped<IFinancialSnapshotService, FinancialSnapshotService>(
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("McpSubject", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("Mcp:RateLimitPerMinute", 60), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
 
 var token = builder.Configuration["AppSettings:Token"]
     ?? throw new InvalidOperationException("AppSettings:Token nao configurada.");
@@ -89,6 +104,27 @@ builder.Services.AddAuthentication(x =>
         ValidateAudience = false
     };
 });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("McpRead", policy =>
+        policy.RequireAuthenticatedUser().RequireClaim("scope", "finflow.read"));
+});
+
+builder.Services.AddOpenIddict()
+    .AddCore(options => options.UseEntityFrameworkCore().UseDbContext<AppDbContext>())
+    .AddServer(options =>
+    {
+        options.SetIssuer(new Uri(builder.Configuration["McpOAuth:Issuer"] ?? "https://localhost:10000/"));
+        options.SetAuthorizationEndpointUris("/oauth/authorize");
+        options.SetTokenEndpointUris("/oauth/token");
+        options.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange();
+        options.AllowRefreshTokenFlow();
+        options.RegisterScopes("finflow.read");
+        options.AddDevelopmentEncryptionCertificate()
+               .AddDevelopmentSigningCertificate();
+        options.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
+    });
 
 builder.Services.AddCors(options =>
 {
@@ -126,8 +162,10 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
+app.MapMcp("/mcp").RequireAuthorization("McpRead").RequireRateLimiting("McpSubject");
 
 if (shouldRunSchemaBootstrap)
 {

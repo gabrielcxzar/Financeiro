@@ -1,6 +1,43 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.7.0] - 2026-09-10
+
+- **Agente**: Codex (GPT-5)
+- **Objetivo**: Bootstrap do Spec Kit 1.0.5 e spike inicial da fundação MCP/OAuth da feature `001-finflow-mcp`.
+- **Alterações**: `.specify/`, comandos Spec Kit genéricos em `.codex/commands/`, pacotes `ModelContextProtocol.AspNetCore 2.2.0`, `OpenIddict 7.7.0`, alinhamento EF Core/Npgsql, endpoint stateless `/mcp`, política `finflow.read`, rate limit configurável e adaptadores P1 sobre `FinancialInsightsService`.
+- **Validação**: `dotnet build MyFinance.API/MyFinance.API.csproj --no-restore` passou. A suíte LogicTests executou 22 testes, com 17 aprovados e 5 falhas preexistentes/relacionadas à semântica de importação; OAuth completo, P1/P2 e cliente real ainda não concluídos.
+- **Risco**: O fluxo Authorization Code/token handlers ainda precisa ser implementado antes de expor o endpoint. O segredo JWT legado foi removido de `appsettings.json` e requer variável de ambiente para inicialização.
+
+
 Este arquivo registra todas as alterações estruturais, de código e de documentação executadas por Agentes de Inteligência Artificial no repositório **Finflow**.
+
+## [1.6.0] - 2026-09-10
+
+- **Data**: 2026-09-10
+- **Agente**: Codex
+- **Modelo**: GPT-5
+- **Objetivo**: Investigar e planejar a feature `001-finflow-mcp` somente leitura pelo fluxo Spec Kit `spec → plan → tasks`, sem implementar código de produção.
+- **Arquivos Modificados / Criados**:
+  - `docs/FINFLOW_MCP/SPEC.md` -> [SPEC.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/SPEC.md)
+  - `docs/FINFLOW_MCP/PLAN.md` -> [PLAN.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/PLAN.md)
+  - `docs/FINFLOW_MCP/TASKS.md` -> [TASKS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/TASKS.md)
+  - `docs/FINFLOW_MCP/CONTRACTS.md` -> [CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md)
+  - `docs/FINFLOW_MCP/DATA_MODEL.md` -> [DATA_MODEL.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/DATA_MODEL.md)
+  - `docs/FINFLOW_MCP/RESEARCH.md` -> [RESEARCH.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/RESEARCH.md)
+  - `.ai/CONTEXT.md` -> [.ai/CONTEXT.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/.ai/CONTEXT.md)
+  - `CHANGELOG_AI.md` -> [CHANGELOG_AI.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/CHANGELOG_AI.md)
+- **Resumo Técnico**:
+  - Mapeamento da API ASP.NET Core 8, entidades EF Core, autenticação JWT, `FinancialSnapshotService`, políticas de reporting, índices e suítes de teste.
+  - Comparação entre MCP integrado e serviço separado, com recomendação do endpoint integrado e Streamable HTTP stateless.
+  - Proposta de oito tools agregadoras/paginadas, sem Resources ou Prompts na v1.
+  - Proposta de OAuth 2.1 com PKCE, escopo `finflow.read`, revogação, minimização, rate limit, observabilidade redigida e testes de segurança.
+  - Registro de riscos existentes: JWT sem OAuth/audience/scope, segredo default versionado, carregamento integral de transações, possível agregação fora do período e ausência de índices compostos por período.
+- **Motivação**: Permitir conexão futura do ChatGPT aos dados financeiros do FinFlow com segurança, correção e rastreabilidade antes de qualquer implementação.
+- **Impacto**: Somente documentação e glossário; nenhuma funcionalidade ou configuração de execução foi alterada.
+- **Riscos**: As decisões de autenticação, exposição, datas e recorte de entrega permanecem pendentes de aprovação humana.
+- **Necessita Validação Humana?**: Sim, conforme gates de `docs/FINFLOW_MCP/PLAN.md` e `TASKS.md`.
+
+---
 
 ## [1.5.1] - 2026-09-08
 
