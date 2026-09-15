@@ -23,5 +23,7 @@ public sealed class McpMetadataTests
         var value = result.Value!;
         Assert.Contains("S256", (IEnumerable<string>)value.GetType().GetProperty("code_challenge_methods_supported")!.GetValue(value)!);
         Assert.Equal(new[] { "authorization_code", "refresh_token" }, (IEnumerable<string>)value.GetType().GetProperty("grant_types_supported")!.GetValue(value)!);
+        Assert.Contains("none", (IEnumerable<string>)value.GetType().GetProperty("token_endpoint_auth_methods_supported")!.GetValue(value)!);
+        Assert.Contains("offline_access", (IEnumerable<string>)value.GetType().GetProperty("scopes_supported")!.GetValue(value)!);
     }
 }

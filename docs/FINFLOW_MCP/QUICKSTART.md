@@ -9,12 +9,15 @@ Defina no ambiente (Render Secret/Environment Groups):
 - `ConnectionStrings__DefaultConnection`
 - `AppSettings__Token` (segredo JWT legado da API; nunca versionar)
 - `McpOAuth__Issuer` (URL HTTPS pública terminada em `/`)
+- `McpOAuth__AllowInsecureDevelopmentTransport` (opcional, somente Development/testes locais; nunca habilitar em produção)
+- `ForwardedHeaders__Enabled` (produção atrás do proxy TLS do Render; padrão `true` em Production)
 - `McpOAuth__ClientId` (client ID pré-registrado; para ChatGPT use a identidade/callback exibidos na tela de criação do app)
 - `McpOAuth__RedirectUris` (lista de callbacks exatos, sem curingas)
 - `McpOAuth__EncryptionCertificatePath` e `McpOAuth__SigningCertificatePath` (produção)
 - `McpOAuth__EncryptionCertificateBase64` e `McpOAuth__SigningCertificateBase64` (alternativa para secrets do Render sem arquivo)
 - `McpOAuth__CertificatePassword` (produção; secret store)
 - `Mcp__RateLimitPerMinute` (padrão 60)
+- `Mcp__RateLimitBurst` (padrão 10)
 - `Mcp__DetailRateLimitPerMinute` (padrão 20; reservado para detalhes)
 - `Mcp__MaxRequestBytes` (padrão 262144)
 - `Mcp__AllowedHosts__0` (host público do issuer; aliases opcionais)
@@ -32,7 +35,7 @@ As migrations são aplicadas automaticamente apenas quando `RunSchemaBootstrap=t
 - `/oauth/token`
 - `/oauth/revoke`
 
-O cliente deve usar PKCE (S256), solicitar apenas `finflow.read` e enviar o access token Bearer para `/mcp`. O servidor usa pré-registro explícito de cliente; não existe `AcceptAnonymousClients`, API key MCP nem reutilização do JWT de sessão de 30 dias. A URL e callback fornecidos pelo ChatGPT devem ser cadastrados exatamente nas variáveis acima.
+O cliente deve usar PKCE (S256), solicitar `finflow.read` e, se precisar renovar a sessão, também o escopo OAuth padrão `offline_access`; somente `finflow.read` concede acesso a dados do FinFlow. Depois, deve enviar o access token Bearer para `/mcp`. O servidor usa pré-registro explícito de cliente; não existe `AcceptAnonymousClients`, API key MCP nem reutilização do JWT de sessão de 30 dias. A URL e callback fornecidos pelo ChatGPT devem ser cadastrados exatamente nas variáveis acima.
 
 ## Tools v1
 

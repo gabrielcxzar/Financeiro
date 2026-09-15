@@ -75,7 +75,7 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 - **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
 - **Acesso MCP somente leitura** *(implementado parcialmente em 2026-09-14)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
 
-O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). A validação PostgreSQL, de produção e do cliente ChatGPT permanece dependente da configuração do ambiente.
+O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). O backend foi validado localmente contra PostgreSQL isolado; validação de produção/Render e do cliente ChatGPT ainda depende da configuração do ambiente externo.
 
 ---
 

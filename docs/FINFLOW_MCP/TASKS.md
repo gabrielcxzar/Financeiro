@@ -1,7 +1,7 @@
 # Tarefas: FinFlow MCP somente leitura
 
 **Entrada**: [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), [RESEARCH.md](RESEARCH.md) e [CONTRACTS.md](CONTRACTS.md)  
-**Status**: Implementação parcial; fundação e oito adaptadores existem, mas os gates PostgreSQL/OAuth end-to-end/ChatGPT continuam pendentes
+**Status**: Backend implementado e validado localmente; migration, contratos HTTP e wire OAuth/MCP foram exercitados em PostgreSQL isolado. HTTPS/Render/ChatGPT e a suíte histórica completa ainda são gates externos/pendentes
 **Formato**: `[ID] [P?] [US?] descrição com caminho`
 
 ## Fase 0 — Gate humano
@@ -42,6 +42,8 @@
 - [x] T019 Configurar autenticação/política `finflow.read` e separar políticas REST/MCP em `MyFinance.API/Program.cs`.
 - [x] T020 Configurar Streamable HTTP stateless em `POST /mcp` e allowlist de tools em `MyFinance.API/Program.cs` e `MyFinance.API/Mcp/`.
 - [x] T021 Implementar rate limiting por sujeito/IP, limite de corpo e validação de Origin/Host em `MyFinance.API/Program.cs` e `MyFinance.API/Mcp/McpRateLimitException.cs`.
+- [x] T021a Ajustar o rate limiter MCP para média configurável com burst configurável e documentar os defaults aprovados.
+- [x] T021b Processar `X-Forwarded-Proto` de forma configurável antes do redirecionamento HTTPS no proxy do Render.
 - [x] T022 Implementar envelope de erro, correlação e redaction em `MyFinance.API/Program.cs`.
 - [ ] T023 Executar T010–T013 até passarem e confirmar que as rotas REST existentes continuam autenticando normalmente.
 
@@ -65,7 +67,7 @@
 - [x] T032 Implementar paginação keyset e cursor protegido em `MyFinance.API/Services/FinancialInsightsService.cs` e `MyFinance.API/Services/TransactionCursorCodec.cs`.
 - [x] T033 Integrar saldos/passivos por `IFinancialSnapshotService` sem usar o carregamento completo para agregações de período.
 - [ ] T034 Adicionar índices candidatos em `MyFinance.API/Data/AppDbContext.cs` e migration em `MyFinance.API/Migrations/`; manter apenas os justificados por planos de consulta.
-- [ ] T035 Medir consultas com dados sintéticos e registrar p50/p95, payload e `EXPLAIN` redigido em `docs/FINFLOW_MCP/RESEARCH.md`.
+- [ ] T035 Medir consultas com dados sintéticos e registrar p50/p95, payload e `EXPLAIN` redigido em `docs/FINFLOW_MCP/RESEARCH_CURRENT.md` (EXPLAIN/payload já registrados; p50/p95 de carga sustentada permanecem pendentes).
 - [ ] T036 Executar T024–T027 e a suíte `Finflow.Api.LogicTests` completa.
 
 **Checkpoint**: domínio consultável por uma interface única, sem MCP e sem controllers nos testes de regra.
@@ -82,7 +84,7 @@
 
 - [x] T040 [P] [US1] Implementar adaptador `get_financial_summary` em `MyFinance.API/Mcp/FinflowMcpTools.cs`.
 - [x] T041 [P] [US1] Implementar adaptador `compare_periods` em `MyFinance.API/Mcp/FinflowMcpTools.cs`.
-- [ ] T042 [US1] Validar output schemas, hints read-only e ausência de `SaveChanges`/dependências de escrita.
+- [x] T042 [US1] Validar output schemas, hints read-only e ausência de `SaveChanges`/dependências de escrita por reflexão, wire test e fingerprint PostgreSQL.
 - [ ] T043 [US1] Executar testes US1, autenticação, isolamento e suíte de regressão REST.
 
 **Checkpoint MVP**: ChatGPT obtém contexto agregado confiável sem registros brutos.
@@ -114,7 +116,7 @@
 
 - [x] T054 [P] [US2] Implementar `get_spending_by_category` em `MyFinance.API/Mcp/FinflowMcpTools.cs`.
 - [x] T055 [P] [US2] Implementar `get_transactions` em `MyFinance.API/Mcp/FinflowMcpTools.cs` com projeção explícita de campos permitidos.
-- [ ] T056 [US2] Executar testes US2, confirmar payload máximo e verificar que `RawMemo`, source file, external ID e dados de importação nunca aparecem.
+- [ ] T056 [US2] Executar testes US2, confirmar payload máximo e verificar que `RawMemo`, source file, external ID e dados de importação nunca aparecem (wire P2 passou; falta a asserção dedicada de campos proibidos).
 
 ## Fase 7 — Hardening, documentação e liberação
 
@@ -143,10 +145,11 @@ A feature só está concluída quando as tools aprovadas passam contratos, isola
 
 ## Confidence
 
-### Implementação observada em 2026-09-14
+### Implementação observada em 2026-09-15
 
 - Os adaptadores foram consolidados em `MyFinance.API/Mcp/FinflowMcpTools.cs` e as consultas em `MyFinance.API/Mcp/FinancialInsightsService.cs`; os caminhos `Mcp/Tools/*` e filtros separados citados no plano não foram criados.
-- A evidência que depende de PostgreSQL permanece bloqueada sem `FINFLOW_POSTGRES_TEST_URL`; não marcar tarefas de contrato, EXPLAIN ou smoke test como concluídas apenas por compilação.
+- As provas de serviço que dependem de PostgreSQL foram executadas em banco Neon efêmero, schema-only e isolado da produção, com `FINFLOW_POSTGRES_TEST_ISOLATED=1`: 3 provas PostgreSQL passaram. A suíte completa ficou em 23 aprovados e 5 falhas preexistentes de importação.
+- A migration foi aplicada/revertida/reaplicada; contratos HTTP `27/27`, EXPLAIN e wire OAuth/MCP local passaram. O wire usa HTTP apenas em Development, mantendo issuer/resource HTTPS canônicos; HTTPS Render e cliente ChatGPT real permanecem pendentes.
 
 ### Alta
 

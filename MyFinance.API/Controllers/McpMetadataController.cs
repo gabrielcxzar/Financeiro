@@ -18,7 +18,9 @@ public sealed class McpMetadataController(IConfiguration configuration) : Contro
             response_types_supported = new[] { "code" },
             grant_types_supported = new[] { "authorization_code", "refresh_token" },
             code_challenge_methods_supported = new[] { "S256" },
-            scopes_supported = new[] { "finflow.read" },
+            // offline_access é o escopo OAuth padrão que habilita refresh token;
+            // não concede acesso adicional aos dados financeiros.
+            scopes_supported = new[] { "finflow.read", "offline_access" },
             token_endpoint_auth_methods_supported = new[] { "none" }
         });
     }

@@ -1,11 +1,16 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.9.1] - 2026-09-15
+
+- **Correções**: registro idempotente do cliente MCP agora inclui revogação; refresh tokens têm janela de reutilização zero; metadata anuncia `offline_access`; suporte a `ForwardedHeaders` e seleção correta de URLs para o proxy TLS do Render; testes PostgreSQL destrutivos exigem marcação explícita de banco isolado.
+- **Validação**: wire test local completo passou para discovery, PKCE S256, resource, oito tools, P1/P2, refresh/replay/revogação; migration e EXPLAIN foram exercitados em branch Neon schema-only.
+
 ## [1.9.0] - 2026-09-14
 
 - **Objetivo**: Continuar a implementação da feature `001-finflow-mcp` com os bloqueios de segurança do PR tratados sem alterar a arquitetura aprovada.
 - **Alterações**: OAuth OpenIddict sem clientes anônimos, resource/audience canônica, PKCE S256, metadata OAuth/Protected Resource, pré-registro configurável com callbacks HTTPS, certificados persistentes obrigatórios fora de Development, cursor de transações protegido e vinculado a usuário/filtros, política operacional compartilhada, agregações SQL para resumo/categorias, filtros P2, limite de corpo/origem/host, rate limit de detalhes, logs redigidos e fingerprint read-only. Os defaults de token JWT foram removidos de `appsettings.json` e `appsettings.Development.json`.
-- **Testes**: build da API passou; reflexão de oito tools e metadata passaram. Smoke HTTP local confirmou Protected Resource Metadata `200` e `/mcp` sem bearer `401` com `WWW-Authenticate`; a descoberta OAuth em HTTP foi recusada pelo requisito HTTPS. As provas de serviço que dependem de PostgreSQL exigem `FINFLOW_POSTGRES_TEST_URL` e ficaram skipped neste ambiente sem banco efêmero. A suíte lógica mantém cinco falhas preexistentes de importação. Suíte HTTP de contratos requer `FINFLOW_TEST_BASE_URL`.
-- **Limitações**: Docker/psql/credenciais Render e conexão real ChatGPT não estão disponíveis neste ambiente; não houve `EXPLAIN ANALYZE`, migration aplicada em banco ou smoke test de OAuth end-to-end.
+- **Testes**: build da API passou; reflexão e `tools/list` confirmaram exatamente oito tools estruturadas/read-only. Em um PostgreSQL Neon efêmero, schema-only e separado da produção, as três provas PostgreSQL passaram; a suíte lógica ficou em `23 aprovados, 5 falhas preexistentes, 0 ignorados`. A migration foi aplicada, revertida e reaplicada. `EXPLAIN (ANALYZE, BUFFERS)` usou `ix_transactions_user_id`, com execução observada abaixo de 0,1 ms nas consultas sintéticas. A suíte HTTP de contratos passou `27/27`. O wire test local confirmou discovery/metadata, PKCE S256, resource, 8 tools P1/P2, payload máximo de 1.337 bytes, refresh rotativo, replay rejeitado e revogação efetiva.
+- **Limitações**: a validação foi local, com transporte HTTP permitido somente em Development e issuer/resource canônicos HTTPS; HTTPS real atrás do Render, deploy e conexão real ChatGPT ainda dependem de credenciais/ação manual externas. Permanecem cinco falhas históricas de importação fora do módulo MCP.
 
 ## [1.8.0] - 2026-09-10
 

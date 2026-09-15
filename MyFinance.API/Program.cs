@@ -12,11 +12,16 @@ using System.Text;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.HttpOverrides;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 var renderPort = Environment.GetEnvironmentVariable("PORT");
+var configuredUrls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS");
+var allowInsecureDevelopmentTransport = builder.Environment.IsDevelopment()
+    && builder.Configuration.GetValue<bool>("McpOAuth:AllowInsecureDevelopmentTransport");
+var useForwardedHeaders = builder.Configuration.GetValue("ForwardedHeaders:Enabled", builder.Environment.IsProduction());
 var shouldRunSchemaBootstrap = builder.Configuration.GetValue<bool?>("RunSchemaBootstrap")
     ?? builder.Environment.IsDevelopment();
 
@@ -24,14 +29,28 @@ if (!string.IsNullOrWhiteSpace(renderPort))
 {
     builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
 }
+else if (!string.IsNullOrWhiteSpace(configuredUrls))
+{
+    builder.WebHost.UseUrls(configuredUrls);
+}
 else
 {
     // Local/containers sem PORT injetada.
     builder.WebHost.UseUrls("http://0.0.0.0:10000");
 }
 
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
 builder.Services.AddAntiforgery();
+if (useForwardedHeaders)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+        options.ForwardLimit = 1;
+    });
+}
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFinancialInsightsService, FinancialInsightsService>();
 builder.Services.AddSingleton<McpDetailRateLimiter>();
@@ -83,15 +102,26 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 builder.Services.AddRateLimiter(options =>
 {
+    var permitsPerMinute = Math.Max(1, builder.Configuration.GetValue("Mcp:RateLimitPerMinute", 60));
+    var burst = Math.Clamp(builder.Configuration.GetValue("Mcp:RateLimitBurst", 10), 1, permitsPerMinute);
+    var replenishmentSeconds = Math.Max(1, Math.Round(60d * burst / permitsPerMinute));
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = (context, _) =>
     {
         context.HttpContext.Response.Headers.RetryAfter = "60";
         return ValueTask.CompletedTask;
     };
-    options.AddPolicy("McpSubject", context => RateLimitPartition.GetFixedWindowLimiter(
+    options.AddPolicy("McpSubject", context => RateLimitPartition.GetTokenBucketLimiter(
         context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = builder.Configuration.GetValue("Mcp:RateLimitPerMinute", 60), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        _ => new TokenBucketRateLimiterOptions
+        {
+            TokenLimit = burst,
+            TokensPerPeriod = burst,
+            ReplenishmentPeriod = TimeSpan.FromSeconds(replenishmentSeconds),
+            AutoReplenishment = true,
+            QueueLimit = 0,
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        }));
 });
 
 var token = builder.Configuration["AppSettings:Token"]
@@ -147,8 +177,11 @@ builder.Services.AddOpenIddict()
         options.AllowAuthorizationCodeFlow().RequireProofKeyForCodeExchange();
         options.AllowRefreshTokenFlow();
         options.RegisterScopes("finflow.read");
+        options.RegisterResources(mcpResource);
         options.UseReferenceAccessTokens().UseReferenceRefreshTokens();
         // OpenIddict mantém rolling refresh tokens habilitado por padrão; não desabilitar.
+        // Sem janela de reutilização, um refresh token resgatado não pode ser reaproveitado.
+        options.SetRefreshTokenReuseLeeway(TimeSpan.Zero);
         options.SetAccessTokenLifetime(TimeSpan.FromMinutes(15));
         options.SetRefreshTokenLifetime(TimeSpan.FromDays(30));
         if (builder.Environment.IsDevelopment())
@@ -167,7 +200,10 @@ builder.Services.AddOpenIddict()
             options.AddEncryptionCertificate(LoadCertificate(encryptionPath, encryptionBase64, password, "encryption"));
             options.AddSigningCertificate(LoadCertificate(signingPath, signingBase64, password, "signing"));
         }
-        options.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
+        var aspNetCore = options.UseAspNetCore();
+        aspNetCore.EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
+        if (allowInsecureDevelopmentTransport)
+            aspNetCore.DisableTransportSecurityRequirement();
     })
     .AddValidation(options =>
     {
@@ -240,19 +276,23 @@ app.Use(async (context, next) =>
 
     var correlationId = context.TraceIdentifier;
     context.Response.Headers["X-Correlation-ID"] = correlationId;
-    var subject = context.User.FindFirst("sub")?.Value ?? "anonymous";
-    var pseudonym = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(subject)))[..12];
     var started = Stopwatch.GetTimestamp();
+    static string Pseudonym(HttpContext current)
+    {
+        var subject = current.User.FindFirst("sub")?.Value ?? "anonymous";
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(subject)))[..12];
+    }
+
     try
     {
         await next();
         var elapsed = Stopwatch.GetElapsedTime(started);
-        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("McpRequest").LogInformation("MCP request correlationId={CorrelationId} status={StatusCode} durationMs={DurationMs} subject={Subject} responseBytes={ResponseBytes}", correlationId, context.Response.StatusCode, elapsed.TotalMilliseconds, pseudonym, context.Response.ContentLength ?? 0);
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("McpRequest").LogInformation("MCP request correlationId={CorrelationId} status={StatusCode} durationMs={DurationMs} subject={Subject} responseBytes={ResponseBytes}", correlationId, context.Response.StatusCode, elapsed.TotalMilliseconds, Pseudonym(context), context.Response.ContentLength ?? 0);
     }
     catch
     {
         var elapsed = Stopwatch.GetElapsedTime(started);
-        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("McpRequest").LogInformation("MCP request correlationId={CorrelationId} status=error durationMs={DurationMs} subject={Subject}", correlationId, elapsed.TotalMilliseconds, pseudonym);
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("McpRequest").LogInformation("MCP request correlationId={CorrelationId} status=error durationMs={DurationMs} subject={Subject}", correlationId, elapsed.TotalMilliseconds, Pseudonym(context));
         throw;
     }
 });
@@ -260,6 +300,8 @@ app.Use(async (context, next) =>
 app.UseSwagger();
 app.UseSwaggerUI();
 
+if (useForwardedHeaders)
+    app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.Use(async (context, next) =>
@@ -375,7 +417,43 @@ static async Task EnsureMcpClientRegistrationAsync(WebApplication app, string mc
 
     using var scope = app.Services.CreateScope();
     var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
-    if (await manager.FindByClientIdAsync(clientId) is not null) return;
+    var requiredPermissions = new HashSet<string>(StringComparer.Ordinal)
+    {
+        OpenIddictConstants.Permissions.Endpoints.Authorization,
+        OpenIddictConstants.Permissions.Endpoints.Token,
+        OpenIddictConstants.Permissions.Endpoints.Revocation,
+        OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+        OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+        OpenIddictConstants.Permissions.ResponseTypes.Code,
+        OpenIddictConstants.Permissions.Prefixes.Scope + "finflow.read",
+        OpenIddictConstants.Permissions.Prefixes.Resource + mcpResource
+    };
+
+    if (await manager.FindByClientIdAsync(clientId) is { } existing)
+    {
+        var existingDescriptor = new OpenIddictApplicationDescriptor();
+        await manager.PopulateAsync(existingDescriptor, existing);
+        if (!string.Equals(existingDescriptor.ClientType, OpenIddictConstants.ClientTypes.Public, StringComparison.Ordinal))
+            throw new InvalidOperationException("The configured MCP OAuth client must be public.");
+
+        var configuredRedirectUris = redirectUris.Select(uri => new Uri(uri)).ToHashSet();
+        var permissionsChanged = !requiredPermissions.IsSubsetOf(existingDescriptor.Permissions);
+        var redirectUrisChanged = !existingDescriptor.RedirectUris.SetEquals(configuredRedirectUris);
+        if (permissionsChanged || redirectUrisChanged)
+        {
+            existingDescriptor.Permissions.UnionWith(requiredPermissions);
+            if (redirectUrisChanged)
+            {
+                existingDescriptor.RedirectUris.Clear();
+                existingDescriptor.RedirectUris.UnionWith(configuredRedirectUris);
+            }
+
+            await manager.UpdateAsync(existing, existingDescriptor);
+            app.Logger.LogInformation("Updated configured MCP OAuth client registration.");
+        }
+
+        return;
+    }
 
     var descriptor = new OpenIddictApplicationDescriptor
     {
@@ -386,15 +464,7 @@ static async Task EnsureMcpClientRegistrationAsync(WebApplication app, string mc
         ApplicationType = OpenIddictConstants.ApplicationTypes.Web
     };
     foreach (var uri in redirectUris) descriptor.RedirectUris.Add(new Uri(uri));
-    descriptor.Permissions.UnionWith([
-        OpenIddictConstants.Permissions.Endpoints.Authorization,
-        OpenIddictConstants.Permissions.Endpoints.Token,
-        OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-        OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
-        OpenIddictConstants.Permissions.ResponseTypes.Code,
-        OpenIddictConstants.Permissions.Prefixes.Scope + "finflow.read",
-        OpenIddictConstants.Permissions.Prefixes.Resource + mcpResource
-    ]);
+    descriptor.Permissions.UnionWith(requiredPermissions);
     await manager.CreateAsync(descriptor);
     app.Logger.LogInformation("Registered configured MCP OAuth client {ClientId}.", clientId);
 }

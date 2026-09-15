@@ -8,8 +8,12 @@ using ModelContextProtocol.Server;
 
 namespace Finflow.Api.LogicTests;
 
+[Collection("Finflow PostgreSQL")]
 public sealed class FinancialInsightsServiceTests
 {
+    static FinancialInsightsServiceTests() =>
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
     [PostgresFact]
     public async Task Summary_IsolatesUserAndReturnsNullSavingsRateWhenIncomeIsZero()
     {
@@ -92,8 +96,12 @@ public sealed class FinancialInsightsServiceTests
 
     private static AppDbContext CreateDb()
     {
+        if (Environment.GetEnvironmentVariable("FINFLOW_POSTGRES_TEST_ISOLATED") != "1")
+            throw new InvalidOperationException("As provas PostgreSQL destrutivas exigem FINFLOW_POSTGRES_TEST_ISOLATED=1.");
+
         var connection = Environment.GetEnvironmentVariable("FINFLOW_POSTGRES_TEST_URL")!;
         var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection).Options);
+        db.Database.EnsureDeleted();
         db.Database.EnsureCreated();
         return db;
     }
@@ -105,7 +113,11 @@ public sealed class PostgresFactAttribute : FactAttribute
 {
     public PostgresFactAttribute()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FINFLOW_POSTGRES_TEST_URL")))
-            Skip = "Defina FINFLOW_POSTGRES_TEST_URL para executar as provas de tradução/paginação no PostgreSQL.";
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FINFLOW_POSTGRES_TEST_URL")) ||
+            Environment.GetEnvironmentVariable("FINFLOW_POSTGRES_TEST_ISOLATED") != "1")
+            Skip = "Defina FINFLOW_POSTGRES_TEST_URL e FINFLOW_POSTGRES_TEST_ISOLATED=1 para usar apenas um PostgreSQL isolado.";
     }
 }
+
+[CollectionDefinition("Finflow PostgreSQL", DisableParallelization = true)]
+public sealed class FinflowPostgresCollection { }

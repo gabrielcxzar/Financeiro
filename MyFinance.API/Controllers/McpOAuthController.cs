@@ -51,10 +51,14 @@ public sealed class McpOAuthController(AppDbContext db, IAntiforgery antiforgery
         var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         identity.AddClaim(OpenIddictConstants.Claims.Subject, user.Id.ToString());
         identity.AddClaim(OpenIddictConstants.Claims.Name, user.Name);
-        identity.SetScopes("finflow.read");
+        var scopes = request.GetScopes()
+            .Where(scope => scope is "finflow.read" or "offline_access")
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        identity.SetScopes(scopes);
         identity.SetResources(Resource);
         var principal = new ClaimsPrincipal(identity);
-        principal.SetScopes("finflow.read");
+        principal.SetScopes(scopes);
         principal.SetResources(Resource);
         return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
@@ -69,7 +73,11 @@ public sealed class McpOAuthController(AppDbContext db, IAntiforgery antiforgery
         var result = await HttpContext.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         if (!result.Succeeded || result.Principal is null) return Forbid(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = result.Principal;
-        principal.SetScopes("finflow.read");
+        var scopes = principal.GetScopes()
+            .Where(scope => scope is "finflow.read" or "offline_access")
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        principal.SetScopes(scopes);
         principal.SetResources(Resource);
         return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }

@@ -1,6 +1,6 @@
 # Pesquisa atual — autorização MCP, ChatGPT e OpenIddict 7.7.0
 
-> Data de verificação: 2026-09-14  
+> Data de verificação: 2026-09-15
 > Escopo: fluxo OAuth de um servidor MCP remoto do FinFlow consumido pelo ChatGPT.  
 > Método: somente fontes primárias oficiais da OpenAI, do projeto MCP e do OpenIddict/NuGet.
 
@@ -93,6 +93,15 @@ Esses critérios derivam de [OpenAI — Authentication](https://developers.opena
 - **Alta:** requisitos normativos do MCP 2026-07-28; comportamento documentado do ChatGPT para OAuth, PKCE S256, `resource`, CIMD/DCR e redirect URI; existência e TFMs do pacote OpenIddict 7.7.0.
 - **Média:** escolha de pré-registro como melhor opção para o FinFlow, pois depende da disponibilidade concreta do campo de credenciais estáticas na conta/superfície do ChatGPT usada no rollout.
 - **Baixa:** suporte nativo futuro do OpenIddict a CIMD/RFC 9728/DCR e qualquer comportamento do ChatGPT não descrito nas páginas oficiais; não deve ser inferido.
+
+## Validação operacional local — 2026-09-15
+
+- As provas dependentes de PostgreSQL foram executadas contra uma branch Neon efêmera criada em modo `schema-only`, sem cópia de dados da produção e com expiração configurada. A suíte de lógica executou 28 testes: 23 aprovados, 5 falhas preexistentes de importação e nenhum teste ignorado; as três provas específicas de PostgreSQL passaram.
+- A execução usa `FINFLOW_POSTGRES_TEST_ISOLATED=1` como trava explícita para as provas que recriam o schema. A URL de conexão permanece somente em variável de processo e não é registrada em documentação, logs ou Git.
+- A migration `20260910224039_AddOpenIddictMcp` foi aplicada, revertida até a migration anterior e reaplicada com sucesso no mesmo branch isolado.
+- `EXPLAIN (ANALYZE, BUFFERS)` nas consultas representativas de resumo e transações usou o índice existente `ix_transactions_user_id`; tempos observados: planejamento 0,333/0,191 ms e execução 0,069/0,044 ms. Não foi criado índice novo sem evidência.
+- A suíte HTTP de contratos passou com 27/27 testes em API local apontando para o schema isolado. O wire test local (transporte HTTP de desenvolvimento, issuer/resource canônicos HTTPS) confirmou discovery/metadata 200, initialize/list 200, exatamente 8 tools, todas as 8 chamadas 200, payload máximo 1.337 bytes, refresh rotativo 200, replay 400, revogação 200 e uso posterior 401.
+- A validação HTTPS real atrás do proxy Render, o deploy e a conexão efetiva do cliente ChatGPT continuam pendentes de credenciais/ação no ambiente externo; o teste HTTP local não é apresentado como prova de HTTPS em produção.
 
 ## Validação Humana Necessária
 
