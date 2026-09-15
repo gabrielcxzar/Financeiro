@@ -84,6 +84,10 @@ Financeiro/
 
 ## Documentação
 
+### MCP FinFlow (somente leitura)
+
+A API também expõe `POST /mcp` para clientes MCP remotos. O acesso exige OAuth 2.1 Authorization Code + PKCE com escopo `finflow.read`; consulte o [quickstart MCP](docs/FINFLOW_MCP/QUICKSTART.md) para configurar o issuer, cliente pré-registrado, callbacks e certificados de produção. Nenhuma tool MCP altera dados financeiros.
+
 Abaixo estão os links diretos para **TODOS** os documentos da rede de conhecimento do repositório:
 
 - **Instruções de Entrada & Operação de IA (`.ai/`)**:

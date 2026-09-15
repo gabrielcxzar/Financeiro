@@ -14,6 +14,8 @@ graph TD
     WebApp -->|Axios REST JSON + Bearer JWT| WebAPI[Back-end ASP.NET Core 8 Web API]
     WebAPI -->|EF Core 8 / Npgsql| Database[(PostgreSQL no Supabase)]
     WebAPI -->|HttpClient| ExternalSource[Dataset Tesouro Transparente CSV]
+    ChatGPT[Cliente MCP / ChatGPT] -->|HTTPS + OAuth 2.1 PKCE| MCP[/mcp]
+    MCP -->|FinancialInsightsService read-only| Database
 ```
 
 ---
@@ -34,6 +36,7 @@ graph TD
 - **Serviços de Domínio**:
   - [FinancialSnapshotService.cs](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/MyFinance.API/Services/FinancialSnapshotService.cs): Cálculo desacoplado e reutilizável de snapshots de saldos reais, pendentes, projetados, limites de fatura e projeções de fluxo de caixa.
 - **Middlewares**: Autenticação JWT Bearer, tratamento de CORS, Swagger UI, Migrações automáticas no startup via `ApplyMigrationsAsync`.
+- **MCP remoto**: `POST /mcp` usa Streamable HTTP stateless, OpenIddict Authorization Code + PKCE, escopo `finflow.read`, audience vinculada à URL `/mcp`, rate limiting e adapters read-only em `Mcp/FinflowMcpTools.cs`. O cliente OAuth é pré-registrado por configuração; certificados de desenvolvimento não são usados em produção.
 
 ### 2.3. Camada de Banco de Dados (Persistência)
 - **Engine**: PostgreSQL relacional.

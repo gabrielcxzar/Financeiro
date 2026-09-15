@@ -5,7 +5,26 @@ namespace MyFinance.API.Controllers;
 [ApiController]
 public sealed class McpMetadataController(IConfiguration configuration) : ControllerBase
 {
+    [HttpGet("/.well-known/oauth-authorization-server")]
+    public IActionResult AuthorizationServer()
+    {
+        var issuer = (configuration["McpOAuth:Issuer"] ?? throw new InvalidOperationException("McpOAuth:Issuer não configurado.")).TrimEnd('/') + "/";
+        return Ok(new
+        {
+            issuer,
+            authorization_endpoint = new Uri(new Uri(issuer), "oauth/authorize").ToString(),
+            token_endpoint = new Uri(new Uri(issuer), "oauth/token").ToString(),
+            revocation_endpoint = new Uri(new Uri(issuer), "oauth/revoke").ToString(),
+            response_types_supported = new[] { "code" },
+            grant_types_supported = new[] { "authorization_code", "refresh_token" },
+            code_challenge_methods_supported = new[] { "S256" },
+            scopes_supported = new[] { "finflow.read" },
+            token_endpoint_auth_methods_supported = new[] { "none" }
+        });
+    }
+
     [HttpGet("/.well-known/oauth-protected-resource")]
+    [HttpGet("/.well-known/oauth-protected-resource/mcp")]
     public IActionResult ProtectedResource()
     {
         var issuer = configuration["McpOAuth:Issuer"] ?? throw new InvalidOperationException("McpOAuth:Issuer não configurado.");

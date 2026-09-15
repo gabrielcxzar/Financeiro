@@ -73,9 +73,9 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 - **Saldo conhecido**: valor contábil derivável do saldo inicial e das transações persistidas no FinFlow. Não implica disponibilidade bancária em tempo real.
 - **Patrimônio contábil conhecido**: soma dos saldos conhecidos menos passivos de cartão conhecidos. Não equivale a patrimônio de mercado quando faltam cotações atuais.
 - **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
-- **Acesso MCP somente leitura** *(termo proposto em 2026-09-10)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
+- **Acesso MCP somente leitura** *(implementado parcialmente em 2026-09-14)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
 
-Os contratos e limites propostos para esse acesso estão em [docs/FINFLOW_MCP/SPEC.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/SPEC.md); eles ainda não descrevem funcionalidade implementada.
+O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). A validação PostgreSQL, de produção e do cliente ChatGPT permanece dependente da configuração do ambiente.
 
 ---
 
@@ -85,7 +85,7 @@ Os contratos e limites propostos para esse acesso estão em [docs/FINFLOW_MCP/SP
 - Estrutura de diretórios, responsabilidades, semântica de movimentação operacional e conceitos de saldo foram verificados diretamente no repositório.
 
 ### Média
-- O termo de acesso MCP é uma proposta documentada, ainda não implementada.
+- A semântica de datas legadas e a validação de produção/cliente ainda requerem evidência operacional.
 
 ### Baixa
 - N/A.

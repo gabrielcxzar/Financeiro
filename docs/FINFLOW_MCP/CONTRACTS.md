@@ -1,7 +1,9 @@
 # Contratos MCP propostos
 
 **Feature**: `001-finflow-mcp`  
-**Status**: Rascunho; deve ser validado contra o SDK e o “Scan Tools” antes da implementação
+**Status**: Implementação parcial; schemas precisam de validação wire via `tools/list`/ChatGPT antes de liberação
+
+> Implementação atual: os oito métodos estão consolidados em `MyFinance.API/Mcp/FinflowMcpTools.cs`, com output estruturado via `UseStructuredContent=true`. O SDK deriva `inputSchema`/`outputSchema` dos métodos e DTOs; a validação HTTP real ainda é pendente. O subject OAuth é a única fonte de identidade e não existe argumento `userId`.
 
 ## Convenções comuns
 

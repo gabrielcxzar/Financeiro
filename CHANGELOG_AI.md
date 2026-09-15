@@ -1,5 +1,12 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.9.0] - 2026-09-14
+
+- **Objetivo**: Continuar a implementação da feature `001-finflow-mcp` com os bloqueios de segurança do PR tratados sem alterar a arquitetura aprovada.
+- **Alterações**: OAuth OpenIddict sem clientes anônimos, resource/audience canônica, PKCE S256, metadata OAuth/Protected Resource, pré-registro configurável com callbacks HTTPS, certificados persistentes obrigatórios fora de Development, cursor de transações protegido e vinculado a usuário/filtros, política operacional compartilhada, agregações SQL para resumo/categorias, filtros P2, limite de corpo/origem/host, rate limit de detalhes, logs redigidos e fingerprint read-only. Os defaults de token JWT foram removidos de `appsettings.json` e `appsettings.Development.json`.
+- **Testes**: build da API passou; reflexão de oito tools e metadata passaram. Smoke HTTP local confirmou Protected Resource Metadata `200` e `/mcp` sem bearer `401` com `WWW-Authenticate`; a descoberta OAuth em HTTP foi recusada pelo requisito HTTPS. As provas de serviço que dependem de PostgreSQL exigem `FINFLOW_POSTGRES_TEST_URL` e ficaram skipped neste ambiente sem banco efêmero. A suíte lógica mantém cinco falhas preexistentes de importação. Suíte HTTP de contratos requer `FINFLOW_TEST_BASE_URL`.
+- **Limitações**: Docker/psql/credenciais Render e conexão real ChatGPT não estão disponíveis neste ambiente; não houve `EXPLAIN ANALYZE`, migration aplicada em banco ou smoke test de OAuth end-to-end.
+
 ## [1.8.0] - 2026-09-10
 
 - **Objetivo**: Recuperar e congelar a documentação da feature e avançar a fundação de validação OAuth/MCP sem iniciar P2.
@@ -229,3 +236,5 @@ Este arquivo registra todas as alterações estruturais, de código e de documen
 - Implementadas as oito tools read-only de insights financeiros com filtragem por usuário, política de reporting e paginação keyset para transações.
 - Adicionadas tabelas OpenIddict via migration `20260910224039_AddOpenIddictMcp`.
 - O segredo legado `AppSettings:Token` foi removido do `appsettings.json`; configurar via secret store/env var e rotacionar qualquer valor anteriormente exposto.
+- Endurecido o fluxo: cliente OAuth pré-registrado com callbacks exatos, audience canônica `/mcp`, certificados persistentes obrigatórios fora de Development, cursor protegido por Data Protection e rate limit específico de detalhes.
+- `FinancialInsightsService` passou a executar o resumo com agregação SQL e oferece filtros de conta/categoria/tipo/status/faixa de valor para transações.
