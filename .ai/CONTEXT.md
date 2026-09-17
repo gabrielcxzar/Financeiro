@@ -73,7 +73,7 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 - **Saldo conhecido**: valor contábil derivável do saldo inicial e das transações persistidas no FinFlow. Não implica disponibilidade bancária em tempo real.
 - **Patrimônio contábil conhecido**: soma dos saldos conhecidos menos passivos de cartão conhecidos. Não equivale a patrimônio de mercado quando faltam cotações atuais.
 - **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
-- **Acesso MCP somente leitura** *(implementado parcialmente em 2026-09-14)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
+- **Acesso MCP somente leitura** *(implementado e validado em 2026-09-17)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
 
 O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). O backend foi validado localmente contra PostgreSQL isolado e o fluxo real ChatGPT → FinFlow validou OAuth, descoberta, listagem e chamada de tool em produção.
 

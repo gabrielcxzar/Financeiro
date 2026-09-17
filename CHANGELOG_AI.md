@@ -1,5 +1,11 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.9.3] - 2026-09-17
+
+- **Limpeza e consolidação**: os commits locais `42f9db9` e `bb61b7d` foram preservados em patches externos, comprovados redundantes com `origin/main` e descartados apenas do ponteiro local; `main` foi alinhada ao commit oficial `6ba2fef`.
+- **Higiene do repositório**: o `.gitignore` passou a cobrir resultados de testes, cobertura, temporários, dumps e material local de certificados/chaves. Artefatos gerados foram removidos sem alterar arquivos necessários ao build ou deploy.
+- **Documentação**: os status de plano, contratos, modelo, recuperação e tarefas MCP foram consolidados para refletir a implementação entregue; o script de reparo legado permanece como runbook idempotente e específico.
+
 ## [1.9.2] - 2026-09-17
 
 - **Correção contábil**: reparo transacional e idempotente dos IDs 3214/3240 como pagamento de fatura e do ID 3276 como ajuste técnico, sem apagar histórico nem alterar valor, data, conta, tipo, categoria ou efeito de saldo. O dry-run prévio listou três candidatos; a aplicação afetou três linhas; o dry-run posterior afetou zero.
@@ -8,7 +14,7 @@
 - **Segurança de logs**: categorias `OpenIddict` e `Microsoft.EntityFrameworkCore` passaram a `Warning`; os logs MCP próprios, minimizados e redigidos, permanecem em `Information`.
 - **Validação**: 24 testes de lógica passaram, restando apenas duas falhas históricas independentes (duplicidade e chargeback); cinco testes do módulo MCP/FinancialInsights passaram em PostgreSQL Neon schema-only isolado.
 - **Correção pós-merge**: a série mensal de `get_financial_summary` agora usa projeção SQL traduzível pelo PostgreSQL antes de construir `MonthlySummary`, eliminando a falha observada no smoke test real com `includeMonthlyBreakdown=true`.
-- **Validação final**: PRs #1 e #2 foram integrados; Render está em `main`, deploy `b3642ef` Live e o ChatGPT confirmou `get_financial_summary` em setembro/2026 sem liquidação nas despesas operacionais.
+- **Validação final**: PRs #1, #2 e #3 foram integrados; Render está em `main`, deploy `6ba2fef` Live e o ChatGPT confirmou `get_financial_summary` em setembro/2026 sem liquidação nas despesas operacionais.
 
 ## [1.9.1] - 2026-09-15
 

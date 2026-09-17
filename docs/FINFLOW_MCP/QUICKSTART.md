@@ -42,3 +42,7 @@ O cliente deve usar PKCE (S256), solicitar `finflow.read` e, se precisar renovar
 ## Tools v1
 
 `get_financial_summary`, `compare_periods`, `get_spending_by_category`, `get_transactions`, `get_account_balances`, `get_recurring_expenses`, `get_financial_goals` e `get_investment_positions` são somente leitura e filtradas pelo sujeito OAuth autenticado.
+
+## Manutenção de lançamentos legados
+
+O script `MyFinance.API/Scripts/Maintenance/RepairLegacyNonOperationalTransactions.sql` é um runbook auditável, específico para os IDs históricos 3214, 3240 e 3276. Ele é idempotente, valida as identidades e invariantes antes de qualquer alteração e executa dry-run por padrão. Para aplicar, use uma conexão administrativa isolada e defina explicitamente `finflow.apply_legacy_reporting='1'`; não reutilize o script para outros lançamentos sem uma nova revisão.

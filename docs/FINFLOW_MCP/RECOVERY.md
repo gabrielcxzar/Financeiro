@@ -26,7 +26,7 @@ O teste de pré-requisitos do Spec Kit tentou criar cópias temporárias `spec.m
 
 ## Estado
 
-Os seis documentos de especificação foram recuperados ou confirmados. A implementação parcial permanece preservada. Nenhum P2 foi iniciado nesta sessão.
+Os seis documentos de especificação foram recuperados ou confirmados e permanecem versionados como histórico da feature. A implementação MCP foi concluída posteriormente; este registro de recuperação é mantido apenas como histórico do incidente. Nenhuma nova superfície P2 foi aberta nesta etapa.
 
 ## Baseline LogicTests
 

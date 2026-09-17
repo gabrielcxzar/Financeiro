@@ -3,7 +3,7 @@
 **Feature ID**: `001-finflow-mcp`  
 **Data**: 2026-09-10  
 **Spec**: [SPEC.md](SPEC.md)  
-**Status**: Proposto; implementação bloqueada até as aprovações ao final deste documento
+**Status**: Implementado e validado; este documento preserva o plano original e identifica como propostas somente os itens que não foram adotados.
 
 ## Resumo
 

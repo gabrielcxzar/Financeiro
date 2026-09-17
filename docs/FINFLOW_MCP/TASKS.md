@@ -1,7 +1,7 @@
 # Tarefas: FinFlow MCP somente leitura
 
 **Entrada**: [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), [RESEARCH.md](RESEARCH.md) e [CONTRACTS.md](CONTRACTS.md)  
-**Status**: Backend implementado; OAuth/MCP validado localmente e em produção com ChatGPT. Correção de liquidações legadas e hardening final em validação para integração à `main`
+**Status**: Concluído; backend, OAuth e MCP validados localmente e em produção com ChatGPT. As pendências explicitamente marcadas permanecem como manutenção futura, não como bloqueio da entrega.
 **Formato**: `[ID] [P?] [US?] descrição com caminho`
 
 ## Fase 0 — Gate humano

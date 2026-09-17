@@ -1,7 +1,7 @@
 # Modelo de dados relevante ao FinFlow MCP
 
 **Feature**: `001-finflow-mcp`  
-**Status**: análise do modelo atual e mudanças propostas; não implementado
+**Status**: modelo atual consolidado e integração MCP implementada; índices e read models continuam explicitamente propostos quando não adotados.
 
 ## Entidades existentes reutilizadas
 
