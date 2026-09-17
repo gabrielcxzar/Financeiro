@@ -45,10 +45,18 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
         var net = income - expense;
         decimal? savings = income == 0 ? null : decimal.Round(net / income * 100m, 2);
         var monthly = includeMonthlyBreakdown
-            ? await db.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.Date >= from && t.Date < to).Where(ReportingPolicy.OperationalPredicate)
+            ? (await db.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.Date >= from && t.Date < to).Where(ReportingPolicy.OperationalPredicate)
                 .GroupBy(t => new { t.Date.Year, t.Date.Month })
-                .Select(g => new MonthlySummary(g.Key.Year, g.Key.Month, g.Where(t => t.Type.ToLower() == "income").Sum(t => t.Amount), g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.Amount)), g.Where(t => t.Type.ToLower() == "income").Sum(t => t.Amount) - g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.Amount))))
-                .OrderBy(x => x.Year).ThenBy(x => x.Month).ToListAsync(cancellationToken)
+                .Select(g => new
+                {
+                    g.Key.Year,
+                    g.Key.Month,
+                    Income = g.Where(t => t.Type.ToLower() == "income").Sum(t => t.Amount),
+                    Expense = g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.Amount))
+                })
+                .OrderBy(x => x.Year).ThenBy(x => x.Month).ToListAsync(cancellationToken))
+                .Select(x => new MonthlySummary(x.Year, x.Month, x.Income, x.Expense, x.Income - x.Expense))
+                .ToList()
             : [];
         var top = topCategories == 0 ? [] : await db.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.Date >= from && t.Date < to).Where(ReportingPolicy.OperationalPredicate).Where(t => t.Type.ToLower() != "income")
             .GroupBy(t => new { t.CategoryId, Name = t.Category == null ? "Sem categoria" : t.Category.Name })
