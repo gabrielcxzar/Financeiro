@@ -20,4 +20,4 @@
 
 ## Checkpoint
 
-O código contém a fundação OAuth/MCP e as oito tools read-only. A validação PostgreSQL isolada passou, a migration foi exercitada, os contratos HTTP `27/27`, o wire OAuth/MCP local e o fluxo real ChatGPT → Render passaram. A cobertura dedicada de limites e a carga p95 continuam como manutenção; as falhas restantes de `Finflow.Api.LogicTests` são independentes e preexistentes ao módulo MCP.
+O código contém a fundação OAuth/MCP e as oito tools read-only. A validação PostgreSQL isolada passou, a migration foi exercitada, os contratos HTTP `27/27`, o wire OAuth/MCP local e o fluxo real ChatGPT → Render em `main` passaram, incluindo `get_financial_summary` com breakdown mensal. A cobertura dedicada de limites e a carga p95 continuam como manutenção; as falhas restantes de `Finflow.Api.LogicTests` são independentes e preexistentes ao módulo MCP.
