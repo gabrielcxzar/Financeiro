@@ -42,6 +42,20 @@ Este documento registra o histórico imutável das Decisões Arquiteturais (Arch
 
 ---
 
+## ADR-004: MCP integrado e OAuth com cliente pré-registrado
+
+- **Data**: 2026-09-14
+- **Contexto**: O FinFlow precisa oferecer consultas financeiras somente leitura a um cliente MCP, sem criar um segundo serviço nem reutilizar o JWT de sessão REST.
+- **Decisão**: Integrar Streamable HTTP stateless em `/mcp` à API ASP.NET Core 8. Usar OpenIddict para Authorization Code + PKCE (S256), escopo `finflow.read`, resource/audience canônica `/mcp`, tokens de referência de curta duração e refresh rotation/revogação. Clientes são pré-registrados com callbacks HTTPS exatos; descoberta de cliente dinâmica não faz parte da v1.
+- **Motivação**: Manter uma fronteira de autorização explícita e auditável para um endpoint público, com minimização, isolamento por sujeito e allowlist fixa de oito tools read-only.
+- **Alternativas consideradas**:
+  1. Serviço MCP separado, que aumentaria superfície operacional e duplicaria autenticação.
+  2. API key ou reutilização do JWT REST de 30 dias, rejeitados por não atenderem ao modelo OAuth aprovado.
+  3. Dynamic Client Registration/CIMD, reservados para uma revisão futura após validação do cliente.
+- **Impacto**: Produção exige issuer HTTPS, certificados persistentes e cadastro das credenciais/callbacks do cliente no secret store do Render. Validação PostgreSQL e conexão real com ChatGPT permanecem gates de liberação.
+
+---
+
 ## Confidence
 
 ### Alta

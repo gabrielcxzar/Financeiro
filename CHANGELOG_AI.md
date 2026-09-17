@@ -1,6 +1,69 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [1.9.2] - 2026-09-17
+
+- **Correção contábil**: reparo transacional e idempotente dos IDs 3214/3240 como pagamento de fatura e do ID 3276 como ajuste técnico, sem apagar histórico nem alterar valor, data, conta, tipo, categoria ou efeito de saldo. O dry-run prévio listou três candidatos; a aplicação afetou três linhas; o dry-run posterior afetou zero.
+- **Regressão**: pagamento de fatura agora possui prova PostgreSQL de que não aumenta receita, despesa ou categorias, mas continua reduzindo caixa/passivo e permanece consultável com `includeNonOperational=true`.
+- **Importação**: testes históricos foram alinhados ao fluxo seguro de prévia e confirmação. Cartão único e cartão explicitamente nomeado são resolvidos; ausência ou múltiplos cartões ambíguos exigem revisão manual e não criam transações/cartões automaticamente.
+- **Segurança de logs**: categorias `OpenIddict` e `Microsoft.EntityFrameworkCore` passaram a `Warning`; os logs MCP próprios, minimizados e redigidos, permanecem em `Information`.
+- **Validação**: 24 testes de lógica passaram, restando apenas duas falhas históricas independentes (duplicidade e chargeback); cinco testes do módulo MCP/FinancialInsights passaram em PostgreSQL Neon schema-only isolado.
+
+## [1.9.1] - 2026-09-15
+
+- **Correções**: registro idempotente do cliente MCP agora inclui revogação; refresh tokens têm janela de reutilização zero; metadata anuncia `offline_access`; suporte a `ForwardedHeaders` e seleção correta de URLs para o proxy TLS do Render; testes PostgreSQL destrutivos exigem marcação explícita de banco isolado.
+- **Validação**: wire test local completo passou para discovery, PKCE S256, resource, oito tools, P1/P2, refresh/replay/revogação; migration e EXPLAIN foram exercitados em branch Neon schema-only.
+
+## [1.9.0] - 2026-09-14
+
+- **Objetivo**: Continuar a implementação da feature `001-finflow-mcp` com os bloqueios de segurança do PR tratados sem alterar a arquitetura aprovada.
+- **Alterações**: OAuth OpenIddict sem clientes anônimos, resource/audience canônica, PKCE S256, metadata OAuth/Protected Resource, pré-registro configurável com callbacks HTTPS, certificados persistentes obrigatórios fora de Development, cursor de transações protegido e vinculado a usuário/filtros, política operacional compartilhada, agregações SQL para resumo/categorias, filtros P2, limite de corpo/origem/host, rate limit de detalhes, logs redigidos e fingerprint read-only. Os defaults de token JWT foram removidos de `appsettings.json` e `appsettings.Development.json`.
+- **Testes**: build da API passou; reflexão e `tools/list` confirmaram exatamente oito tools estruturadas/read-only. Em um PostgreSQL Neon efêmero, schema-only e separado da produção, as três provas PostgreSQL passaram; a suíte lógica ficou em `23 aprovados, 5 falhas preexistentes, 0 ignorados`. A migration foi aplicada, revertida e reaplicada. `EXPLAIN (ANALYZE, BUFFERS)` usou `ix_transactions_user_id`, com execução observada abaixo de 0,1 ms nas consultas sintéticas. A suíte HTTP de contratos passou `27/27`. O wire test local confirmou discovery/metadata, PKCE S256, resource, 8 tools P1/P2, payload máximo de 1.337 bytes, refresh rotativo, replay rejeitado e revogação efetiva.
+- **Limitações**: a validação foi local, com transporte HTTP permitido somente em Development e issuer/resource canônicos HTTPS; HTTPS real atrás do Render, deploy e conexão real ChatGPT ainda dependem de credenciais/ação manual externas. Permanecem cinco falhas históricas de importação fora do módulo MCP.
+
+## [1.8.0] - 2026-09-10
+
+- **Objetivo**: Recuperar e congelar a documentação da feature e avançar a fundação de validação OAuth/MCP sem iniciar P2.
+- **Alterações**: recuperação exata/parcial registrada em `docs/FINFLOW_MCP/RECOVERY.md`, matriz `TRACEABILITY.md`, checkpoint Git `42f9db9`, validação OpenIddict local, Protected Resource Metadata e resposta `401` com `WWW-Authenticate` para `/mcp` sem credencial.
+- **Validação**: baseline e working tree LogicTests mantêm 17 aprovados e 5 falhas preexistentes; build da API passa. Fluxo Authorization Code/PKCE, refresh, revogação, PostgreSQL real, isolamento A/B e P1 exit gate continuam pendentes.
+
+## [1.7.0] - 2026-09-10
+
+- **Agente**: Codex (GPT-5)
+- **Objetivo**: Bootstrap do Spec Kit 1.0.5 e spike inicial da fundação MCP/OAuth da feature `001-finflow-mcp`.
+- **Alterações**: `.specify/`, comandos Spec Kit genéricos em `.codex/commands/`, pacotes `ModelContextProtocol.AspNetCore 2.2.0`, `OpenIddict 7.7.0`, alinhamento EF Core/Npgsql, endpoint stateless `/mcp`, política `finflow.read`, rate limit configurável e adaptadores P1 sobre `FinancialInsightsService`.
+- **Validação**: `dotnet build MyFinance.API/MyFinance.API.csproj --no-restore` passou. A suíte LogicTests executou 22 testes, com 17 aprovados e 5 falhas preexistentes/relacionadas à semântica de importação; OAuth completo, P1/P2 e cliente real ainda não concluídos.
+- **Risco**: O fluxo Authorization Code/token handlers ainda precisa ser implementado antes de expor o endpoint. O segredo JWT legado foi removido de `appsettings.json` e requer variável de ambiente para inicialização.
+
+
 Este arquivo registra todas as alterações estruturais, de código e de documentação executadas por Agentes de Inteligência Artificial no repositório **Finflow**.
+
+## [1.6.0] - 2026-09-10
+
+- **Data**: 2026-09-10
+- **Agente**: Codex
+- **Modelo**: GPT-5
+- **Objetivo**: Investigar e planejar a feature `001-finflow-mcp` somente leitura pelo fluxo Spec Kit `spec → plan → tasks`, sem implementar código de produção.
+- **Arquivos Modificados / Criados**:
+  - `docs/FINFLOW_MCP/SPEC.md` -> [SPEC.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/SPEC.md)
+  - `docs/FINFLOW_MCP/PLAN.md` -> [PLAN.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/PLAN.md)
+  - `docs/FINFLOW_MCP/TASKS.md` -> [TASKS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/TASKS.md)
+  - `docs/FINFLOW_MCP/CONTRACTS.md` -> [CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md)
+  - `docs/FINFLOW_MCP/DATA_MODEL.md` -> [DATA_MODEL.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/DATA_MODEL.md)
+  - `docs/FINFLOW_MCP/RESEARCH.md` -> [RESEARCH.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/RESEARCH.md)
+  - `.ai/CONTEXT.md` -> [.ai/CONTEXT.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/.ai/CONTEXT.md)
+  - `CHANGELOG_AI.md` -> [CHANGELOG_AI.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/CHANGELOG_AI.md)
+- **Resumo Técnico**:
+  - Mapeamento da API ASP.NET Core 8, entidades EF Core, autenticação JWT, `FinancialSnapshotService`, políticas de reporting, índices e suítes de teste.
+  - Comparação entre MCP integrado e serviço separado, com recomendação do endpoint integrado e Streamable HTTP stateless.
+  - Proposta de oito tools agregadoras/paginadas, sem Resources ou Prompts na v1.
+  - Proposta de OAuth 2.1 com PKCE, escopo `finflow.read`, revogação, minimização, rate limit, observabilidade redigida e testes de segurança.
+  - Registro de riscos existentes: JWT sem OAuth/audience/scope, segredo default versionado, carregamento integral de transações, possível agregação fora do período e ausência de índices compostos por período.
+- **Motivação**: Permitir conexão futura do ChatGPT aos dados financeiros do FinFlow com segurança, correção e rastreabilidade antes de qualquer implementação.
+- **Impacto**: Somente documentação e glossário; nenhuma funcionalidade ou configuração de execução foi alterada.
+- **Riscos**: As decisões de autenticação, exposição, datas e recorte de entrega permanecem pendentes de aprovação humana.
+- **Necessita Validação Humana?**: Sim, conforme gates de `docs/FINFLOW_MCP/PLAN.md` e `TASKS.md`.
+
+---
 
 ## [1.5.1] - 2026-09-08
 
@@ -180,3 +243,11 @@ Este arquivo registra todas as alterações estruturais, de código e de documen
 
 ## Validação Humana Necessária
 - Nenhuma validação manual necessária para este documento.
+# [Unreleased] FinFlow MCP
+
+- Adicionada fundação MCP stateless em `/mcp`, autenticação OpenIddict OAuth 2.1/PKCE, metadata de Protected Resource, rate limiting por sujeito e tratamento de erros com correlation ID.
+- Implementadas as oito tools read-only de insights financeiros com filtragem por usuário, política de reporting e paginação keyset para transações.
+- Adicionadas tabelas OpenIddict via migration `20260910224039_AddOpenIddictMcp`.
+- O segredo legado `AppSettings:Token` foi removido do `appsettings.json`; configurar via secret store/env var e rotacionar qualquer valor anteriormente exposto.
+- Endurecido o fluxo: cliente OAuth pré-registrado com callbacks exatos, audience canônica `/mcp`, certificados persistentes obrigatórios fora de Development, cursor protegido por Data Protection e rate limit específico de detalhes.
+- `FinancialInsightsService` passou a executar o resumo com agregação SQL e oferece filtros de conta/categoria/tipo/status/faixa de valor para transações.

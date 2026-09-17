@@ -66,16 +66,29 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 
 ---
 
+## 4. Glossário de Consultas Financeiras
+
+- **Movimentação operacional**: transação que representa consumo ou renda econômica nos relatórios. No modelo atual, possui `ReportingKind = normal`, não é transferência e não está excluída de relatórios.
+- **Liquidação**: movimentação que quita ou transfere uma obrigação já reconhecida, como pagamento de fatura; não deve ser contada novamente como consumo.
+- **Saldo conhecido**: valor contábil derivável do saldo inicial e das transações persistidas no FinFlow. Não implica disponibilidade bancária em tempo real.
+- **Patrimônio contábil conhecido**: soma dos saldos conhecidos menos passivos de cartão conhecidos. Não equivale a patrimônio de mercado quando faltam cotações atuais.
+- **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
+- **Acesso MCP somente leitura** *(implementado parcialmente em 2026-09-14)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
+
+O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). O backend foi validado localmente contra PostgreSQL isolado e o fluxo real ChatGPT → FinFlow validou OAuth, descoberta, listagem e chamada de tool em produção.
+
+---
+
 ## Confidence
 
 ### Alta
-- Estrutura de diretórios, responsabilidades e contexto funcional verificados e mapeados diretamente no repositório.
+- Estrutura de diretórios, responsabilidades, semântica de movimentação operacional e conceitos de saldo foram verificados diretamente no repositório.
 
 ### Média
-- N/A.
+- A semântica de datas legadas ainda merece acompanhamento em novos formatos de importação.
 
 ### Baixa
 - N/A.
 
 ## Validação Humana Necessária
-- Nenhuma validação manual necessária para este documento.
+- Nenhuma validação manual pendente para o fluxo MCP somente leitura já conectado; novas origens de importação devem validar datas civis.

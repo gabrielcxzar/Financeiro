@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyFinance.API.Models;
+using OpenIddict.EntityFrameworkCore;
 
 namespace MyFinance.API.Data
 {
@@ -22,6 +23,7 @@ namespace MyFinance.API.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.UseOpenIddict();
 
             modelBuilder.Entity<Transaction>()
                 .HasIndex(t => new { t.UserId, t.AccountId, t.Source, t.ExternalId })
