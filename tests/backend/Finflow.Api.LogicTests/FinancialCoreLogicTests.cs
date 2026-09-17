@@ -876,18 +876,69 @@ public class FinancialCoreLogicTests
         TestContextFactory.AttachUser(controller);
 
         var csv = "Data,Valor,Ignorar,Descricao\n" +
-                  $"{DateTime.UtcNow:dd/MM/yyyy},-100,x,Pagamento de fatura Cartao Principal";
+                  $"{DateTime.UtcNow:dd/MM/yyyy},-100,x,Pagamento de fatura";
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
         IFormFile file = new FormFile(stream, 0, stream.Length, "file", "extrato.csv");
 
         var result = await controller.UploadStatement(file, bank.Id, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
+        var preview = TestContextFactory.ToJsonElement(Assert.IsType<OkObjectResult>(result).Value!);
+        Assert.Equal(1, preview.GetProperty("importedCount").GetInt32());
+        Assert.Equal(0, preview.GetProperty("manualReviewCount").GetInt32());
+        Assert.Single(await db.Transactions.ToListAsync());
+
+        var batchId = preview.GetProperty("batch").GetProperty("id").GetInt32();
+        var confirmed = TestContextFactory.ToJsonElement(Assert.IsType<OkObjectResult>(await controller.Confirm(batchId, CancellationToken.None)).Value!);
+        Assert.Equal(1, confirmed.GetProperty("createdCount").GetInt32());
 
         var snapshot = await finance.BuildUserSnapshotAsync(1, DateTime.UtcNow);
         Assert.Equal(900m, snapshot.AccountSnapshots.Single(s => s.AccountId == bank.Id).RealBalance);
         Assert.Equal(0m, snapshot.AccountSnapshots.Single(s => s.AccountId == card.Id).OutstandingLiability);
         Assert.DoesNotContain(snapshot.Transactions, t => t.AccountId == bank.Id && t.Type == "Income" && !t.IsTransfer);
-        Assert.Contains(snapshot.Transactions, t => t.AccountId == card.Id && t.Type == "Income" && t.IsTransfer);
+        var payment = snapshot.Transactions.Where(t => t.ReportingKind == ReportingKinds.InvoicePayment).ToList();
+        Assert.Equal(2, payment.Count);
+        Assert.All(payment, t =>
+        {
+            Assert.True(t.IsTransfer);
+            Assert.True(t.ExcludeFromReports);
+            Assert.False(string.IsNullOrWhiteSpace(t.TransferGroupId));
+        });
+        Assert.Single(payment.Select(t => t.TransferGroupId).Distinct());
+        Assert.Contains(payment, t => t.AccountId == bank.Id && t.Type == "Expense");
+        Assert.Contains(payment, t => t.AccountId == card.Id && t.Type == "Income");
+    }
+
+    [Fact]
+    public async Task ImportingInvoicePayment_WithExplicitKnownCard_SelectsThatCard()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (bank, card, _, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        db.Accounts.Add(new Account
+        {
+            UserId = 1,
+            Name = "Cartao Secundario",
+            Type = "Checking",
+            IsCreditCard = true,
+            CreditLimit = 3000m,
+            ClosingDay = 20,
+            DueDay = 10
+        });
+        await db.SaveChangesAsync();
+
+        var controller = new ImportController(db, finance);
+        TestContextFactory.AttachUser(controller);
+        var csv = "Data,Valor,Ignorar,Descricao\n" +
+                  $"{DateTime.UtcNow:dd/MM/yyyy},-80,x,Pagamento de fatura Cartao Principal";
+        var stream = new MemoryStream(Encoding.UTF8.GetBytes(csv));
+        IFormFile file = new FormFile(stream, 0, stream.Length, "file", "extrato.csv");
+
+        var result = await controller.UploadStatement(file, bank.Id, CancellationToken.None);
+        var payload = TestContextFactory.ToJsonElement(Assert.IsType<OkObjectResult>(result).Value!);
+        var item = payload.GetProperty("items").EnumerateArray().Single();
+
+        Assert.Equal(0, payload.GetProperty("manualReviewCount").GetInt32());
+        Assert.Equal(card.Id, item.GetProperty("targetAccountId").GetInt32());
+        Assert.Equal(ReportingKinds.InvoicePayment, item.GetProperty("reportingKind").GetString());
+        Assert.Empty(await db.Transactions.ToListAsync());
     }
 
     [Fact]
@@ -929,12 +980,14 @@ public class FinancialCoreLogicTests
         var payload = TestContextFactory.ToJsonElement(((OkObjectResult)result).Value!);
 
         Assert.Equal(1, payload.GetProperty("manualReviewCount").GetInt32());
-        Assert.Contains(await db.Transactions.ToListAsync(), t => t.Description.StartsWith("REVISAR MANUALMENTE:", StringComparison.Ordinal));
+        var reviewItem = payload.GetProperty("items").EnumerateArray().Single();
+        Assert.Equal(ImportItemStatuses.NeedsReview, reviewItem.GetProperty("status").GetString());
+        Assert.Equal("Pagamento de fatura sem cartao inequivoco.", reviewItem.GetProperty("reason").GetString());
         Assert.DoesNotContain(await db.Transactions.ToListAsync(), t => t.IsTransfer && t.AccountId == bank.Id && t.Amount == 80m);
     }
 
     [Fact]
-    public async Task ImportingInvoicePayment_WithoutExistingCard_ProvisionsCreditCardAndCreatesTransfer()
+    public async Task ImportingInvoicePayment_WithoutExistingCard_CreatesManualReviewWithoutProvisioning()
     {
         var (db, finance) = TestContextFactory.Create();
         var bank = new Account
@@ -959,12 +1012,9 @@ public class FinancialCoreLogicTests
         var result = await controller.UploadStatement(file, bank.Id, CancellationToken.None);
         var payload = TestContextFactory.ToJsonElement(((OkObjectResult)result).Value!);
 
-        Assert.Equal(0, payload.GetProperty("manualReviewCount").GetInt32());
-
-        var card = await db.Accounts.SingleAsync(a => a.IsCreditCard);
-        Assert.Equal("Cartao Nubank", card.Name);
-        Assert.Contains(await db.Transactions.ToListAsync(), t => t.IsTransfer && t.AccountId == bank.Id && t.Type == "Expense" && t.Amount == 80m);
-        Assert.Contains(await db.Transactions.ToListAsync(), t => t.IsTransfer && t.AccountId == card.Id && t.Type == "Income" && t.Amount == 80m);
+        Assert.Equal(1, payload.GetProperty("manualReviewCount").GetInt32());
+        Assert.False(await db.Accounts.AnyAsync(a => a.IsCreditCard));
+        Assert.Empty(await db.Transactions.ToListAsync());
     }
 
     [Fact]

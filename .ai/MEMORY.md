@@ -11,6 +11,8 @@ Este documento armazena o conhecimento permanente, estável e consolidado do pro
 3. **Cartões de Crédito como Subtipo de Conta**: Cartões de crédito não possuem tabela separada; são registros na tabela `accounts` com a flag `is_credit_card = true` e utilizam os campos `closing_day`, `due_day` e `credit_limit`.
 4. **Calculador Único de Snapshot**: O cálculo de saldos consolidados reais, pendentes, projetados e passivos de fatura é realizado exclusivamente pela classe [FinancialSnapshotService.cs](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/MyFinance.API/Services/FinancialSnapshotService.cs).
 5. **Navegação no Front-end por Estado**: O front-end React em [App.jsx](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/MyFinance.Web/src/App.jsx) gerencia as telas por chave em estado local (`activeKey`) sem utilizar rotas baseadas em URL.
+6. **Liquidação de Fatura Não é Operação**: A compra no cartão é a despesa operacional. O pagamento da fatura é um par de transferência com `ReportingKind = invoice_payment`, `ExcludeFromReports = true` e `TransferGroupId` compartilhado; ele altera caixa/passivo, mas não receita, despesa nem categorias dos relatórios.
+7. **MCP Somente Leitura em Produção**: O endpoint `/mcp` usa OAuth 2.1 Authorization Code + PKCE, escopo `finflow.read` e oito tools read-only; o fluxo real com ChatGPT foi validado em produção.
 
 ---
 

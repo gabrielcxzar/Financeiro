@@ -37,6 +37,7 @@ Este documento formaliza os Requisitos Funcionais (RF) e Não-Funcionais (RNF) e
 
 ### 1.6. Importação de Extratos
 - **RF-20**: O sistema deve permitir o upload de extratos bancários nos formatos CSV e XLSX, com suporte a detecção de layout do Nubank, auto-categorização e pareamento de pagamentos de fatura.
+- **RF-21**: Compras em cartão devem ser despesas operacionais; a liquidação da fatura deve movimentar os saldos da conta pagadora e do cartão sem criar nova receita, despesa ou categoria de gasto. A importação só deve escolher automaticamente o cartão quando houver uma correspondência inequívoca; ausência ou ambiguidade exige revisão manual.
 
 ---
 

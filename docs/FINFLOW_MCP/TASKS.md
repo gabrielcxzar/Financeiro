@@ -1,7 +1,7 @@
 # Tarefas: FinFlow MCP somente leitura
 
 **Entrada**: [SPEC.md](SPEC.md), [PLAN.md](PLAN.md), [RESEARCH.md](RESEARCH.md) e [CONTRACTS.md](CONTRACTS.md)  
-**Status**: Backend implementado e validado localmente; migration, contratos HTTP e wire OAuth/MCP foram exercitados em PostgreSQL isolado. HTTPS/Render/ChatGPT e a suíte histórica completa ainda são gates externos/pendentes
+**Status**: Backend implementado; OAuth/MCP validado localmente e em produção com ChatGPT. Correção de liquidações legadas e hardening final em validação para integração à `main`
 **Formato**: `[ID] [P?] [US?] descrição com caminho`
 
 ## Fase 0 — Gate humano
@@ -129,6 +129,16 @@
 - [x] T063 Atualizar `CHANGELOG_AI.md` e, no lançamento, `CHANGELOG.md`.
 - [ ] T064 Liberar primeiro para o titular, observar erros/latência por 7 dias e só então decidir se habilita Resources, Prompts ou novas tools.
 
+## Fase 8 — Liquidações legadas e integração final
+
+- [x] T065 Confirmar que `CreateInvoicePayment` e `ReportingPolicy` já implementam a semântica aprovada, sem reimplementar o MCP.
+- [x] T066 Corrigir os três testes históricos de pagamento de fatura para o fluxo prévia → confirmação/revisão e adicionar o cenário de cartão explicitamente conhecido.
+- [x] T067 Adicionar regressão PostgreSQL provando que compra afeta o resumo, pagamento afeta saldos e a liquidação continua visível com `includeNonOperational=true`.
+- [x] T068 Criar e executar dry-run do reparo idempotente em `MyFinance.API/Scripts/Maintenance/RepairLegacyNonOperationalTransactions.sql`.
+- [x] T069 Aplicar o reparo aos IDs 3214, 3240 e 3276; repetir dry-run e obter zero alterações.
+- [x] T070 Elevar logs de OpenIddict e EF Core para `Warning`, preservando `McpRequest` em `Information`.
+- [ ] T071 Validar novamente setembro/2026 via MCP real, revisar logs do Render e integrar a branch à `main`.
+
 ## Dependências e ordem
 
 - T001–T003 bloqueiam todo o trabalho.
@@ -145,11 +155,11 @@ A feature só está concluída quando as tools aprovadas passam contratos, isola
 
 ## Confidence
 
-### Implementação observada em 2026-09-15
+### Implementação observada em 2026-09-17
 
 - Os adaptadores foram consolidados em `MyFinance.API/Mcp/FinflowMcpTools.cs` e as consultas em `MyFinance.API/Mcp/FinancialInsightsService.cs`; os caminhos `Mcp/Tools/*` e filtros separados citados no plano não foram criados.
-- As provas de serviço que dependem de PostgreSQL foram executadas em banco Neon efêmero, schema-only e isolado da produção, com `FINFLOW_POSTGRES_TEST_ISOLATED=1`: 3 provas PostgreSQL passaram. A suíte completa ficou em 23 aprovados e 5 falhas preexistentes de importação.
-- A migration foi aplicada/revertida/reaplicada; contratos HTTP `27/27`, EXPLAIN e wire OAuth/MCP local passaram. O wire usa HTTP apenas em Development, mantendo issuer/resource HTTPS canônicos; HTTPS Render e cliente ChatGPT real permanecem pendentes.
+- As provas de serviço que dependem de PostgreSQL foram executadas em branch Neon efêmera, schema-only e isolada da produção, com `FINFLOW_POSTGRES_TEST_ISOLATED=1`: 5 provas PostgreSQL/MCP passaram. A suíte lógica completa ficou em 24 aprovados, 2 falhas históricas independentes e 4 testes condicionais ignorados sem conexão.
+- A migration foi aplicada/revertida/reaplicada; contratos HTTP `27/27`, EXPLAIN e wire OAuth/MCP local passaram. O wire usa HTTP apenas em Development, mantendo issuer/resource HTTPS canônicos; a validação HTTPS Render/ChatGPT foi feita no serviço atualmente publicado e será repetida após a troca para `main`.
 
 ### Alta
 

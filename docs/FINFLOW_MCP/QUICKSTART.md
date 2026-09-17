@@ -25,6 +25,8 @@ Defina no ambiente (Render Secret/Environment Groups):
 
 Configure a retenção do agregador de logs do Render para 30 dias. O middleware MCP registra apenas metadados técnicos redigidos (correlation ID, tool/status, duração, sujeito pseudonimizado e tamanho aproximado), sem prompts, descrições, valores, respostas ou tokens.
 
+Em produção, mantenha `Logging__LogLevel__OpenIddict=Warning` e `Logging__LogLevel__Microsoft.EntityFrameworkCore=Warning` (os mesmos defaults já estão versionados). Isso conserva erros e warnings relevantes sem registrar payloads OAuth ou comandos SQL rotineiros em `Information`; a categoria própria `McpRequest` continua em `Information` e redigida.
+
 As migrations são aplicadas automaticamente apenas quando `RunSchemaBootstrap=true` (desenvolvimento por padrão). Em produção, execute a migration revisada no pipeline de deploy.
 
 ## Endpoints OAuth

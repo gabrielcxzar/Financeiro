@@ -3,7 +3,7 @@
 **Feature ID**: `001-finflow-mcp`  
 **Branch planejada**: `codex/001-finflow-mcp` (não criada nesta etapa)  
 **Criada em**: 2026-09-10  
-**Status**: Rascunho para aprovação  
+**Status**: Implementado e validado em produção; hardening e manutenção contínuos
 **Entrada**: disponibilizar contexto financeiro confiável do FinFlow ao ChatGPT por MCP, sem qualquer capacidade de escrita.
 
 ## Problema
@@ -178,6 +178,34 @@ Como titular, quero autorizar, limitar e revogar o ChatGPT, e quero que chamadas
 - Índices atuais não cobrem de forma explícita os principais padrões `(user_id, date)` e `(user_id, categoryid, date)`.
 - Timestamps legados sem timezone podem deslocar limites se tratados como instantes UTC.
 - Descrições importadas são conteúdo não confiável e podem conter prompt injection.
+
+## Correção final de liquidações legadas — 2026-09-17
+
+### Problema
+
+Um pagamento de fatura de R$ 936,31 persistido antes da política atual possuía duas pernas classificadas como operações normais. Isso criava receita e despesa artificiais no resumo de setembro/2026. Um ajuste técnico de R$ 0,60 do mesmo período também permanecia operacional.
+
+### Comportamento esperado
+
+- A compra no cartão continua sendo despesa operacional.
+- O pagamento da fatura reduz caixa e passivo do cartão, mas não aumenta receita, despesa ou categorias operacionais.
+- As duas pernas permanecem no histórico e compartilham um `TransferGroupId`.
+- Ajustes técnicos inequívocos permanecem no histórico, com `ReportingKind = technical_adjustment` e exclusão dos relatórios.
+- A importação gera prévia; só confirma automaticamente um pagamento quando o cartão é inequívoco. Ausência ou ambiguidade exige revisão manual.
+
+### Critérios de aceitação
+
+1. O resumo MCP exclui as duas pernas de liquidação e o ajuste técnico.
+2. A consulta detalhada com `includeNonOperational=true` mantém os registros visíveis.
+3. O reparo é versionado, transacional, idempotente, inicia em dry-run e aborta se IDs ou invariantes divergirem.
+4. Os testes cobrem cartão único, cartão explicitamente identificado, múltiplos cartões ambíguos, ausência de cartão e efeitos separados em relatório/saldos.
+5. Logs `Information` próprios do MCP permanecem; categorias OpenIddict e EF Core ficam em `Warning` para impedir dumps rotineiros de payload OAuth/SQL.
+
+### Riscos
+
+- Classificação ampla por descrição poderia atingir operações legítimas; por isso o reparo usa IDs e invariantes exatas.
+- Alterar valor, data, conta ou tipo mudaria saldos; o reparo proíbe esses campos.
+- Classificar cartão por heurística ambígua poderia liquidar o passivo errado; nesses casos o fluxo para em revisão manual.
 
 ## Confidence
 

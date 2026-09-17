@@ -75,7 +75,7 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 - **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
 - **Acesso MCP somente leitura** *(implementado parcialmente em 2026-09-14)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
 
-O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). O backend foi validado localmente contra PostgreSQL isolado; validação de produção/Render e do cliente ChatGPT ainda depende da configuração do ambiente externo.
+O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/PKCE via OpenIddict, escopo `finflow.read`, pré-registro explícito de cliente e as oito tools descritas em [docs/FINFLOW_MCP/CONTRACTS.md](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/docs/FINFLOW_MCP/CONTRACTS.md). O backend foi validado localmente contra PostgreSQL isolado e o fluxo real ChatGPT → FinFlow validou OAuth, descoberta, listagem e chamada de tool em produção.
 
 ---
 
@@ -85,10 +85,10 @@ O acesso MCP somente leitura está implementado na API em `/mcp`, com OAuth 2.1/
 - Estrutura de diretórios, responsabilidades, semântica de movimentação operacional e conceitos de saldo foram verificados diretamente no repositório.
 
 ### Média
-- A semântica de datas legadas e a validação de produção/cliente ainda requerem evidência operacional.
+- A semântica de datas legadas ainda merece acompanhamento em novos formatos de importação.
 
 ### Baixa
 - N/A.
 
 ## Validação Humana Necessária
-- Confirmar a interpretação de datas financeiras legadas antes da implementação do MCP.
+- Nenhuma validação manual pendente para o fluxo MCP somente leitura já conectado; novas origens de importação devem validar datas civis.

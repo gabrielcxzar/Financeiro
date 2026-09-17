@@ -33,6 +33,48 @@ public sealed class FinancialInsightsServiceTests
     }
 
     [PostgresFact]
+    public async Task InvoicePayment_ChangesBalancesButNotOperationalSummaryOrCategories()
+    {
+        await using var db = CreateDb();
+        var bank = new Account { UserId = 1, Name = "Nubank", Type = "Checking", InitialBalance = 1000m, CurrentBalance = 1000m };
+        var card = new Account { UserId = 1, Name = "Cartao Nubank", Type = "Checking", IsCreditCard = true, CreditLimit = 5000m, ClosingDay = 25, DueDay = 7 };
+        var purchaseCategory = new Category { UserId = 1, Name = "Compras", Type = "Expense" };
+        var paymentCategory = new Category { UserId = 1, Name = "Pagamento Fatura", Type = "Expense" };
+        db.AddRange(bank, card, purchaseCategory, paymentCategory);
+        await db.SaveChangesAsync();
+
+        const string transferGroupId = "invoice-payment-regression";
+        var date = new DateTime(2026, 9, 7, 12, 0, 0, DateTimeKind.Utc);
+        db.Transactions.AddRange(
+            new Transaction { UserId = 1, AccountId = card.Id, CategoryId = purchaseCategory.Id, Date = date.AddDays(-1), Description = "Compra no cartao", Amount = 120m, Type = "Expense", Paid = true, ReportingKind = ReportingKinds.Normal },
+            new Transaction { UserId = 1, AccountId = bank.Id, CategoryId = paymentCategory.Id, Date = date, Description = "Pagamento fatura Nubank", Amount = 120m, Type = "Expense", Paid = true, IsTransfer = true, TransferGroupId = transferGroupId, ReportingKind = ReportingKinds.InvoicePayment, ExcludeFromReports = true },
+            new Transaction { UserId = 1, AccountId = card.Id, Date = date, Description = "Pagamento recebido", Amount = 120m, Type = "Income", Paid = true, IsTransfer = true, TransferGroupId = transferGroupId, ReportingKind = ReportingKinds.InvoicePayment, ExcludeFromReports = true });
+        await db.SaveChangesAsync();
+
+        var snapshots = new FinancialSnapshotService(db);
+        await snapshots.RecalculateAccountBalancesAsync(1);
+        var service = new FinancialInsightsService(db, DataProtectionProvider.Create("FinflowTests"), snapshots);
+        var from = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var to = from.AddMonths(1);
+
+        var summary = await service.GetSummaryAsync(1, from, to, false, 5, default);
+        Assert.Equal(0m, summary.Data.Income);
+        Assert.Equal(120m, summary.Data.Expense);
+        Assert.Equal(-120m, summary.Data.Net);
+        Assert.Single(summary.Data.TopSpendingCategories);
+        Assert.Equal("Compras", summary.Data.TopSpendingCategories.Single().Category);
+
+        var balances = await service.GetAccountBalancesAsync(1, false, true, default);
+        Assert.Equal(880m, balances.Data.CashAccounts.Single().Balance);
+        Assert.Equal(0m, balances.Data.CreditCards.Single().OutstandingLiability);
+
+        var history = await service.GetTransactionsAsync(1, from, to, null, null, "all", "all", null, null, true, 10, null, default);
+        Assert.Equal(3, history.Data.Items.Count);
+        Assert.Contains(history.Data.Items, item => item.Description == "Pagamento fatura Nubank");
+        Assert.Contains(history.Data.Items, item => item.Description == "Pagamento recebido");
+    }
+
+    [PostgresFact]
     public async Task Transactions_RejectTamperedCursor()
     {
         await using var db = CreateDb();
