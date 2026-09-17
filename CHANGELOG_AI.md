@@ -7,6 +7,7 @@
 - **Importação**: testes históricos foram alinhados ao fluxo seguro de prévia e confirmação. Cartão único e cartão explicitamente nomeado são resolvidos; ausência ou múltiplos cartões ambíguos exigem revisão manual e não criam transações/cartões automaticamente.
 - **Segurança de logs**: categorias `OpenIddict` e `Microsoft.EntityFrameworkCore` passaram a `Warning`; os logs MCP próprios, minimizados e redigidos, permanecem em `Information`.
 - **Validação**: 24 testes de lógica passaram, restando apenas duas falhas históricas independentes (duplicidade e chargeback); cinco testes do módulo MCP/FinancialInsights passaram em PostgreSQL Neon schema-only isolado.
+- **Correção pós-merge**: a série mensal de `get_financial_summary` agora usa projeção SQL traduzível pelo PostgreSQL antes de construir `MonthlySummary`, eliminando a falha observada no smoke test real com `includeMonthlyBreakdown=true`.
 
 ## [1.9.1] - 2026-09-15
 

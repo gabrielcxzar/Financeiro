@@ -57,12 +57,14 @@ public sealed class FinancialInsightsServiceTests
         var from = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
         var to = from.AddMonths(1);
 
-        var summary = await service.GetSummaryAsync(1, from, to, false, 5, default);
+        var summary = await service.GetSummaryAsync(1, from, to, true, 5, default);
         Assert.Equal(0m, summary.Data.Income);
         Assert.Equal(120m, summary.Data.Expense);
         Assert.Equal(-120m, summary.Data.Net);
         Assert.Single(summary.Data.TopSpendingCategories);
         Assert.Equal("Compras", summary.Data.TopSpendingCategories.Single().Category);
+        Assert.Single(summary.Data.Monthly);
+        Assert.Equal(120m, summary.Data.Monthly.Single().Expense);
 
         var balances = await service.GetAccountBalancesAsync(1, false, true, default);
         Assert.Equal(880m, balances.Data.CashAccounts.Single().Balance);
