@@ -137,7 +137,7 @@
 - [x] T068 Criar e executar dry-run do reparo idempotente em `MyFinance.API/Scripts/Maintenance/RepairLegacyNonOperationalTransactions.sql`.
 - [x] T069 Aplicar o reparo aos IDs 3214, 3240 e 3276; repetir dry-run e obter zero alterações.
 - [x] T070 Elevar logs de OpenIddict e EF Core para `Warning`, preservando `McpRequest` em `Information`.
-- [ ] T071 Validar novamente setembro/2026 via MCP real, revisar logs do Render e integrar a branch à `main`.
+- [x] T071 Validar novamente setembro/2026 via MCP real, revisar logs do Render e integrar a branch à `main`.
 
 ## Dependências e ordem
 
@@ -159,7 +159,7 @@ A feature só está concluída quando as tools aprovadas passam contratos, isola
 
 - Os adaptadores foram consolidados em `MyFinance.API/Mcp/FinflowMcpTools.cs` e as consultas em `MyFinance.API/Mcp/FinancialInsightsService.cs`; os caminhos `Mcp/Tools/*` e filtros separados citados no plano não foram criados.
 - As provas de serviço que dependem de PostgreSQL foram executadas em branch Neon efêmera, schema-only e isolada da produção, com `FINFLOW_POSTGRES_TEST_ISOLATED=1`: 5 provas PostgreSQL/MCP passaram. A suíte lógica completa ficou em 24 aprovados, 2 falhas históricas independentes e 4 testes condicionais ignorados sem conexão.
-- A migration foi aplicada/revertida/reaplicada; contratos HTTP `27/27`, EXPLAIN e wire OAuth/MCP local passaram. O wire usa HTTP apenas em Development, mantendo issuer/resource HTTPS canônicos; a validação HTTPS Render/ChatGPT foi feita no serviço atualmente publicado e será repetida após a troca para `main`.
+- A migration foi aplicada/revertida/reaplicada; contratos HTTP `27/27`, EXPLAIN e wire OAuth/MCP local passaram. O wire usa HTTP apenas em Development, mantendo issuer/resource HTTPS canônicos; a validação HTTPS Render/ChatGPT foi repetida após a troca para `main`, incluindo `get_financial_summary` com breakdown mensal.
 
 ### Alta
 

@@ -8,6 +8,7 @@
 - **Segurança de logs**: categorias `OpenIddict` e `Microsoft.EntityFrameworkCore` passaram a `Warning`; os logs MCP próprios, minimizados e redigidos, permanecem em `Information`.
 - **Validação**: 24 testes de lógica passaram, restando apenas duas falhas históricas independentes (duplicidade e chargeback); cinco testes do módulo MCP/FinancialInsights passaram em PostgreSQL Neon schema-only isolado.
 - **Correção pós-merge**: a série mensal de `get_financial_summary` agora usa projeção SQL traduzível pelo PostgreSQL antes de construir `MonthlySummary`, eliminando a falha observada no smoke test real com `includeMonthlyBreakdown=true`.
+- **Validação final**: PRs #1 e #2 foram integrados; Render está em `main`, deploy `b3642ef` Live e o ChatGPT confirmou `get_financial_summary` em setembro/2026 sem liquidação nas despesas operacionais.
 
 ## [1.9.1] - 2026-09-15
 
