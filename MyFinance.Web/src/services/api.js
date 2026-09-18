@@ -28,6 +28,30 @@ const api = axios.create({
   timeout: 60000,
 });
 
+const markRequestStart = (config) => {
+  if (typeof performance === 'undefined') return;
+
+  const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  config.metadata = { requestId, startedAt: performance.now() };
+  performance.mark(`finflow:api:start:${requestId}`);
+};
+
+const measureRequest = (config) => {
+  const metadata = config?.metadata;
+  if (typeof performance === 'undefined' || !metadata) return;
+
+  const startMark = `finflow:api:start:${metadata.requestId}`;
+  const method = (config.method || 'get').toUpperCase();
+  const url = config.url || '';
+
+  try {
+    performance.measure(`finflow:api:${method}:${url}`, { start: startMark });
+    performance.clearMarks(startMark);
+  } catch {
+    // Timing instrumentation must never affect API behavior.
+  }
+};
+
 const getStoredAuthToken = () =>
   persistentStorage.getItem('token') || sessionStorageRef.getItem('token');
 
@@ -50,6 +74,7 @@ const clearStoredAuth = () => {
 
 // Interceptor: Antes de cada requisicao, cola o token
 api.interceptors.request.use((config) => {
+  markRequestStart(config);
   const token = getStoredAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -58,8 +83,12 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    measureRequest(response.config);
+    return response;
+  },
   (error) => {
+    measureRequest(error.config);
     if (error.code === 'ERR_CANCELED') {
       return Promise.reject(error);
     }
