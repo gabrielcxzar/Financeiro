@@ -22,6 +22,7 @@ namespace MyFinance.API.Data
         public DbSet<GmailIntegration> GmailIntegrations { get; set; }
         public DbSet<ExternalImportArtifact> ExternalImportArtifacts { get; set; }
         public DbSet<GmailOAuthState> GmailOAuthStates { get; set; }
+        public DbSet<GmailImportRule> GmailImportRules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -64,6 +65,14 @@ namespace MyFinance.API.Data
             modelBuilder.Entity<GmailOAuthState>()
                 .HasIndex(x => x.StateHash)
                 .IsUnique();
+            modelBuilder.Entity<GmailImportRule>()
+                .HasIndex(x => new { x.UserId, x.Name })
+                .IsUnique();
+            modelBuilder.Entity<GmailImportRule>()
+                .HasOne(x => x.TargetAccount)
+                .WithMany()
+                .HasForeignKey(x => x.TargetAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<ImportedStatementItem>()
                 .HasOne(i => i.Transaction)

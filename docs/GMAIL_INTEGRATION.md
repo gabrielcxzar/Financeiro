@@ -7,7 +7,7 @@ interpretado e nenhuma transação é criada automaticamente.
 ## Fluxo
 
 1. O usuário conecta o Gmail por OAuth server-side.
-2. O FinFlow pesquisa `has:attachment filename:ofx newer_than:90d` (ou a consulta configurada).
+2. O FinFlow usa regras explícitas por usuário, cada uma com sua consulta Gmail e conta/cartão destino. A regra padrão segura para contas Nubank usa `from:(todomundo@nubank.com.br) subject:"Extrato da sua conta do Nubank" has:attachment filename:ofx newer_than:90d`.
 3. Apenas anexos OFX são baixados, limitados a 10 MB.
 4. O arquivo entra no mesmo `StatementImportService` usado pelo upload manual,
    com `Source=ofx`; a origem/proveniência do artefato externo permanece
@@ -17,6 +17,13 @@ interpretado e nenhuma transação é criada automaticamente.
 O `messageId + attachmentId` evita downloads repetidos. O `FileHash` do lote
 continua sendo a segunda camada de deduplicação. Desconectar não remove lotes,
 transações ou auditoria.
+
+As regras são gerenciadas por `/api/integrations/gmail/rules`. A listagem
+`/api/integrations/gmail/batches` usa `ExternalImportArtifact.Provider=gmail`
+para identificar a proveniência, portanto um lote mantém `Source=ofx` e ainda
+aparece corretamente na aba Gmail. Se um mesmo anexo casar regras ativas com
+destinos diferentes, ele é marcado como inválido e não é enviado para nenhuma
+conta.
 
 O cliente Gmail consulta mensagens com `format=full` e campos limitados a
 metadados, nomes, IDs e tamanhos das partes MIME. Ele percorre MIME aninhado,
@@ -67,3 +74,6 @@ ao usuário FinFlow.
 `Sincronizar agora` e a sincronização pós-dashboard (no máximo uma vez a cada
 seis horas) nunca confirmam um lote. Não há Cron, polling contínuo, Gmail Watch,
 Pub/Sub, PDF, scraping, API privada do Nubank ou alteração no MCP.
+
+A migration `AddGmailImportRules` é necessária após o merge antes de aplicar a
+alteração em produção; ela não foi aplicada nesta branch.
