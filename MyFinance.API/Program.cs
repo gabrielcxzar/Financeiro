@@ -100,6 +100,11 @@ builder.Services.AddScoped<IFinancialSnapshotService, FinancialSnapshotService>(
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
+var gmailOptions = builder.Configuration.GetSection("GmailIntegration").Get<GmailIntegrationOptions>() ?? new GmailIntegrationOptions();
+builder.Services.AddSingleton(gmailOptions);
+builder.Services.AddHttpClient<IGmailClient, GoogleGmailClient>();
+builder.Services.AddSingleton<IGmailTokenProtector, AesGcmGmailTokenProtector>();
+builder.Services.AddScoped<IStatementImportService, StatementImportService>();
 builder.Services.AddRateLimiter(options =>
 {
     var permitsPerMinute = Math.Max(1, builder.Configuration.GetValue("Mcp:RateLimitPerMinute", 60));

@@ -303,6 +303,23 @@ const App = () => {
     }
   }, [isAuthenticated]);
 
+  // Gmail sync is deliberately deferred until after the dashboard has had time to render.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const timer = window.setTimeout(async () => {
+      try {
+        const { data } = await api.get('/integrations/gmail/status');
+        if (!data.connected || !data.defaultAccountId) return;
+        const lastSync = data.lastSyncAt ? new Date(data.lastSyncAt).getTime() : 0;
+        if (Date.now() - lastSync < 6 * 60 * 60 * 1000) return;
+        await api.post('/integrations/gmail/sync');
+      } catch {
+        // Background Gmail sync must never block or surface as a dashboard failure.
+      }
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [isAuthenticated]);
+
   const handleMenuClick = (e) => {
     if (e.key === 'add') {
       setIsModalOpen(true);
