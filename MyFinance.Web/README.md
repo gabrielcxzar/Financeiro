@@ -12,6 +12,8 @@ Workbox durante o build.
 
 - JavaScript, CSS, HTML do shell, fontes, logos e ícones versionados podem ser
   precacheados.
+- O service worker não é registrado no `npm run dev`; para testar PWA durante
+  o desenvolvimento, use explicitamente `VITE_PWA_DEV=true`.
 - O `index.html` não recebe cache eterno: a atualização é descoberta pelo
   service worker e apresentada como “Nova versão do FinFlow disponível.”.
 - Toda a API financeira é `NetworkOnly`, incluindo `/api/*` e a API Render
@@ -31,6 +33,11 @@ No Chrome/Edge, use o aviso discreto “Instalar” quando ele aparecer ou a op�
 de instalação do navegador. No Android, o mesmo fluxo pode ser acessado pelo
 menu do navegador. No iPhone/iPad, use Safari → Compartilhar → Adicionar à
 Tela de Início.
+
+O `apple-touch-icon` usa o logo vetorial oficial do FinFlow. Não foi criado um
+pipeline rasterizador adicional, pois o asset atual é quadrado, opaco e válido
+em navegadores modernos; o ícone maskable do manifest é um asset dedicado,
+com fundo full-bleed e marca dentro da zona segura.
 
 Uma atualização disponível pede confirmação pelo botão “Atualizar”; ela não
 força recarregamento enquanto o usuário estiver preenchendo um formulário.

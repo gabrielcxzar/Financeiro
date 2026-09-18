@@ -25,7 +25,7 @@ export default defineConfig({
           { src: '/pwa-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
           { src: '/pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml' },
           {
-            src: '/pwa-512x512.svg',
+            src: '/pwa-maskable-512x512.svg',
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'maskable',
@@ -63,7 +63,8 @@ export default defineConfig({
           },
         ],
       },
-      devOptions: { enabled: true, type: 'module' },
+      // Keep development free of service-worker state unless explicitly requested.
+      devOptions: { enabled: globalThis.process?.env?.VITE_PWA_DEV === 'true', type: 'module' },
     }),
   ],
   build: {
