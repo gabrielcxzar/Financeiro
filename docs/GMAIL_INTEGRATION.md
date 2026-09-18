@@ -9,12 +9,23 @@ interpretado e nenhuma transação é criada automaticamente.
 1. O usuário conecta o Gmail por OAuth server-side.
 2. O FinFlow pesquisa `has:attachment filename:ofx newer_than:90d` (ou a consulta configurada).
 3. Apenas anexos OFX são baixados, limitados a 10 MB.
-4. O arquivo entra em um lote de importação em estado de revisão.
+4. O arquivo entra no mesmo `StatementImportService` usado pelo upload manual,
+   com `Source=ofx`; a origem/proveniência do artefato externo permanece
+   `Provider=gmail`.
 5. O usuário revisa e usa o fluxo existente de confirmação do lote.
 
 O `messageId + attachmentId` evita downloads repetidos. O `FileHash` do lote
 continua sendo a segunda camada de deduplicação. Desconectar não remove lotes,
 transações ou auditoria.
+
+O cliente Gmail consulta mensagens com `format=full` e campos limitados a
+metadados, nomes, IDs e tamanhos das partes MIME. Ele percorre MIME aninhado,
+ignora arquivos que não sejam OFX e nunca persiste o corpo da mensagem; a
+resposta de conteúdo do anexo só é entregue ao pipeline de importação.
+
+O sincronismo registra `LastSyncAt`, `LastSuccessfulSyncAt` e um código de erro
+sanitizado. Falhas de API/token não marcam o sincronismo como bem-sucedido e
+não expõem detalhes sensíveis ao frontend.
 
 ## Google Cloud
 

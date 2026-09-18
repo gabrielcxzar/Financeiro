@@ -11,7 +11,7 @@ public sealed class GmailIntegrationOptions
     public string DefaultSearchQuery { get; set; } = "has:attachment filename:ofx newer_than:90d";
 }
 
-public sealed record GmailMessageAttachment(string MessageId, string AttachmentId, string FileName, DateTime? Date, string? Subject);
+public sealed record GmailMessageAttachment(string MessageId, string AttachmentId, string FileName, DateTime? Date, string? Subject, int? Size = null);
 public sealed record GmailToken(string AccessToken, string? RefreshToken, int ExpiresIn);
 
 public interface IGmailClient

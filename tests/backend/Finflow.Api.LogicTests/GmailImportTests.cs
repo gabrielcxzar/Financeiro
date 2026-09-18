@@ -21,15 +21,15 @@ public sealed class GmailImportTests
         var account = new Account { UserId = 1, Name = "Nubank", Type = "Checking" };
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
-        var service = new StatementImportService(db);
+        var service = new StatementImportService(db, new FinancialSnapshotService(db));
         var ofx = Encoding.UTF8.GetBytes("<OFX><BANKTRANLIST><STMTTRN><TRNAMT>-12.50</TRNAMT><DTPOSTED>20260917</DTPOSTED><FITID>abc-1</FITID><MEMO>Compra teste</MEMO></STMTTRN></BANKTRANLIST></OFX>");
 
-        var first = await service.ImportOfxAsync(1, account.Id, "extrato.ofx", ofx, "gmail", default);
-        var second = await service.ImportOfxAsync(1, account.Id, "extrato.ofx", ofx, "gmail", default);
+        var first = await service.PreviewAsync(new StatementImportRequest(1, account.Id, "extrato.ofx", ofx), default);
+        var second = await service.PreviewAsync(new StatementImportRequest(1, account.Id, "extrato.ofx", ofx), default);
 
-        Assert.NotEqual(0, first.BatchId);
-        Assert.Equal(1, first.ReviewCount);
-        Assert.Equal(0, second.BatchId);
+        Assert.NotEqual(0, first.Batch.Id);
+        Assert.Equal(1, first.Batch.ReviewCount);
+        Assert.True(second.ExistingFileHash);
         Assert.Empty(db.Transactions);
     }
 
@@ -41,8 +41,8 @@ public sealed class GmailImportTests
         var account = new Account { UserId = 2, Name = "Outra conta", Type = "Checking" };
         db.Accounts.Add(account);
         await db.SaveChangesAsync();
-        var service = new StatementImportService(db);
+        var service = new StatementImportService(db, new FinancialSnapshotService(db));
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.ImportOfxAsync(1, account.Id, "extrato.ofx", Encoding.UTF8.GetBytes("<OFX/>"), "gmail", default));
+        await Assert.ThrowsAsync<InvalidDataException>(() => service.PreviewAsync(new StatementImportRequest(1, account.Id, "extrato.ofx", Encoding.UTF8.GetBytes("<OFX/>")), default));
     }
 }

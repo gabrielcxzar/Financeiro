@@ -54,7 +54,9 @@ public sealed class GoogleGmailClient : IGmailClient
         foreach (var message in document.RootElement.TryGetProperty("messages", out var messages) ? messages.EnumerateArray() : [])
         {
             var id = message.GetProperty("id").GetString()!;
-            using var detail = await SendJsonAsync(Authorized(HttpMethod.Get, $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{id}?format=metadata&metadataHeaders=Date&metadataHeaders=Subject", accessToken), cancellationToken);
+            const string fields = "id,payload(headers(name,value),filename,body(attachmentId,size),parts(filename,mimeType,body(attachmentId,size),parts(filename,mimeType,body(attachmentId,size),parts(filename,mimeType,body(attachmentId,size))))";
+            var detailUrl = $"https://gmail.googleapis.com/gmail/v1/users/me/messages/{id}?format=full&fields={Uri.EscapeDataString(fields)}";
+            using var detail = await SendJsonAsync(Authorized(HttpMethod.Get, detailUrl, accessToken), cancellationToken);
             var root = detail.RootElement;
             var headers = root.GetProperty("payload").TryGetProperty("headers", out var headerArray) ? headerArray.EnumerateArray().ToList() : [];
             var date = headers.FirstOrDefault(x => x.GetProperty("name").GetString() == "Date").GetPropertyOrNull("value");
@@ -108,9 +110,12 @@ public sealed class GoogleGmailClient : IGmailClient
 
     private static void WalkParts(JsonElement part, string messageId, string? date, string? subject, ICollection<GmailMessageAttachment> results)
     {
-        if (part.TryGetProperty("filename", out var filenameElement) && filenameElement.GetString() is { } filename && filename.EndsWith(".ofx", StringComparison.OrdinalIgnoreCase) && part.TryGetProperty("body", out var body) && body.TryGetProperty("attachmentId", out var attachmentId))
-            results.Add(new GmailMessageAttachment(messageId, attachmentId.GetString()!, Path.GetFileName(filename), DateTime.TryParse(date, out var parsed) ? parsed : null, subject));
-        if (part.TryGetProperty("parts", out var parts))
+        if (part.TryGetProperty("filename", out var filenameElement) && filenameElement.GetString() is { } filename && filename.EndsWith(".ofx", StringComparison.OrdinalIgnoreCase) && part.TryGetProperty("body", out var body) && body.TryGetProperty("attachmentId", out var attachmentId) && !string.IsNullOrWhiteSpace(attachmentId.GetString()))
+        {
+            int? size = body.TryGetProperty("size", out var sizeElement) && sizeElement.TryGetInt32(out var parsedSize) ? parsedSize : null;
+            results.Add(new GmailMessageAttachment(messageId, attachmentId.GetString()!, Path.GetFileName(filename), DateTime.TryParse(date, out var parsed) ? parsed : null, subject, size));
+        }
+        if (part.TryGetProperty("parts", out var parts) && parts.ValueKind == JsonValueKind.Array)
             foreach (var child in parts.EnumerateArray()) WalkParts(child, messageId, date, subject, results);
     }
 }

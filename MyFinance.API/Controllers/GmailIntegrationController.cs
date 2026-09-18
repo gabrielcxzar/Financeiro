@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -109,29 +110,39 @@ public sealed class GmailIntegrationController : ControllerBase
         var integration = await _db.GmailIntegrations.SingleOrDefaultAsync(x => x.UserId == UserId && x.Enabled, ct);
         if (integration is null) return BadRequest("Conecte o Gmail antes de sincronizar.");
         if (!integration.DefaultAccountId.HasValue) return BadRequest("Escolha uma conta FinFlow de destino antes de sincronizar.");
-        var access = await _gmail.RefreshAsync(_protector.Unprotect(integration.EncryptedRefreshToken), ct);
-        var attachments = await _gmail.FindOfxAttachmentsAsync(access.AccessToken, integration.SearchQuery, ct);
-        var result = new SyncResult();
-        foreach (var attachment in attachments)
-        {
-            if (await _db.ExternalImportArtifacts.AnyAsync(x => x.UserId == UserId && x.Provider == Provider && x.ExternalMessageId == attachment.MessageId && x.ExternalAttachmentId == attachment.AttachmentId, ct)) { result.AlreadyProcessed++; continue; }
-            var bytes = await _gmail.DownloadAttachmentAsync(access.AccessToken, attachment, ct);
-            if (bytes.Length > 10 * 1024 * 1024) { result.Invalid++; continue; }
-            try
-            {
-                var imported = await _import.ImportOfxAsync(UserId, integration.DefaultAccountId.Value, attachment.FileName, bytes, Provider, ct);
-                var artifact = new ExternalImportArtifact { UserId = UserId, Provider = Provider, ExternalMessageId = attachment.MessageId, ExternalAttachmentId = attachment.AttachmentId, FileName = attachment.FileName, FileHash = imported.FileHash, ImportBatchId = imported.BatchId == 0 ? null : imported.BatchId, ImportedAt = imported.BatchId == 0 ? null : DateTime.UtcNow };
-                _db.ExternalImportArtifacts.Add(artifact);
-                await _db.SaveChangesAsync(ct);
-                if (imported.BatchId == 0) result.AlreadyProcessed++; else { result.NewBatches++; result.ReviewItems += imported.ReviewCount; }
-            }
-            catch (InvalidDataException) { result.Invalid++; }
-        }
         integration.LastSyncAt = DateTime.UtcNow;
-        integration.LastSuccessfulSyncAt = DateTime.UtcNow;
-        integration.LastErrorCode = null;
-        await _db.SaveChangesAsync(ct);
-        return Ok(new { found = attachments.Count, newBatches = result.NewBatches, alreadyProcessed = result.AlreadyProcessed, reviewItems = result.ReviewItems, invalid = result.Invalid });
+        try
+        {
+            var access = await _gmail.RefreshAsync(_protector.Unprotect(integration.EncryptedRefreshToken), ct);
+            var attachments = await _gmail.FindOfxAttachmentsAsync(access.AccessToken, integration.SearchQuery, ct);
+            var result = new SyncResult();
+            foreach (var attachment in attachments)
+            {
+                if (await _db.ExternalImportArtifacts.AnyAsync(x => x.UserId == UserId && x.Provider == Provider && x.ExternalMessageId == attachment.MessageId && x.ExternalAttachmentId == attachment.AttachmentId, ct)) { result.AlreadyProcessed++; continue; }
+                if (attachment.Size > 10 * 1024 * 1024) { result.Invalid++; continue; }
+                var bytes = await _gmail.DownloadAttachmentAsync(access.AccessToken, attachment, ct);
+                if (bytes.Length > 10 * 1024 * 1024) { result.Invalid++; continue; }
+                try
+                {
+                    var preview = await _import.PreviewAsync(new StatementImportRequest(UserId, integration.DefaultAccountId.Value, attachment.FileName, bytes), ct);
+                    var artifact = new ExternalImportArtifact { UserId = UserId, Provider = Provider, ExternalMessageId = attachment.MessageId, ExternalAttachmentId = attachment.AttachmentId, FileName = attachment.FileName, FileHash = preview.Batch.FileHash, ImportBatchId = preview.Batch.Id == 0 ? null : preview.Batch.Id, ImportedAt = preview.Batch.Id == 0 ? null : DateTime.UtcNow };
+                    _db.ExternalImportArtifacts.Add(artifact);
+                    await _db.SaveChangesAsync(ct);
+                    if (preview.ExistingFileHash) result.AlreadyProcessed++; else { result.NewBatches++; result.ReviewItems += preview.Batch.ReviewCount; }
+                }
+                catch (InvalidDataException) { result.Invalid++; }
+            }
+            integration.LastSuccessfulSyncAt = DateTime.UtcNow;
+            integration.LastErrorCode = null;
+            await _db.SaveChangesAsync(ct);
+            return Ok(new { found = attachments.Count, newBatches = result.NewBatches, alreadyProcessed = result.AlreadyProcessed, reviewItems = result.ReviewItems, invalid = result.Invalid });
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or CryptographicException or JsonException or FormatException or InvalidDataException)
+        {
+            integration.LastErrorCode = exception switch { HttpRequestException => "gmail_api_unavailable", CryptographicException => "gmail_token_invalid", JsonException => "gmail_response_invalid", FormatException or InvalidDataException => "invalid_attachment", _ => "gmail_configuration" };
+            await _db.SaveChangesAsync(ct);
+            return StatusCode(StatusCodes.Status502BadGateway, new { code = integration.LastErrorCode, message = "Não foi possível sincronizar o Gmail agora." });
+        }
     }
 
     [HttpPost("disconnect")]
