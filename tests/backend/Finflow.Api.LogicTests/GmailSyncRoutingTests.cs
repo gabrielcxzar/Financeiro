@@ -96,6 +96,75 @@ public sealed class GmailSyncRoutingTests
         Assert.False(fake.RefreshCalled);
     }
 
+    [Fact]
+    public async Task Sync_BootstrapsSafeAccountQuery_WhenOptionsContainLegacyBroadQuery()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        await using var context = db;
+        var account = new Account { UserId = 1, Name = "Conta", Type = "Checking" };
+        db.Accounts.Add(account);
+        var options = new GmailIntegrationOptions { Enabled = true, DefaultSearchQuery = "has:attachment filename:ofx newer_than:90d", TokenEncryptionKey = Convert.ToBase64String(Encoding.UTF8.GetBytes("01234567890123456789012345678901")) };
+        var protector = new AesGcmGmailTokenProtector(options);
+        db.GmailIntegrations.Add(new GmailIntegration { UserId = 1, Enabled = true, DefaultAccountId = 1, EncryptedRefreshToken = protector.Protect("refresh") });
+        await db.SaveChangesAsync();
+        var controller = new GmailIntegrationController(db, options, new FakeGmailClient(), protector, new StatementImportService(db, finance), NullLogger<GmailIntegrationController>.Instance);
+        TestContextFactory.AttachUser(controller);
+
+        await controller.Sync(CancellationToken.None);
+
+        var rule = await db.GmailImportRules.SingleAsync();
+        Assert.Equal("Nubank — Conta", rule.Name);
+        Assert.Equal("from:(todomundo@nubank.com.br) subject:\"Extrato da sua conta do Nubank\" has:attachment filename:ofx newer_than:90d", rule.SearchQuery);
+        Assert.NotEqual("has:attachment filename:ofx newer_than:90d", rule.SearchQuery);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_RemovesOnlyItsGmailRulesAndPreservesOAuthAndHistory()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        await using var context = db;
+        var account = new Account { UserId = 1, Name = "Conta", Type = "Checking" };
+        var other = new Account { UserId = 2, Name = "Outra", Type = "Checking" };
+        db.Accounts.AddRange(account, other);
+        db.GmailIntegrations.Add(new GmailIntegration { UserId = 1, Enabled = true, EncryptedRefreshToken = "encrypted" });
+        db.GmailImportRules.AddRange(new GmailImportRule { UserId = 1, Name = "Regra", SearchQuery = "subject:a", TargetAccountId = 1 }, new GmailImportRule { UserId = 2, Name = "Outra regra", SearchQuery = "subject:b", TargetAccountId = 2 });
+        db.ImportBatches.Add(new ImportBatch { UserId = 1, AccountId = 1, FileName = "history.ofx", FileType = ".ofx", Source = "ofx", FileHash = "history" });
+        await db.SaveChangesAsync();
+        var controller = new AccountsController(db, finance);
+        TestContextFactory.AttachUser(controller);
+
+        var result = await controller.DeleteAccount(account.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Empty(await db.GmailImportRules.Where(x => x.UserId == 1).ToListAsync());
+        Assert.Single(await db.GmailImportRules.Where(x => x.UserId == 2).ToListAsync());
+        Assert.Equal("encrypted", (await db.GmailIntegrations.SingleAsync(x => x.UserId == 1)).EncryptedRefreshToken);
+        Assert.Single(await db.ImportBatches.ToListAsync());
+    }
+
+    [Fact]
+    public async Task WipeData_RemovesRulesAndAccountsButPreservesGmailConnection()
+    {
+        var (db, _) = TestContextFactory.Create();
+        await using var context = db;
+        var account = new Account { UserId = 1, Name = "Conta", Type = "Checking" };
+        db.Accounts.Add(account);
+        db.GmailIntegrations.Add(new GmailIntegration { UserId = 1, Enabled = true, DefaultAccountId = 1, EncryptedRefreshToken = "encrypted" });
+        db.GmailImportRules.Add(new GmailImportRule { UserId = 1, Name = "Regra", SearchQuery = "subject:a", TargetAccountId = 1 });
+        await db.SaveChangesAsync();
+        var controller = new UsersController(db);
+        TestContextFactory.AttachUser(controller);
+
+        var result = await controller.WipeData();
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Empty(await db.Accounts.Where(x => x.UserId == 1).ToListAsync());
+        Assert.Empty(await db.GmailImportRules.Where(x => x.UserId == 1).ToListAsync());
+        var integration = await db.GmailIntegrations.SingleAsync(x => x.UserId == 1);
+        Assert.Equal("encrypted", integration.EncryptedRefreshToken);
+        Assert.Null(integration.DefaultAccountId);
+    }
+
     private sealed class FakeGmailClient : IGmailClient
     {
         public bool RefreshCalled { get; private set; }

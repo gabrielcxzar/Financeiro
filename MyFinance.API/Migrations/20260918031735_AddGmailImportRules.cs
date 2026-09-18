@@ -12,6 +12,46 @@ namespace MyFinance.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_import_batches_accounts_account_id",
+                table: "import_batches");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_imported_statement_items_accounts_account_id",
+                table: "imported_statement_items");
+
+            migrationBuilder.AlterColumn<int>(
+                name: "account_id",
+                table: "import_batches",
+                type: "integer",
+                nullable: true,
+                oldClrType: typeof(int),
+                oldType: "integer");
+
+            migrationBuilder.AlterColumn<int>(
+                name: "account_id",
+                table: "imported_statement_items",
+                type: "integer",
+                nullable: true,
+                oldClrType: typeof(int),
+                oldType: "integer");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_import_batches_accounts_account_id",
+                table: "import_batches",
+                column: "account_id",
+                principalTable: "accounts",
+                principalColumn: "id",
+                onDelete: ReferentialAction.SetNull);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_imported_statement_items_accounts_account_id",
+                table: "imported_statement_items",
+                column: "account_id",
+                principalTable: "accounts",
+                principalColumn: "id",
+                onDelete: ReferentialAction.SetNull);
+
             migrationBuilder.CreateTable(
                 name: "gmail_import_rules",
                 columns: table => new
@@ -33,7 +73,7 @@ namespace MyFinance.API.Migrations
                         column: x => x.target_account_id,
                         principalTable: "accounts",
                         principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
@@ -53,6 +93,48 @@ namespace MyFinance.API.Migrations
         {
             migrationBuilder.DropTable(
                 name: "gmail_import_rules");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_import_batches_accounts_account_id",
+                table: "import_batches");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_imported_statement_items_accounts_account_id",
+                table: "imported_statement_items");
+
+            migrationBuilder.AlterColumn<int>(
+                name: "account_id",
+                table: "import_batches",
+                type: "integer",
+                nullable: false,
+                oldClrType: typeof(int),
+                oldType: "integer",
+                oldNullable: true);
+
+            migrationBuilder.AlterColumn<int>(
+                name: "account_id",
+                table: "imported_statement_items",
+                type: "integer",
+                nullable: false,
+                oldClrType: typeof(int),
+                oldType: "integer",
+                oldNullable: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_import_batches_accounts_account_id",
+                table: "import_batches",
+                column: "account_id",
+                principalTable: "accounts",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_imported_statement_items_accounts_account_id",
+                table: "imported_statement_items",
+                column: "account_id",
+                principalTable: "accounts",
+                principalColumn: "id",
+                onDelete: ReferentialAction.Cascade);
         }
     }
 }

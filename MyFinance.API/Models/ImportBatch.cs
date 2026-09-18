@@ -7,7 +7,7 @@ public class ImportBatch
 {
     [Column("id")] public int Id { get; set; }
     [Column("user_id")] public int UserId { get; set; }
-    [Column("account_id")] public int AccountId { get; set; }
+    [Column("account_id")] public int? AccountId { get; set; }
     public Account? Account { get; set; }
     [Column("file_name")] public string FileName { get; set; } = string.Empty;
     [Column("file_type")] public string FileType { get; set; } = string.Empty;

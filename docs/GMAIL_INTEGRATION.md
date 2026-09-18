@@ -25,6 +25,12 @@ aparece corretamente na aba Gmail. Se um mesmo anexo casar regras ativas com
 destinos diferentes, ele é marcado como inválido e não é enviado para nenhuma
 conta.
 
+`GmailImportRule` é configuração, não histórico financeiro. A relação com a
+conta destino usa cascade; ao excluir uma conta, sua regra deixa de existir,
+enquanto lotes, itens de importação, artefatos externos e a conexão OAuth são
+preservados. O wipe-data também remove as regras antes das contas, sem apagar o
+refresh token Gmail.
+
 O cliente Gmail consulta mensagens com `format=full` e campos limitados a
 metadados, nomes, IDs e tamanhos das partes MIME. Ele percorre MIME aninhado,
 ignora arquivos que não sejam OFX e nunca persiste o corpo da mensagem; a
@@ -76,4 +82,7 @@ seis horas) nunca confirmam um lote. Não há Cron, polling contínuo, Gmail Wat
 Pub/Sub, PDF, scraping, API privada do Nubank ou alteração no MCP.
 
 A migration `AddGmailImportRules` é necessária após o merge antes de aplicar a
-alteração em produção; ela não foi aplicada nesta branch.
+alteração em produção; ela não foi aplicada nesta branch. Antes/depois do merge,
+atualizar no Render `GmailIntegration__DefaultSearchQuery` para:
+
+`from:(todomundo@nubank.com.br) subject:"Extrato da sua conta do Nubank" has:attachment filename:ofx newer_than:90d`

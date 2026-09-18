@@ -17,6 +17,7 @@ namespace MyFinance.API.Controllers;
 public sealed class GmailIntegrationController : ControllerBase
 {
     private const string Provider = "gmail";
+    private const string NubankAccountSearchQuery = "from:(todomundo@nubank.com.br) subject:\"Extrato da sua conta do Nubank\" has:attachment filename:ofx newer_than:90d";
     private readonly AppDbContext _db;
     private readonly GmailIntegrationOptions _options;
     private readonly IGmailClient _gmail;
@@ -244,9 +245,14 @@ public sealed class GmailIntegrationController : ControllerBase
         var rules = await _db.GmailImportRules.Where(x => x.UserId == UserId).ToListAsync(ct);
         if (rules.Count == 0 && integration.DefaultAccountId.HasValue)
         {
-            rules.Add(new GmailImportRule { UserId = UserId, Name = "Nubank — Conta", SearchQuery = _options.DefaultSearchQuery, TargetAccountId = integration.DefaultAccountId.Value, Enabled = true });
-            _db.GmailImportRules.Add(rules[0]);
-            await _db.SaveChangesAsync(ct);
+            var defaultRule = new GmailImportRule { UserId = UserId, Name = "Nubank — Conta", SearchQuery = NubankAccountSearchQuery, TargetAccountId = integration.DefaultAccountId.Value, Enabled = true };
+            _db.GmailImportRules.Add(defaultRule);
+            try { await _db.SaveChangesAsync(ct); rules.Add(defaultRule); }
+            catch (DbUpdateException)
+            {
+                _db.Entry(defaultRule).State = EntityState.Detached;
+                rules = await _db.GmailImportRules.Where(x => x.UserId == UserId).ToListAsync(ct);
+            }
         }
         return rules;
     }

@@ -9,7 +9,7 @@ public class ImportedStatementItem
     [Column("user_id")] public int UserId { get; set; }
     [Column("import_batch_id")] public int ImportBatchId { get; set; }
     public ImportBatch? ImportBatch { get; set; }
-    [Column("account_id")] public int AccountId { get; set; }
+    [Column("account_id")] public int? AccountId { get; set; }
     public Account? Account { get; set; }
     [Column("source") ] public string Source { get; set; } = string.Empty;
     [Column("external_id")] public string? ExternalId { get; set; }

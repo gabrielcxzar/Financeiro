@@ -524,7 +524,7 @@ namespace MyFinance.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AccountId")
+                    b.Property<int?>("AccountId")
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
@@ -615,7 +615,7 @@ namespace MyFinance.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AccountId")
+                    b.Property<int?>("AccountId")
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
@@ -1168,7 +1168,7 @@ namespace MyFinance.API.Migrations
                     b.HasOne("MyFinance.API.Models.Account", "TargetAccount")
                         .WithMany()
                         .HasForeignKey("TargetAccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("TargetAccount");
@@ -1189,8 +1189,7 @@ namespace MyFinance.API.Migrations
                     b.HasOne("MyFinance.API.Models.Account", "Account")
                         .WithMany()
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Account");
                 });
@@ -1200,8 +1199,7 @@ namespace MyFinance.API.Migrations
                     b.HasOne("MyFinance.API.Models.Account", "Account")
                         .WithMany()
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("MyFinance.API.Models.Category", "Category")
                         .WithMany()
