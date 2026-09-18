@@ -38,7 +38,6 @@ import Goals from './pages/Goals';
 
 import AddTransactionModal from './components/AddTransactionModal';
 import OnboardingWizard from './components/OnboardingWizard';
-import FloatingActionButton from './components/FloatingActionButton';
 import BottomNavigation from './components/BottomNavigation';
 import CommandKModal from './components/CommandKModal';
 import api, { authExpiredEvent, clearStoredAuth, getStoredAuthToken } from './services/api';
@@ -566,20 +565,22 @@ const App = () => {
                 />
               </div>
 
-              <Button
-                type="primary"
-                icon={<PlusCircleOutlined />}
-                onClick={() => setIsModalOpen(true)}
-                style={{
-                  background: '#0F172A',
-                  borderColor: '#0F172A',
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
-                }}
-              >
-                {!isMobile ? '+ Nova Transação' : '+'}
-              </Button>
+              {!isMobile && (
+                <Button
+                  type="primary"
+                  icon={<PlusCircleOutlined />}
+                  onClick={() => setIsModalOpen(true)}
+                  style={{
+                    background: '#0F172A',
+                    borderColor: '#0F172A',
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+                  }}
+                >
+                  + Nova Transação
+                </Button>
+              )}
 
               <Button className="responsive-header__logout" type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
                 {!isMobile && 'Sair'}
@@ -639,8 +640,6 @@ const App = () => {
           onOpenOnboarding={() => setIsOnboardingOpen(true)}
           onToggleVisibility={() => {}}
         />
-
-        <FloatingActionButton onClick={() => setIsModalOpen(true)} />
 
         {isMobile && (
           <BottomNavigation

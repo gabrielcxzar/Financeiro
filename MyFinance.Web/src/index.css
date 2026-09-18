@@ -47,7 +47,6 @@ body {
   min-height: 100vh;
   background-color: var(--ff-bg-surface);
   color: var(--ff-text-main);
-  overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, h6 {
