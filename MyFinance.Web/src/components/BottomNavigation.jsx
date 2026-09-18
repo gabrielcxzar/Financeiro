@@ -20,7 +20,8 @@ const NavContainer = styled.nav`
   justify-content: space-around;
   align-items: center;
   z-index: 998;
-  padding: 0 8px;
+  padding: 0 8px env(safe-area-inset-bottom);
+  height: calc(64px + env(safe-area-inset-bottom));
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.3);
 
   @media (min-width: 993px) {
@@ -41,6 +42,8 @@ const NavItem = styled.button`
   font-weight: ${(props) => (props.$active ? '700' : '500')};
   cursor: pointer;
   padding: 6px 10px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 8px;
   transition: color 0.15s ease;
 

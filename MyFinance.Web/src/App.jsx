@@ -464,6 +464,7 @@ const App = () => {
 
         <Layout style={{ minWidth: 0, background: '#F8FAFC' }}>
           <Header
+            className="responsive-header"
             style={{
               padding: isMobile ? '10px 14px' : '0 28px',
               height: 'auto',
@@ -482,7 +483,7 @@ const App = () => {
               boxShadow: '0 1px 3px 0 rgba(15, 23, 42, 0.02)',
             }}
           >
-            <HeaderTitle style={{ minWidth: 0 }}>
+            <HeaderTitle className="responsive-header__title" style={{ minWidth: 0 }}>
               {isMobile && (
                 <Button
                   type="text"
@@ -508,6 +509,7 @@ const App = () => {
             </HeaderTitle>
 
             <div
+              className="responsive-header__actions"
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -531,6 +533,7 @@ const App = () => {
 
               <Tooltip title="Abrir Guia de Primeiros Passos">
                 <Button
+                  className="responsive-header__guide"
                   type="default"
                   icon={<StarOutlined style={{ color: '#0F172A' }} />}
                   onClick={() => setIsOnboardingOpen(true)}
@@ -541,6 +544,7 @@ const App = () => {
               </Tooltip>
 
               <div
+                className="responsive-month-picker"
                 style={{
                   display: 'flex',
                   gap: 8,
@@ -577,13 +581,13 @@ const App = () => {
                 {!isMobile ? '+ Nova Transação' : '+'}
               </Button>
 
-              <Button type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+              <Button className="responsive-header__logout" type="text" danger icon={<LogoutOutlined />} onClick={handleLogout}>
                 {!isMobile && 'Sair'}
               </Button>
             </div>
           </Header>
 
-          <Content style={{ margin: isMobile ? '10px' : '20px' }}>
+          <Content className="responsive-content" style={{ margin: isMobile ? '10px' : '20px' }}>
             <ContentWrap style={{ background: colorBgContainer, borderRadius: borderRadiusLG }}>
               <InnerBrandBar>
                 <InnerBrandMain>

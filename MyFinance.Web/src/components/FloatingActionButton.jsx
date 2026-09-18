@@ -10,7 +10,7 @@ const FABWrapper = styled.div`
   z-index: 999;
 
   @media (max-width: 992px) {
-    bottom: 84px; /* Above bottom navigation bar */
+    bottom: calc(84px + env(safe-area-inset-bottom)); /* Above bottom navigation bar */
     right: 20px;
   }
 `;

@@ -85,7 +85,7 @@ export default function DashboardCharts({ categorySummary = [], compact = false 
   );
 
   return (
-    <div style={{ height: compact ? 260 : 300, width: '100%' }}>
+    <div className="responsive-chart" style={{ height: compact ? 260 : 300, width: '100%' }}>
       <Bar options={options} data={chartData} />
     </div>
   );

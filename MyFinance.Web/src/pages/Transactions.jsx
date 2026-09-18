@@ -23,6 +23,14 @@ const extractInstallmentInfo = (description) => {
   };
 };
 
+const transactionAmount = (record) => {
+  const isExpense = record.type === 'Expense';
+  return {
+    isExpense,
+    label: `${isExpense ? '- ' : '+ '}${formatMoney(record.amount)}`,
+  };
+};
+
 export default function Transactions({ month, year }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -231,6 +239,37 @@ export default function Transactions({ month, year }) {
     },
   ];
 
+  const renderMobileTransaction = (record) => {
+    const amount = transactionAmount(record);
+    return (
+      <article className="mobile-transaction-card" key={record.id}>
+        <div className="mobile-transaction-card__top">
+          <div className="mobile-transaction-card__description" title={record.description}>
+            {record.description || 'Sem descrição'}
+          </div>
+          <span className="mobile-transaction-card__amount" style={{ color: amount.isExpense ? '#F43F5E' : '#10B981' }}>
+            {amount.label}
+          </span>
+        </div>
+        <div className="mobile-transaction-card__meta">
+          <span>{new Date(record.date).toLocaleDateString('pt-BR')}</span>
+          <span>{record.category?.name || 'Geral'}</span>
+          <span>{record.account?.name || 'Sem conta'}</span>
+          {record.installmentId && <Tag>Parcelado</Tag>}
+          {record.status && <Tag>{record.status}</Tag>}
+        </div>
+        <div className="mobile-transaction-card__actions">
+          <Tooltip title="Editar">
+            <Button aria-label={`Editar ${record.description || 'transação'}`} type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          </Tooltip>
+          <Tooltip title="Excluir">
+            <Button aria-label={`Excluir ${record.description || 'transação'}`} type="text" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record)} />
+          </Tooltip>
+        </div>
+      </article>
+    );
+  };
+
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div
@@ -376,15 +415,20 @@ export default function Transactions({ month, year }) {
             onSecondaryAction={() => setIsImportOpen(true)}
           />
         ) : (
-          <Table
-            dataSource={transactions}
-            columns={columns}
-            rowKey="id"
-            loading={loading}
-            pagination={{ pageSize: isCompact ? 8 : 10 }}
-            size={isCompact ? 'small' : 'middle'}
-            scroll={{ x: 860 }}
-          />
+          isCompact ? (
+            loading ? <List loading dataSource={[]} /> : <div className="mobile-transaction-list">{transactions.map(renderMobileTransaction)}</div>
+          ) : (
+            <div className="responsive-table-wrap">
+              <Table
+                dataSource={transactions}
+                columns={columns}
+                rowKey="id"
+                loading={loading}
+                pagination={{ pageSize: 10 }}
+                size="middle"
+              />
+            </div>
+          )
         )}
       </Card>
 
