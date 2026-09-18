@@ -141,7 +141,7 @@ export default function HistoryChart({ transactions, compact = false }) {
   );
 
   return (
-    <div style={{ height: compact ? 280 : 350, width: '100%' }}>
+    <div className="responsive-chart" style={{ height: compact ? 280 : 350, width: '100%' }}>
       <Chart type="bar" data={chartData} options={options} />
     </div>
   );
