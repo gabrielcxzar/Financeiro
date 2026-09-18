@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, List, Modal, Select, Upload, message, Grid, Steps, Table, Tag, Statistic, Row, Col, Tabs } from 'antd';
+import { Alert, Button, List, Modal, Select, Upload, message, Grid, Steps, Table, Tag, Statistic, Row, Col, Tabs, Space } from 'antd';
 import { InboxOutlined, GoogleOutlined, SyncOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
@@ -16,13 +16,14 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
   const [mode, setMode] = useState('file');
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
   const screens = useBreakpoint();
 
   const loadGmail = async () => {
     try {
-      const [status, batches] = await Promise.all([api.get('/integrations/gmail/status'), api.get('/import/batches')]);
+      const [status, batches] = await Promise.all([api.get('/integrations/gmail/status'), api.get('/integrations/gmail/batches')]);
       setGmailStatus(status.data);
-      setGmailBatches((batches.data || []).filter((item) => item.source === 'gmail'));
+      setGmailBatches(batches.data || []);
     } catch {
       setGmailStatus(null);
     }
@@ -31,7 +32,7 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
   useEffect(() => {
     if (!visible) return;
     api.get('/accounts').then((r) => setAccounts(r.data || [])).catch(() => message.error('Erro ao carregar contas'));
-    setFileList([]); setSelectedAccount(null); setBatch(null); setStep(0); setMode('file');
+    setFileList([]); setSelectedAccount(null); setBatch(null); setStep(0); setMode('file'); setSyncResult(null);
     loadGmail();
   }, [visible]);
 
@@ -50,7 +51,7 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
 
   const syncGmail = async () => {
     setLoading(true);
-    try { const response = await api.post('/integrations/gmail/sync'); message.success(`${response.data.newBatches} novo(s) lote(s) encontrado(s).`); await loadGmail(); }
+    try { const response = await api.post('/integrations/gmail/sync'); setSyncResult(response.data); await loadGmail(); }
     catch (error) { message.error(error.response?.data || 'Erro ao sincronizar o Gmail.'); }
     finally { setLoading(false); }
   };
@@ -94,7 +95,8 @@ export default function ImportModal({ visible, onClose, onSuccess }) {
       {gmailStatus?.enabled && !gmailStatus.connected && <Button type="primary" icon={<GoogleOutlined />} onClick={connectGmail}>Conectar Gmail</Button>}
       {gmailStatus?.connected && <>
         <Alert type="success" showIcon message={`Conectado: ${gmailStatus.googleEmail || 'conta Google'}`} description="O Gmail é usado apenas para localizar anexos OFX. Todo lote exige revisão e confirmação humana." style={{ marginBottom: 16 }} />
-        <List bordered dataSource={gmailBatches} locale={{ emptyText: 'Nenhum lote Gmail encontrado.' }} renderItem={(item) => <List.Item actions={[<Button key="review" onClick={() => openGmailBatch(item.id)}>Revisar agora</Button>]}><List.Item.Meta title={item.fileName} description={`${item.reviewCount || 0} item(ns) em revisão · ${new Date(item.createdAt).toLocaleString('pt-BR')}`} /></List.Item>} />
+        {syncResult && <Alert type={syncResult.ruleErrors ? 'warning' : 'success'} showIcon message="Sincronização concluída" description={<Space direction="vertical"><span>{syncResult.found} anexo(s) OFX encontrado(s) · {syncResult.newBatches} novo(s) lote(s) · {syncResult.alreadyProcessed} já processado(s) · {syncResult.invalid} inválido(s) · {syncResult.reviewItems} item(ns) aguardando revisão.</span>{syncResult.found === 0 && <span>Nenhum anexo OFX foi encontrado com as regras atuais.</span>}{syncResult.found > 0 && syncResult.newBatches === 0 && syncResult.alreadyProcessed > 0 && <span>Todos os extratos encontrados já haviam sido processados.</span>}{syncResult.newBatches > 0 && gmailBatches[0] && <Button size="small" type="link" onClick={() => openGmailBatch(gmailBatches[0].batchId)}>Revisar agora</Button>}</Space>} style={{ marginBottom: 16 }} />}
+        <List bordered dataSource={gmailBatches} locale={{ emptyText: 'Nenhum lote Gmail encontrado.' }} renderItem={(item) => <List.Item actions={[<Button key="review" onClick={() => openGmailBatch(item.batchId)}>Revisar agora</Button>]}><List.Item.Meta title={item.fileName} description={`${item.reviewCount || 0} item(ns) em revisão · ${new Date(item.createdAt).toLocaleString('pt-BR')}`} /></List.Item>} />
       </>}
     </>}
   </Modal>;

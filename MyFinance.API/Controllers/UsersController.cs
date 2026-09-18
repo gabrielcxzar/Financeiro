@@ -34,6 +34,20 @@ namespace MyFinance.API.Controllers
         {
             var userId = GetUserId();
 
+            if (!_context.Database.IsRelational())
+            {
+                _context.Transactions.RemoveRange(await _context.Transactions.Where(t => t.UserId == userId).ToListAsync());
+                _context.RecurringTransactions.RemoveRange(await _context.RecurringTransactions.Where(t => t.UserId == userId).ToListAsync());
+                _context.Budgets.RemoveRange(await _context.Budgets.Where(t => t.UserId == userId).ToListAsync());
+                _context.GmailImportRules.RemoveRange(await _context.GmailImportRules.Where(t => t.UserId == userId).ToListAsync());
+                _context.Accounts.RemoveRange(await _context.Accounts.Where(t => t.UserId == userId).ToListAsync());
+                _context.Categories.RemoveRange(await _context.Categories.Where(t => t.UserId == userId).ToListAsync());
+                await _context.SaveChangesAsync();
+                _context.Categories.AddRange(DefaultCategories.Create(userId));
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Dados apagados e categorias resetadas para o padrao." });
+            }
+
             await _context.Transactions
                 .Where(t => t.UserId == userId)
                 .ExecuteDeleteAsync();
@@ -43,6 +57,10 @@ namespace MyFinance.API.Controllers
                 .ExecuteDeleteAsync();
 
             await _context.Budgets
+                .Where(t => t.UserId == userId)
+                .ExecuteDeleteAsync();
+
+            await _context.GmailImportRules
                 .Where(t => t.UserId == userId)
                 .ExecuteDeleteAsync();
 
@@ -58,7 +76,7 @@ namespace MyFinance.API.Controllers
             _context.Categories.AddRange(defaults);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Dados apagados e categorias resetadas para o padrão." });
+            return Ok(new { message = "Dados apagados e categorias resetadas para o padrï¿½o." });
         }
     }
 }

@@ -145,6 +145,9 @@ namespace MyFinance.API.Controllers
             var transactions = _context.Transactions.Where(t => t.AccountId == id && t.UserId == userId);
             _context.Transactions.RemoveRange(transactions);
 
+            var gmailRules = _context.GmailImportRules.Where(r => r.TargetAccountId == id && r.UserId == userId);
+            _context.GmailImportRules.RemoveRange(gmailRules);
+
             _context.Accounts.Remove(account);
             await _context.SaveChangesAsync();
             await _financialSnapshotService.RecalculateAccountBalancesAsync(userId);

@@ -8,7 +8,7 @@ public sealed class GmailIntegrationOptions
     public string TokenEncryptionKey { get; set; } = string.Empty;
     public bool Enabled { get; set; }
     public string FrontendBaseUrl { get; set; } = string.Empty;
-    public string DefaultSearchQuery { get; set; } = "has:attachment filename:ofx newer_than:90d";
+    public string DefaultSearchQuery { get; set; } = "from:(todomundo@nubank.com.br) subject:\"Extrato da sua conta do Nubank\" has:attachment filename:ofx newer_than:90d";
 }
 
 public sealed record GmailMessageAttachment(string MessageId, string AttachmentId, string FileName, DateTime? Date, string? Subject, int? Size = null);
