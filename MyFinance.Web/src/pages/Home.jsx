@@ -118,6 +118,9 @@ export default function Home({ month, year, onOpenOnboarding }) {
 
     const fetchData = async () => {
       try {
+        if (typeof performance !== 'undefined') {
+          performance.mark('finflow:dashboard:load-start');
+        }
         setLoading(true);
 
         const response = await api.get(`/dashboard/summary?month=${month}&year=${year}`, {
@@ -181,6 +184,14 @@ export default function Home({ month, year, onOpenOnboarding }) {
       } finally {
         if (isActive) {
           setLoading(false);
+          if (typeof performance !== 'undefined') {
+            performance.mark('finflow:dashboard:usable');
+            try {
+              performance.measure('finflow:dashboard:load', 'finflow:dashboard:load-start', 'finflow:dashboard:usable');
+            } catch {
+              // Timing instrumentation must never affect dashboard behavior.
+            }
+          }
         }
       }
     };

@@ -10,6 +10,9 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const onFinishLogin = async (values) => {
+    if (typeof performance !== 'undefined') {
+      performance.mark('finflow:login:click');
+    }
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', values);
@@ -19,6 +22,10 @@ export default function Login({ onLoginSuccess }) {
         rememberMe: values.rememberMe !== false,
       });
       message.success(`Bem-vindo, ${data.name}!`);
+      if (typeof performance !== 'undefined') {
+        performance.mark('finflow:login:authenticated');
+        performance.measure('finflow:login:total', 'finflow:login:click', 'finflow:login:authenticated');
+      }
       onLoginSuccess();
     } catch (error) {
       message.error(error?.message || 'Email ou senha incorretos.');

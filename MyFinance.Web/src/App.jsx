@@ -257,6 +257,13 @@ const App = () => {
     setIsAuthenticated(false);
   };
 
+  const handleLoginSuccess = () => {
+    if (typeof performance !== 'undefined') {
+      performance.mark('finflow:app:authenticated-start');
+    }
+    setIsAuthenticated(true);
+  };
+
   useEffect(() => {
     const handleAuthExpired = () => {
       setIsAuthenticated(false);
@@ -354,7 +361,7 @@ const App = () => {
           },
         }}
       >
-        <Login onLoginSuccess={() => setIsAuthenticated(true)} />
+        <Login onLoginSuccess={handleLoginSuccess} />
       </ConfigProvider>
     );
   }
