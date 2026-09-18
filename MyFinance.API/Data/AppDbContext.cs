@@ -19,6 +19,9 @@ namespace MyFinance.API.Data
         public DbSet<ImportBatch> ImportBatches { get; set; }
         public DbSet<ImportedStatementItem> ImportedStatementItems { get; set; }
         public DbSet<CategorizationRule> CategorizationRules { get; set; }
+        public DbSet<GmailIntegration> GmailIntegrations { get; set; }
+        public DbSet<ExternalImportArtifact> ExternalImportArtifacts { get; set; }
+        public DbSet<GmailOAuthState> GmailOAuthStates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -41,6 +44,26 @@ namespace MyFinance.API.Data
                 .WithMany()
                 .HasForeignKey(t => t.ImportBatchId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<GmailIntegration>()
+                .HasIndex(x => x.UserId)
+                .IsUnique();
+            modelBuilder.Entity<GmailIntegration>()
+                .HasOne(x => x.DefaultAccount)
+                .WithMany()
+                .HasForeignKey(x => x.DefaultAccountId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<ExternalImportArtifact>()
+                .HasIndex(x => new { x.UserId, x.Provider, x.ExternalMessageId, x.ExternalAttachmentId })
+                .IsUnique();
+            modelBuilder.Entity<ExternalImportArtifact>()
+                .HasOne(x => x.ImportBatch)
+                .WithMany()
+                .HasForeignKey(x => x.ImportBatchId)
+                .OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<GmailOAuthState>()
+                .HasIndex(x => x.StateHash)
+                .IsUnique();
 
             modelBuilder.Entity<ImportedStatementItem>()
                 .HasOne(i => i.Transaction)
