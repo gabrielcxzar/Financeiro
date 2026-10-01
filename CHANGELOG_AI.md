@@ -1,5 +1,9 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [Unreleased] - 2026-10-01
+
+- **Fatura com pass-through**: compras no cartao classificadas como `pass_through` seguem compondo o passivo/fatura, sem entrar nos relatorios operacionais.
+
 ## [1.9.3] - 2026-09-17
 
 - **Limpeza e consolidação**: os commits locais `42f9db9` e `bb61b7d` foram preservados em patches externos, comprovados redundantes com `origin/main` e descartados apenas do ponteiro local; `main` foi alinhada ao commit oficial `6ba2fef`.

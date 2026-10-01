@@ -30,6 +30,10 @@ AND ExcludeFromReports == false
 
 Agregados de renda e consumo usam essa população por padrão. Pagamento de fatura, transferência interna, repasse e ajuste técnico são movimentos de liquidação/contabilidade e não devem duplicar renda ou consumo. Estornos em cartão podem ser receitas operacionais que reduzem despesa; a regra de sinal deve ser testada por tipo de conta.
 
+O resumo mensal atribui movimentos pela data da transação e pela natureza operacional; não exige `Paid = true`. Assim, uma parcela operacional agendada para uma data do período conta no resumo por competência, enquanto o snapshot de saldo a separa entre valor confirmado, pendente e projetado. O caixa pago deve ser lido nas métricas de saldo/snapshot, não inferido do resumo operacional.
+
+A fatura/passivo do cartão usa movimentos que afetam o saldo do cartão, independentemente da política de relatório: `pass_through` continua compondo a fatura mesmo excluído dos gastos pessoais. Pernas de transferência e `invoice_payment` são excluídas para não reduzir/aumentar a fatura como se fossem compras. No saldo global assinado, compras aumentam o passivo e pagamentos/créditos o reduzem; resultado negativo representa saldo credor líquido conhecido, não uma obrigação positiva.
+
 ## Read models não persistidos
 
 - `FinancialSummary`: período, renda, despesa, fluxo líquido, taxa de poupança, contagem, série mensal e categorias.
