@@ -56,6 +56,31 @@ Este documento registra o histórico imutável das Decisões Arquiteturais (Arch
 
 ---
 
+## ADR-006: Posições de investimento fora do ledger operacional
+
+- **Data**: 2026-10-01
+- **Contexto**: [FiiHolding.cs](../MyFinance.API/Models/FiiHolding.cs) registra apenas ticker, cotas e preço médio. RDB/CDB não têm entidade própria. Contas não-cartão, inclusive `Account.Type = Investment` em [Account.cs](../MyFinance.API/Models/Account.cs), entram no saldo de caixa e no patrimônio do dashboard por [FinancialSnapshotService.cs](../MyFinance.API/Services/FinancialSnapshotService.cs).
+- **Decisão**: Manter `fii_holdings` e acrescentar somente metadados de cotação manual (`current_price`, data e origem); criar uma tabela própria, aditiva e isolada por usuário para posições de renda fixa. Não representar investimentos como `Account` ou `Transaction`, nem incluir o novo domínio no patrimônio consolidado nesta versão. Não implementar rendimento estimado nem cotações automáticas; valores confirmados e cotações manuais preservam tipo, origem e data.
+- **Motivação**: Aproveitar o contrato FII existente, reduzir risco de migração e manter saldo operacional, investimento confirmado e cotação de mercado como conceitos separados. O MCP pode compor alocação com os valores mais recentes conhecidos, identificando sua base e data.
+- **Alternativas consideradas**:
+  1. Migrar FIIs para uma tabela genérica de posições: mais uniforme, porém amplia o backfill, altera contratos existentes e aumenta o risco sem necessidade para renda fixa.
+  2. Usar `Account.Type = Investment`: rejeitado porque a conta entra nos cálculos operacionais de saldo e patrimônio e poderia duplicar a posição quando se cadastrasse também o ativo real.
+  3. Cotação automática: a [B3 documenta APIs de mercado](https://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/b3-for-developers/) e informa que a distribuição do Market Data exige contrato/licença; a [brapi documenta cotação de FIIs](https://brapi.dev/docs/fiis) e autenticação por token para cobertura além dos tickers de teste. Sem contrato ou credencial ampla disponível e validada para este deploy, a cotação automática não entra nesta versão.
+- **Impacto**: Os FIIs mantêm sua identidade e unicidade atuais; custo, valor de mercado, ganho e retorno são calculados a partir das posições. Renda fixa guarda saldo confirmado e características conhecidas, deixando nulos os dados desconhecidos. O principal de renda fixa não informado deixa o total de custo de aquisição explicitamente parcial.
+- **Riscos**: Valuations manuais podem ficar desatualizados, então data/origem são retornadas e exibidas. Valores de mercado de FIIs e saldos confirmados de renda fixa são bases diferentes, ainda que a alocação os compare como últimos valores BRL conhecidos. A migration cria estrutura apenas; os registros pessoais iniciais são inseridos separadamente em produção.
+
+## ADR-007: Cotação externa opcional de FIIs
+
+- **Data**: 2026-10-01
+- **Contexto**: A ADR-006 manteve as cotações manuais por não haver credencial ampla validada no deploy. A documentação oficial da [brapi](https://brapi.dev/docs/fiis) apresenta endpoint de cotação de FIIs, timestamp de mercado e autenticação por token. A [B3](https://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/b3-for-developers/) exige contrato/licença para distribuição de Market Data.
+- **Decisão**: Adicionar provider brapi opcional atrás de uma interface de cotação, ativada apenas com `BRAPI_API_KEY`. A busca será explícita, autenticada e iniciada pela UI/API, com timeout e cache. O provider retorna fonte e horário; em erro ou falta de credencial, a cotação persistida não muda. A entrada manual continua disponível. Esta decisão atualiza a parte de cotações da ADR-006; a separação do ledger e a ausência de rendimento estimado permanecem.
+- **Motivação**: Usar uma API documentada com metadados de cotação, sem scraping nem acoplamento do domínio ao fornecedor, mantendo fallback claro quando não houver credencial ou disponibilidade.
+- **Alternativas consideradas**:
+  1. Manter somente cotações manuais; não atende ao pedido de aproximar FIIs de valores atuais quando existe provider documentado.
+  2. Consumir diretamente Market Data B3; exige contrato/licença comercial.
+  3. Atualização automática em background; adiada para evitar chamadas/credenciais recorrentes sem infraestrutura de agendamento definida.
+- **Impacto**: A aplicação exige configuração opcional da credencial no ambiente do serviço para cotações amplas. Dados manuais funcionam sem ela e permanecem identificados por origem e data.
+- **Riscos**: A fonte externa pode falhar, limitar acesso ou retornar dado atrasado; timeout/cache, preservação do último valor e timestamp visível limitam o risco. Cotação não equivale a preço garantido de execução.
 ## Confidence
 
 ### Alta

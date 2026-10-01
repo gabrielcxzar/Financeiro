@@ -37,6 +37,48 @@ public sealed record RecurringExpense(int Id, string Description, decimal Amount
 public sealed record RecurringExpensesData(decimal MonthlyTotal, IReadOnlyList<RecurringExpense> Items);
 public sealed record FinancialGoalItem(int Id, string Name, string GoalType, decimal TargetAmount, decimal CurrentAmount, decimal Progress, DateTime? TargetDate, decimal MonthlyContribution, string Status);
 public sealed record FinancialGoalsData(decimal MonthlyContributionTotal, IReadOnlyList<FinancialGoalItem> Items);
-public sealed record InvestmentPosition(string Ticker, decimal Shares, decimal AveragePrice, decimal CostBasis, decimal? MarketValue);
-public sealed record InvestmentAccountPosition(int Id, string Name, decimal Balance);
-public sealed record InvestmentPositionsData(IReadOnlyList<InvestmentAccountPosition> InvestmentAccounts, IReadOnlyList<InvestmentPosition> FiiHoldings, decimal TotalCostBasis, string Valuation);
+public sealed record InvestmentPosition(
+    string Ticker,
+    decimal Shares,
+    decimal AvgPrice,
+    decimal CostBasis,
+    decimal? CurrentPrice,
+    decimal? MarketValue,
+    decimal? UnrealizedGain,
+    decimal? UnrealizedReturnPercent,
+    DateOnly? QuoteAsOfDate,
+    DateTimeOffset? QuoteAsOf,
+    string? ValuationSource,
+    string ValuationType,
+    string? Notes);
+public sealed record FixedIncomePosition(
+    int Id,
+    string Name,
+    string? Institution,
+    string ProductType,
+    string? Benchmark,
+    decimal? ContractedRate,
+    string? ContractedRateUnit,
+    DateOnly? MaturityDate,
+    string? Liquidity,
+    decimal? PrincipalAmount,
+    decimal? KnownValue,
+    DateOnly? ValueAsOfDate,
+    string? ValuationSource,
+    string ValuationType,
+    string? Notes);
+public sealed record InvestmentAccountPosition(int Id, string Name, decimal Balance, bool ExcludedFromPortfolioTotals = true);
+public sealed record InvestmentAllocation(string AssetType, decimal Value, decimal? SharePercent, int PositionCount, DateOnly? OldestValueAsOfDate, DateOnly? LatestValueAsOfDate);
+public sealed record InvestmentValueCoverage(int ValuedPositionCount, int UnvaluedPositionCount, int FixedIncomeWithKnownValueCount, int FiiWithMarketQuoteCount, int FiiWithoutMarketQuoteCount, bool CostBasisComplete, int LegacyInvestmentAccountsExcluded);
+public sealed record InvestmentPositionsData(
+    IReadOnlyList<InvestmentAccountPosition> InvestmentAccounts,
+    IReadOnlyList<FixedIncomePosition> FixedIncome,
+    IReadOnlyList<InvestmentPosition> FiiHoldings,
+    decimal TotalKnownValue,
+    decimal TotalCostBasis,
+    bool CostBasisComplete,
+    decimal TotalMarketValue,
+    IReadOnlyList<InvestmentAllocation> Allocation,
+    InvestmentValueCoverage Coverage,
+    string AllocationBasis,
+    string Valuation);

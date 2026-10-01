@@ -100,6 +100,8 @@ builder.Services.AddScoped<IFinancialSnapshotService, FinancialSnapshotService>(
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<IMarketQuoteProvider, BrapiMarketQuoteProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(8));
 var gmailOptions = builder.Configuration.GetSection("GmailIntegration").Get<GmailIntegrationOptions>() ?? new GmailIntegrationOptions();
 builder.Services.AddSingleton(gmailOptions);
 builder.Services.AddHttpClient<IGmailClient, GoogleGmailClient>();
