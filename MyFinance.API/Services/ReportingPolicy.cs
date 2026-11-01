@@ -10,10 +10,18 @@ public static class ReportingPolicy
                        !transaction.IsTransfer &&
                        !transaction.ExcludeFromReports;
 
+    public static Expression<Func<Transaction, bool>> CardLiabilityPredicate { get; } =
+        transaction => !transaction.IsTransfer &&
+                       transaction.ReportingKind != ReportingKinds.InvoicePayment;
+
     private static readonly Func<Transaction, bool> Operational = OperationalPredicate.Compile();
+    private static readonly Func<Transaction, bool> CardLiability = CardLiabilityPredicate.Compile();
 
     public static bool IsOperational(Transaction transaction) =>
         Operational(transaction);
+
+    public static bool IsCardLiabilityMovement(Transaction transaction) =>
+        CardLiability(transaction);
 
     public static bool IsSettlement(Transaction transaction) => transaction.ReportingKind == ReportingKinds.InvoicePayment;
 

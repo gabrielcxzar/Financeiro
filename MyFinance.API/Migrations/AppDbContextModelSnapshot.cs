@@ -290,9 +290,26 @@ namespace MyFinance.API.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<decimal?>("CurrentPrice")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("current_price");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
+
+                    b.Property<DateTimeOffset?>("QuoteAsOf")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("quote_as_of");
+
+                    b.Property<DateOnly?>("QuoteAsOfDate")
+                        .HasColumnType("date")
+                        .HasColumnName("quote_as_of_date");
+
+                    b.Property<string>("QuoteSource")
+                        .HasColumnType("text")
+                        .HasColumnName("quote_source");
 
                     b.Property<decimal>("Shares")
                         .HasColumnType("numeric")
@@ -373,6 +390,94 @@ namespace MyFinance.API.Migrations
                     b.HasIndex("LinkedAccountId");
 
                     b.ToTable("financial_goals");
+                });
+
+            modelBuilder.Entity("MyFinance.API.Models.FixedIncomeHolding", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("BalanceAsOfDate")
+                        .HasColumnType("date")
+                        .HasColumnName("balance_as_of_date");
+
+                    b.Property<string>("Benchmark")
+                        .HasColumnType("text")
+                        .HasColumnName("benchmark");
+
+                    b.Property<decimal?>("ContractedRate")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("contracted_rate");
+
+                    b.Property<string>("ContractedRateUnit")
+                        .HasColumnType("text")
+                        .HasColumnName("contracted_rate_unit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Institution")
+                        .HasColumnType("text")
+                        .HasColumnName("institution");
+
+                    b.Property<decimal?>("KnownBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("known_balance");
+
+                    b.Property<string>("Liquidity")
+                        .HasColumnType("text")
+                        .HasColumnName("liquidity");
+
+                    b.Property<DateOnly?>("MaturityDate")
+                        .HasColumnType("date")
+                        .HasColumnName("maturity_date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal?>("PrincipalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("principal_amount");
+
+                    b.Property<string>("ProductType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("product_type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("ValuationSource")
+                        .HasColumnType("text")
+                        .HasColumnName("valuation_source");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("fixed_income_holdings");
                 });
 
             modelBuilder.Entity("MyFinance.API.Models.GmailImportRule", b =>
@@ -1161,6 +1266,15 @@ namespace MyFinance.API.Migrations
                         .HasForeignKey("LinkedAccountId");
 
                     b.Navigation("LinkedAccount");
+                });
+
+            modelBuilder.Entity("MyFinance.API.Models.FixedIncomeHolding", b =>
+                {
+                    b.HasOne("MyFinance.API.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("MyFinance.API.Models.GmailImportRule", b =>

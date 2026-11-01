@@ -216,7 +216,7 @@ public sealed class FinancialSnapshotService(AppDbContext context) : IFinancialS
                 t.AccountId == account.Id &&
                 t.Date >= window.StartDate &&
                 t.Date < window.CloseDate &&
-                ReportingPolicy.IsOperational(t))
+                ReportingPolicy.IsCardLiabilityMovement(t))
             .Sum(CardSignedAmount);
     }
 

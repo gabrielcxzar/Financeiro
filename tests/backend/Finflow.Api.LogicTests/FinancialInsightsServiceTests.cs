@@ -32,6 +32,54 @@ public sealed class FinancialInsightsServiceTests
         Assert.Null(result.Data.SavingsRate);
     }
 
+    [Fact]
+    public async Task Summary_RecognizesScheduledOperationalExpenseByDateButExcludesPassThrough()
+    {
+        var (db, _) = TestContextFactory.Create();
+        db.Accounts.Add(new Account { UserId = 1, Name = "Cartao", Type = "Checking", IsCreditCard = true });
+        await db.SaveChangesAsync();
+        var card = db.Accounts.Single();
+        var date = new DateTime(2026, 9, 30, 12, 0, 0, DateTimeKind.Utc);
+        db.Transactions.AddRange(
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                Date = date,
+                Description = "Parcela agendada",
+                Amount = 32.79m,
+                Type = "Expense",
+                Paid = false,
+                ReportingKind = ReportingKinds.Normal
+            },
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                Date = date,
+                Description = "Compra reembolsável para terceiro",
+                Amount = 10.89m,
+                Type = "Expense",
+                Paid = true,
+                ExcludeFromReports = true,
+                ReportingKind = ReportingKinds.PassThrough
+            });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        var result = await service.GetSummaryAsync(
+            1,
+            new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc),
+            true,
+            5,
+            default);
+
+        Assert.Equal(32.79m, result.Data.Expense);
+        Assert.Equal(1, result.Data.TransactionCount);
+        Assert.Equal(32.79m, Assert.Single(result.Data.Monthly).Expense);
+    }
+
     [PostgresFact]
     public async Task InvoicePayment_ChangesBalancesButNotOperationalSummaryOrCategories()
     {

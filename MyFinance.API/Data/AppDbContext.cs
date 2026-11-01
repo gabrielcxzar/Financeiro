@@ -15,6 +15,7 @@ namespace MyFinance.API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Budget> Budgets { get; set; }
         public DbSet<FiiHolding> FiiHoldings { get; set; }
+        public DbSet<FixedIncomeHolding> FixedIncomeHoldings { get; set; }
         public DbSet<FinancialGoal> FinancialGoals { get; set; }
         public DbSet<ImportBatch> ImportBatches { get; set; }
         public DbSet<ImportedStatementItem> ImportedStatementItems { get; set; }
@@ -28,6 +29,18 @@ namespace MyFinance.API.Data
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.UseOpenIddict();
+
+            modelBuilder.Entity<FiiHolding>().Property(x => x.CurrentPrice).HasPrecision(18, 4);
+            modelBuilder.Entity<FixedIncomeHolding>().Property(x => x.ContractedRate).HasPrecision(10, 4);
+            modelBuilder.Entity<FixedIncomeHolding>().Property(x => x.PrincipalAmount).HasPrecision(18, 2);
+            modelBuilder.Entity<FixedIncomeHolding>().Property(x => x.KnownBalance).HasPrecision(18, 2);
+            modelBuilder.Entity<FixedIncomeHolding>().HasIndex(x => x.UserId);
+            modelBuilder.Entity<FixedIncomeHolding>().HasIndex(x => new { x.UserId, x.Name }).IsUnique();
+            modelBuilder.Entity<FixedIncomeHolding>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Transaction>()
                 .HasIndex(t => new { t.UserId, t.AccountId, t.Source, t.ExternalId })

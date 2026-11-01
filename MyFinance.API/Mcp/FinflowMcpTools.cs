@@ -46,7 +46,7 @@ public sealed class FinflowMcpTools(IFinancialInsightsService insights, IHttpCon
     public Task<InsightEnvelope<FinancialGoalsData>> GetFinancialGoals(string? status = "active", CancellationToken cancellationToken = default)
         => insights.GetFinancialGoalsAsync(UserId(), status, cancellationToken);
 
-    [McpServerTool(Name = "get_investment_positions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true), Description("Retorna posições de investimento conhecidas sem inventar cotação de mercado.")]
+    [McpServerTool(Name = "get_investment_positions", ReadOnly = true, Destructive = false, Idempotent = true, OpenWorld = false, UseStructuredContent = true), Description("Retorna renda fixa e FIIs do usuário autenticado, separando custo conhecido, saldo confirmado e valor de mercado persistido com datas e origens. Não calcula rendimento estimado e não altera investimentos.")]
     public Task<InsightEnvelope<InvestmentPositionsData>> GetInvestmentPositions(bool includeInvestmentAccounts = true, bool includeFiiHoldings = true, CancellationToken cancellationToken = default)
         => insights.GetInvestmentPositionsAsync(UserId(), includeInvestmentAccounts, includeFiiHoldings, cancellationToken);
 

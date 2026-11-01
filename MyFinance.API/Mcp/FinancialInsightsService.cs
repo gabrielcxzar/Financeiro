@@ -162,12 +162,69 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
     public async Task<InsightEnvelope<InvestmentPositionsData>> GetInvestmentPositionsAsync(int userId, bool includeInvestmentAccounts, bool includeFiiHoldings, CancellationToken cancellationToken)
     {
         var accounts = includeInvestmentAccounts
-            ? await db.Accounts.AsNoTracking().Where(x => x.UserId == userId && !x.IsCreditCard && x.Type == "Investment").OrderBy(x => x.Id).Select(x => new InvestmentAccountPosition(x.Id, x.Name, x.CurrentBalance)).ToListAsync(cancellationToken)
+            ? await db.Accounts.AsNoTracking().Where(x => x.UserId == userId && !x.IsCreditCard && x.Type == "Investment").OrderBy(x => x.Id).Select(x => new InvestmentAccountPosition(x.Id, x.Name, x.CurrentBalance, true)).ToListAsync(cancellationToken)
             : [];
-        var holdings = includeFiiHoldings
-            ? await db.FiiHoldings.AsNoTracking().Where(x => x.UserId == userId).OrderBy(x => x.Ticker).Select(x => new InvestmentPosition(x.Ticker, x.Shares, x.AvgPrice, x.Shares * x.AvgPrice, null)).ToListAsync(cancellationToken)
+        var fixedIncomeRows = await db.FixedIncomeHoldings.AsNoTracking().Where(x => x.UserId == userId).OrderBy(x => x.Name).ToListAsync(cancellationToken);
+        var fixedIncome = fixedIncomeRows.Select(x => new FixedIncomePosition(
+            x.Id, x.Name, x.Institution, x.ProductType, x.Benchmark, x.ContractedRate, x.ContractedRateUnit,
+            x.MaturityDate, x.Liquidity, x.PrincipalAmount, x.KnownBalance, x.BalanceAsOfDate, x.ValuationSource,
+            x.KnownBalance is null ? "unvalued" : "confirmed_manual", x.Notes)).ToList();
+        var holdingRows = includeFiiHoldings
+            ? await db.FiiHoldings.AsNoTracking().Where(x => x.UserId == userId).OrderBy(x => x.Ticker).ToListAsync(cancellationToken)
             : [];
-        return Envelope(new InvestmentPositionsData(accounts, holdings, holdings.Sum(x => x.CostBasis), "marketValue unavailable without persisted quotation"), null);
+        var holdings = holdingRows.Select(x =>
+        {
+            var costBasis = Money(x.Shares * x.AvgPrice);
+            decimal? marketValue = x.CurrentPrice is null ? null : Money(x.Shares * x.CurrentPrice.Value);
+            decimal? gain = marketValue is null ? null : Money(marketValue.Value - costBasis);
+            decimal? returnPercent = marketValue is null || costBasis <= 0 ? null : decimal.Round(gain!.Value / costBasis * 100m, 2);
+            return new InvestmentPosition(x.Ticker, x.Shares, x.AvgPrice, costBasis, x.CurrentPrice, marketValue, gain,
+                returnPercent, x.QuoteAsOfDate, x.QuoteAsOf, x.QuoteSource, x.CurrentPrice is null ? "unvalued" : "market_quote", x.Notes);
+        }).ToList();
+
+        var knownFixedValue = fixedIncome.Where(x => x.KnownValue is not null).Sum(x => x.KnownValue!.Value);
+        var totalMarketValue = holdings.Where(x => x.MarketValue is not null).Sum(x => x.MarketValue!.Value);
+        var totalKnownValue = Money(knownFixedValue + totalMarketValue);
+        var totalCostBasis = Money(holdings.Sum(x => x.CostBasis) + fixedIncome.Where(x => x.PrincipalAmount is not null).Sum(x => x.PrincipalAmount!.Value));
+        var costComplete = fixedIncome.All(x => x.PrincipalAmount is not null);
+        var values = new[]
+        {
+            Allocation("fixed_income", fixedIncome.Where(x => x.KnownValue is not null).Select(x => (x.KnownValue!.Value, x.ValueAsOfDate)), totalKnownValue),
+            Allocation("fii", holdings.Where(x => x.MarketValue is not null).Select(x => (x.MarketValue!.Value, x.QuoteAsOfDate)), totalKnownValue)
+        }.Where(x => x.PositionCount > 0).ToList();
+        var unvaluedFiiCount = holdingRows.Count(x => x.CurrentPrice is null);
+        var unvaluedFixedCount = fixedIncome.Count(x => x.KnownValue is null);
+        var valuationWarnings = new List<string>();
+        if (unvaluedFiiCount > 0) valuationWarnings.Add("Some FIIs have no persisted market quote and are excluded from known value and allocation.");
+        if (unvaluedFixedCount > 0) valuationWarnings.Add("Some fixed-income positions have no confirmed balance and are excluded from known value and allocation.");
+        if (!costComplete) valuationWarnings.Add("Fixed-income acquisition principal is incomplete; totalCostBasis includes only principal values explicitly stored plus FII acquisition cost.");
+        if (accounts.Count > 0) valuationWarnings.Add("Legacy Investment accounts are returned for compatibility but excluded from portfolio totals to prevent double counting.");
+
+        var data = new InvestmentPositionsData(
+            accounts, fixedIncome, holdings, totalKnownValue, totalCostBasis, costComplete, Money(totalMarketValue), values,
+            new InvestmentValueCoverage(
+                fixedIncome.Count(x => x.KnownValue is not null) + holdings.Count(x => x.MarketValue is not null),
+                unvaluedFixedCount + unvaluedFiiCount,
+                fixedIncome.Count(x => x.KnownValue is not null),
+                holdingRows.Count - unvaluedFiiCount,
+                unvaluedFiiCount,
+                costComplete,
+                accounts.Count),
+            "Last confirmed fixed-income balances plus persisted FII market quotes; legacy Investment accounts excluded.",
+            "Known value combines confirmed fixed-income balances and market values calculated from the last persisted FII quotes. It is not a live balance and does not include positions without valuation.");
+        return new InsightEnvelope<InvestmentPositionsData>(data,
+            new InsightMeta("BRL", Timezone, DateTimeOffset.UtcNow, null,
+                unvaluedFixedCount + unvaluedFiiCount > 0 || !costComplete, valuationWarnings));
+    }
+
+    private static decimal Money(decimal value) => decimal.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private static InvestmentAllocation Allocation(string assetType, IEnumerable<(decimal Value, DateOnly? AsOf)> positions, decimal total)
+    {
+        var rows = positions.ToList();
+        var value = Money(rows.Sum(x => x.Value));
+        return new InvestmentAllocation(assetType, value, total == 0 ? null : decimal.Round(value / total * 100m, 2), rows.Count,
+            rows.Where(x => x.AsOf is not null).Select(x => x.AsOf).Min(), rows.Where(x => x.AsOf is not null).Select(x => x.AsOf).Max());
     }
 
     private static void ValidatePeriod(DateTime from, DateTime to, int maxMonths)

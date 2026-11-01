@@ -288,6 +288,57 @@ public class FinancialCoreLogicTests
     }
 
     [Fact]
+    public async Task InvoiceAmount_IncludesPassThroughCardPurchaseButExcludesInvoiceSettlement()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (_, card, expenseCategory, incomeCategory) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        card.ClosingDay = 25;
+        card.DueDay = 7;
+        await db.SaveChangesAsync();
+
+        var invoiceWindow = finance.GetInvoiceWindow(card, 9, 2026);
+        db.Transactions.AddRange(
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = expenseCategory.Id,
+                Description = "Compra para terceiro reembolsada",
+                Amount = 10.89m,
+                Type = "Expense",
+                Paid = true,
+                Date = invoiceWindow.StartDate.AddDays(1),
+                ReportingKind = ReportingKinds.PassThrough,
+                ExcludeFromReports = true
+            },
+            new Transaction
+            {
+                UserId = 1,
+                AccountId = card.Id,
+                CategoryId = incomeCategory.Id,
+                Description = "Pagamento da fatura",
+                Amount = 10.89m,
+                Type = "Income",
+                Paid = true,
+                IsTransfer = true,
+                TransferGroupId = "invoice-settlement",
+                Date = invoiceWindow.StartDate.AddDays(2),
+                ReportingKind = ReportingKinds.InvoicePayment,
+                ExcludeFromReports = true
+            });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(10.89m, finance.CalculateInvoiceAmount(card, await db.Transactions.ToListAsync(), 9, 2026));
+
+        var controller = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(controller);
+        var invoiceResult = await controller.GetInvoiceSummary(card.Id, 9, 2026);
+        var invoice = TestContextFactory.ToJsonElement(invoiceResult.Value!);
+        Assert.Equal(10.89m, invoice.GetProperty("total").GetDecimal());
+        Assert.Single(invoice.GetProperty("transactions").EnumerateArray());
+    }
+
+    [Fact]
     public async Task CreditCardInstallmentInProgress_CreatesOnlyRemainingParcels_WithCorrectSequence()
     {
         var (db, finance) = TestContextFactory.Create();

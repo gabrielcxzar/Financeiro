@@ -68,8 +68,8 @@ namespace MyFinance.API.Controllers
                     t.AccountId == accountId &&
                     t.UserId == userId &&
                     t.Date >= invoiceWindow.StartDate &&
-                    t.Date < invoiceWindow.CloseDate &&
-                    t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports)
+                    t.Date < invoiceWindow.CloseDate)
+                .Where(ReportingPolicy.CardLiabilityPredicate)
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
 

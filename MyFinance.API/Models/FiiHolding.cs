@@ -17,6 +17,18 @@ namespace MyFinance.API.Models
         [Column("avg_price")]
         public decimal AvgPrice { get; set; }
 
+        [Column("current_price")]
+        public decimal? CurrentPrice { get; set; }
+
+        [Column("quote_as_of_date")]
+        public DateOnly? QuoteAsOfDate { get; set; }
+
+        [Column("quote_as_of")]
+        public DateTimeOffset? QuoteAsOf { get; set; }
+
+        [Column("quote_source")]
+        public string? QuoteSource { get; set; }
+
         [Column("notes")]
         public string? Notes { get; set; }
 

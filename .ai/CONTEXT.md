@@ -71,6 +71,11 @@ Abaixo está o detalhamento de cada diretório do repositório, seu objetivo, re
 - **Movimentação operacional**: transação que representa consumo ou renda econômica nos relatórios. No modelo atual, possui `ReportingKind = normal`, não é transferência e não está excluída de relatórios.
 - **Liquidação**: movimentação que quita ou transfere uma obrigação já reconhecida, como pagamento de fatura; não deve ser contada novamente como consumo.
 - **Saldo conhecido**: valor contábil derivável do saldo inicial e das transações persistidas no FinFlow. Não implica disponibilidade bancária em tempo real.
+- **Saldo confirmado de investimento**: valor observado em uma instituição ou fonte identificada, registrado com data e origem. Não é recalculado automaticamente e não equivale a uma cotação atual.
+- **Custo de aquisição**: valor originalmente aplicado para adquirir uma posição, conhecido a partir dos dados de aquisição. Para FIIs pode ser derivado de quantidade × preço médio; para renda fixa permanece desconhecido enquanto o principal não for comprovado.
+- **Valor de mercado**: valor de uma posição negociada em mercado, calculado a partir da quantidade e de uma cotação identificada e datada. Um saldo confirmado de renda fixa não é valor de mercado.
+- **Valor estimado**: cálculo derivado de parâmetros e eventos suficientes, distinto de um saldo confirmado. Não substitui o último valor confirmado.
+- **Alocação da carteira**: percentuais calculados sobre valuations em BRL registrados para as posições; a data, a origem e as posições sem valuation precisam permanecer visíveis para contextualizar a comparação.
 - **Patrimônio contábil conhecido**: soma dos saldos conhecidos menos passivos de cartão conhecidos. Não equivale a patrimônio de mercado quando faltam cotações atuais.
 - **Data financeira**: data civil usada para atribuir uma movimentação a um período de relatório. Para a feature MCP proposta, o timezone canônico é `America/Sao_Paulo`, sujeito à validação dos registros legados.
 - **Acesso MCP somente leitura** *(implementado e validado em 2026-09-17)*: autorização com escopo mínimo para consultar agregados e detalhes limitados, sem capacidade de criar, alterar, importar, transferir ou excluir dados.
