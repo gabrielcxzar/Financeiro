@@ -112,6 +112,14 @@ O MCP atual não possui posições cadastradas, e [FiiHolding.cs](../MyFinance.A
 
 Os cards de receitas e despesas e o gráfico de categorias usam movimentações operacionais confirmadas da data civil no mês selecionado. Pendências cadastradas são mostradas separadamente, sem somar regras de recorrência ainda não lançadas. A comparação usa as despesas confirmadas dos dois meses. Saldo e patrimônio representam o snapshot atual, não o fechamento histórico do mês selecionado. Detalhes e riscos: [especificação da correção](DASHBOARD_MONTHLY_FIX.md).
 
+## Conciliação de despesas compartilhadas
+
+Problema: um pagamento bancário bruto pode incluir parcelas suportadas por terceiros, mas deve permanecer íntegro no extrato e no saldo. Comportamento esperado: o valor bruto continua determinando saldo e fatura, enquanto um valor atribuído opcional determina os agregados operacionais. Quando não informado, o valor atribuído é igual ao bruto. Valores atribuídos devem ser não negativos e não exceder o bruto; atualizações comuns não podem descartá-los silenciosamente.
+
+Critérios: despesas e categorias, comparações e MCP usam a parcela atribuída; o detalhe preserva o bruto; contas e cartões permanecem calculados pelo bruto; registros legados permanecem inalterados. Riscos: relatórios e edição devem aplicar a mesma semântica, e links de reembolsos devem preservar rastreabilidade sem criar movimentação financeira fictícia. Tarefas ordenadas: testes dos dois valores; alteração aditiva de modelo e migração; atualização dos agregados e apresentação; teste isolado; validação antes de publicar e conciliar.
+
+O contrato de resumo do dashboard e as telas de transações apresentam o valor atribuído quando diferente do bruto. O cartão mantém a classificação de confirmação/pendência da compra; a liquidação da fatura continua fora das despesas operacionais.
+
 ## Confidence
 
 ### Alta

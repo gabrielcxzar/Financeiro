@@ -14,6 +14,9 @@ namespace MyFinance.API.Models
         [Column("amount")]
         public decimal Amount { get; set; }
 
+        [Column("reporting_amount")]
+        public decimal? ReportingAmount { get; set; }
+
         [Column("date")]
         public DateTime Date { get; set; }
 

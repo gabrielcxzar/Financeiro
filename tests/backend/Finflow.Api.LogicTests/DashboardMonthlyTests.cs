@@ -3,6 +3,47 @@ namespace Finflow.Api.LogicTests;
 public class DashboardMonthlyTests
 {
     [Fact]
+    public async Task SharedExpense_UsesPersonalShareInReports_AndGrossAmountInCashBalance()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (bank, _, category, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var controller = new DashboardSummaryController(db, finance, NullLogger<DashboardSummaryController>.Instance);
+        TestContextFactory.AttachUser(controller);
+        db.Transactions.Add(new Transaction { UserId = 1, AccountId = bank.Id, CategoryId = category.Id,
+            Description = "Despesa compartilhada", Amount = 538.80m, ReportingAmount = 108.80m,
+            Type = "Expense", Paid = true, Date = DateTime.UtcNow.AddDays(-1) });
+        await db.SaveChangesAsync();
+        var date = DateTime.UtcNow.AddDays(-1);
+        var result = Assert.IsType<OkObjectResult>(await controller.GetSummary(date.Month, date.Year, CancellationToken.None));
+        var summary = Assert.IsType<DashboardSummaryController.DashboardSummaryResponse>(result.Value);
+        Assert.Equal(108.80m, summary.Summary.Expense);
+        Assert.Equal(108.80m, Assert.Single(summary.CategorySummary).Total);
+        Assert.Equal(461.20m, summary.Summary.Total);
+        Assert.Equal(538.80m, Assert.Single(summary.Transactions).Amount);
+        Assert.Equal(108.80m, Assert.Single(summary.Transactions).ReportingAmount);
+    }
+
+    [Fact]
+    public async Task SharedExpense_EditPreservesShareAndRejectsChangingGrossAmount()
+    {
+        var (db, finance) = TestContextFactory.Create();
+        var (bank, _, category, _) = await TestContextFactory.SeedFinanceBaseAsync(db);
+        var tx = new Transaction { UserId = 1, AccountId = bank.Id, CategoryId = category.Id,
+            Description = "Compartilhada", Amount = 200m, ReportingAmount = 50m,
+            Type = "Expense", Paid = true, Date = DateTime.UtcNow.AddDays(-1) };
+        db.Transactions.Add(tx);
+        await db.SaveChangesAsync();
+        var controller = new TransactionsController(db, finance);
+        TestContextFactory.AttachUser(controller);
+        var request = new UpsertTransactionDto { Id = tx.Id, AccountId = bank.Id, CategoryId = category.Id,
+            Description = "Compartilhada revisada", Amount = 200m, Type = "Expense", Paid = true, Date = tx.Date };
+        Assert.IsType<NoContentResult>(await controller.PutTransaction(tx.Id, request));
+        Assert.Equal(50m, (await db.Transactions.AsNoTracking().SingleAsync(t => t.Id == tx.Id)).ReportingAmount);
+        request.Amount = 199m;
+        Assert.IsType<BadRequestObjectResult>(await controller.PutTransaction(tx.Id, request));
+    }
+
+    [Fact]
     public async Task Summary_SeparatesMonthsStatusesAndOperationalMovements_WithoutFilteringWealth()
     {
         var (db, finance) = TestContextFactory.Create();

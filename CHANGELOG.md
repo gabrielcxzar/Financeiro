@@ -9,6 +9,9 @@ O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 ### Corrigido
 - Dashboard limita totais e categorias operacionais ao mês selecionado, distingue pendências cadastradas e usa a referência selecionada nas faturas de cartão.
 
+### Adicionado
+- Valor atribuído opcional para despesas/receitas compartilhadas, preservando o bruto no ledger e nos saldos; detalhes do dashboard identificam o valor usado nos relatórios.
+
 ## [1.1.0] - 2026-09-08
 
 ### Modificado

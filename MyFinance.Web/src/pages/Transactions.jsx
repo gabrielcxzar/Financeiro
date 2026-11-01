@@ -131,10 +131,10 @@ export default function Transactions({ month, year }) {
 
   const totalIncomes = transactions
     .filter((t) => t.type === 'Income')
-    .reduce((acc, t) => acc + (t.amount || 0), 0);
+    .reduce((acc, t) => acc + (t.reportingAmount ?? t.amount ?? 0), 0);
   const totalExpenses = transactions
     .filter((t) => t.type === 'Expense')
-    .reduce((acc, t) => acc + (t.amount || 0), 0);
+    .reduce((acc, t) => acc + (t.reportingAmount ?? t.amount ?? 0), 0);
   const netBalance = totalIncomes - totalExpenses;
 
   const columns = [
@@ -181,7 +181,7 @@ export default function Transactions({ month, year }) {
       render: (value, record) => {
         const isExpense = record.type === 'Expense';
         return (
-          <span
+          <div
             style={{
               color: isExpense ? '#F43F5E' : '#10B981',
               fontWeight: 700,
@@ -191,7 +191,12 @@ export default function Transactions({ month, year }) {
           >
             {isExpense ? '- ' : '+ '}
             {formatMoney(value)}
-          </span>
+            {record.reportingAmount != null && record.reportingAmount !== value && (
+              <div style={{ color: '#64748B', fontWeight: 500, fontSize: 12 }}>
+                Parcela considerada nos relatórios: {formatMoney(record.reportingAmount)}
+              </div>
+            )}
+          </div>
         );
       },
     },
@@ -249,6 +254,11 @@ export default function Transactions({ month, year }) {
           </div>
           <span className="mobile-transaction-card__amount" style={{ color: amount.isExpense ? '#F43F5E' : '#10B981' }}>
             {amount.label}
+            {record.reportingAmount != null && record.reportingAmount !== record.amount && (
+              <div style={{ color: '#64748B', fontWeight: 500, fontSize: 11 }}>
+                Relatórios: {formatMoney(record.reportingAmount)}
+              </div>
+            )}
           </span>
         </div>
         <div className="mobile-transaction-card__meta">

@@ -90,6 +90,19 @@ Este documento registra o histórico imutável das Decisões Arquiteturais (Arch
   3. Atualização automática em background; adiada para evitar chamadas/credenciais recorrentes sem infraestrutura de agendamento definida.
 - **Impacto**: A aplicação exige configuração opcional da credencial no ambiente do serviço para cotações amplas. Dados manuais funcionam sem ela e permanecem identificados por origem e data.
 - **Riscos**: A fonte externa pode falhar, limitar acesso ou retornar dado atrasado; timeout/cache, preservação do último valor e timestamp visível limitam o risco. Cotação não equivale a preço garantido de execução.
+
+## ADR-008: Valor atribuído opcional sem alterar o valor bruto do ledger
+
+- **Data**: 2026-11-01
+- **Contexto**: Movimentações compartilhadas ou recebimentos parcialmente destinados a terceiros precisam preservar o valor bruto bancário, enquanto relatórios pessoais podem precisar usar apenas a parcela atribuída ao usuário.
+- **Decisão**: Adicionar `transactions.reporting_amount` como valor opcional em [Transaction.cs](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/MyFinance.API/Models/Transaction.cs), restrito entre zero e `amount`. Quando nulo, a regra de relatório usa o valor bruto. O valor atribuído é usado por indicadores, categorias, orçamentos, relatórios e MCP; saldos de contas, passivos de cartão e liquidações continuam usando o valor bruto. O detalhe da transação expõe ambos quando diferem.
+- **Motivação**: Manter o extrato e a reconciliação íntegros sem apresentar apoio de terceiros ou repasses ao sócio como renda/consumo pessoal.
+- **Alternativas consideradas**:
+  1. Alterar o valor da transação para a parcela pessoal, rejeitada por quebrar conciliação e saldo bancário.
+  2. Criar entradas/saídas compensatórias fictícias, rejeitada por duplicar movimentações reais.
+- **Impacto**: A migration é aditiva e preserva registros legados com `reporting_amount = NULL`; atualizações comuns preservam a atribuição e alterações do bruto de despesas compartilhadas exigem revisão da conciliação.
+- **Riscos**: A classificação da parcela atribuída depende de informação revisada; a origem bruta e o valor atribuído permanecem visíveis para conferência.
+
 ---
 
 ## Confidence

@@ -182,6 +182,8 @@ namespace MyFinance.API.Controllers
                 .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
             if (oldTransaction == null) return NotFound();
+            if (oldTransaction.ReportingAmount.HasValue && oldTransaction.Amount != request.Amount)
+                return BadRequest("O valor bruto de uma despesa compartilhada exige revisão da conciliação.");
             if (!oldTransaction.IsTransfer && request.CategoryId <= 0)
                 return BadRequest("Categoria invalida.");
 
@@ -206,6 +208,7 @@ namespace MyFinance.API.Controllers
                 Type = request.Type,
                 Paid = request.Paid,
                 Amount = request.Amount,
+                ReportingAmount = oldTransaction.ReportingAmount,
                 Description = preservedDescription,
                 Date = request.Date.ToUniversalTime(),
                 InstallmentId = oldTransaction.InstallmentId,
@@ -440,6 +443,8 @@ namespace MyFinance.API.Controllers
             {
                 return NotFound();
             }
+            if (series.Any(t => t.ReportingAmount.HasValue))
+                return BadRequest("Uma série com valores compartilhados exige revisão da conciliação.");
 
             var existingByInstallmentNumber = series
                 .Select((transaction, index) => new

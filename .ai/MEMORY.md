@@ -13,6 +13,7 @@ Este documento armazena o conhecimento permanente, estável e consolidado do pro
 5. **Navegação no Front-end por Estado**: O front-end React em [App.jsx](file:///c:/Users/Dan13/OneDrive/Documentos/Projetos%20dev/Pessoais/Financeiro/MyFinance.Web/src/App.jsx) gerencia as telas por chave em estado local (`activeKey`) sem utilizar rotas baseadas em URL.
 6. **Liquidação de Fatura Não é Operação**: A compra no cartão é a despesa operacional. O pagamento da fatura é um par de transferência com `ReportingKind = invoice_payment`, `ExcludeFromReports = true` e `TransferGroupId` compartilhado; ele altera caixa/passivo, mas não receita, despesa nem categorias dos relatórios.
 7. **MCP Somente Leitura em Produção**: O endpoint `/mcp` usa OAuth 2.1 Authorization Code + PKCE, escopo `finflow.read` e oito tools read-only; o fluxo real com ChatGPT foi validado em produção.
+8. **Valor Bruto e Parcela Atribuída**: [`Transaction.Amount` e `Transaction.ReportingAmount`](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/MyFinance.API/Models/Transaction.cs) preservam, respectivamente, o movimento bruto e o valor opcional que dirige agregados pessoais. Se nulo, relatórios usam o bruto. A API e as telas expõem a parcela quando ela difere, sem criar lançamentos compensatórios.
 
 ---
 

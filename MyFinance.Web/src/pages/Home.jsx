@@ -90,10 +90,14 @@ export default function Home({ month, year, onOpenOnboarding }) {
       dataIndex: 'amount',
       key: 'amt',
       render: (value, record) => (
-        <span style={{ color: record.type === 'Expense' ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>
-          {record.type === 'Expense' ? '- ' : '+ '}
-          {formatMoney(value)}
-        </span>
+        <div style={{ color: record.type === 'Expense' ? '#EF4444' : '#10B981', fontWeight: 'bold' }}>
+          <span>{record.type === 'Expense' ? '- ' : '+ '}{formatMoney(value)}</span>
+          {record.reportingAmount != null && record.reportingAmount !== value && (
+            <div style={{ color: '#64748B', fontWeight: 500, fontSize: 11 }}>
+              Considerado nos relatórios: {formatMoney(record.reportingAmount)}
+            </div>
+          )}
+        </div>
       ),
     },
     {

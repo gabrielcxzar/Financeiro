@@ -4,6 +4,8 @@
 
 - **Dashboard**: receitas, despesas e categorias confirmadas limitadas ao mês; pendências cadastradas identificadas separadamente; comparação e fatura de cartão respeitam a referência selecionada. A política operacional e o snapshot patrimonial foram preservados.
 - **Validação**: testes sintéticos cobrem competência, status, classificações, faturas, patrimônio e recorrência. A especificação e a ADR-005 registram as diferenças em relação ao MCP e os riscos das datas legadas.
+- **Conciliação compartilhada**: `reporting_amount` opcional preserva o valor bruto em saldos/cartões e aplica a parcela atribuída nos indicadores, gráficos, orçamentos, relatórios e MCP; os detalhes mostram ambos quando diferem. A migration aditiva foi validada na branch Neon isolada e aplicada em produção sem alterar lançamentos.
+- **Regressão**: build da API e do frontend passaram; 55 testes de lógica passaram, com as mesmas 2 falhas de importação preexistentes e 4 testes PostgreSQL destrutivos ignorados por não usar uma base descartável. Lint manteve os 10 erros e 5 avisos preexistentes.
 
 ## [Unreleased] - 2026-10-01
 

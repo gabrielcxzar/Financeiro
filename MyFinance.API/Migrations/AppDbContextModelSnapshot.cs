@@ -949,6 +949,10 @@ namespace MyFinance.API.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("recurring_rule_id");
 
+                    b.Property<decimal?>("ReportingAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("reporting_amount");
+
                     b.Property<string>("ReportingKind")
                         .IsRequired()
                         .HasColumnType("text")
@@ -987,7 +991,10 @@ namespace MyFinance.API.Migrations
                         .IsUnique()
                         .HasFilter("external_id IS NOT NULL");
 
-                    b.ToTable("transactions");
+                    b.ToTable("transactions", t =>
+                        {
+                            t.HasCheckConstraint("ck_transactions_reporting_amount", "reporting_amount IS NULL OR (reporting_amount >= 0 AND reporting_amount <= amount)");
+                        });
                 });
 
             modelBuilder.Entity("MyFinance.API.Models.User", b =>

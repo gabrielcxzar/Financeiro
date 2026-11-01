@@ -45,8 +45,8 @@ export default function Reports({ month, year }) {
     transactions.forEach((t) => {
       if (t.type === 'Expense') {
         const catName = t.category?.name || 'Outros';
-        categories[catName] = (categories[catName] || 0) + t.amount;
-        totalExpense += t.amount;
+        categories[catName] = (categories[catName] || 0) + (t.reportingAmount ?? t.amount);
+        totalExpense += t.reportingAmount ?? t.amount;
       }
     });
 

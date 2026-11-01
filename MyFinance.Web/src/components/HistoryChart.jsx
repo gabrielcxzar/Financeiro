@@ -40,9 +40,9 @@ export default function HistoryChart({ transactions, compact = false }) {
       }
 
       if (t.type === 'Income') {
-        groups[key].income += t.amount;
+        groups[key].income += t.reportingAmount ?? t.amount;
       } else {
-        groups[key].expense += t.amount;
+        groups[key].expense += t.reportingAmount ?? t.amount;
       }
       groups[key].balance = groups[key].income - groups[key].expense;
     });

@@ -71,6 +71,7 @@ namespace MyFinance.API.Controllers
                     t.Id,
                     t.Description,
                     t.Amount,
+                    t.ReportingAmount,
                     t.Date,
                     t.Type,
                     t.Paid,
@@ -133,11 +134,11 @@ namespace MyFinance.API.Controllers
 
             var totalIncome = operationalTransactions
                 .Where(t => t.Type == "Income" && t.Paid)
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
 
             var totalExpense = operationalTransactions
                 .Where(t => t.Type == "Expense" && t.Paid)
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
             var invoicePayments = transactions
                 .Where(t => t.ReportingKind == ReportingKinds.InvoicePayment && t.Type == "Expense")
                 .Sum(t => t.Amount);
@@ -152,7 +153,7 @@ namespace MyFinance.API.Controllers
             var categorySummary = operationalTransactions
                 .Where(t => t.Type == "Expense" && t.Paid)
                 .GroupBy(t => new { Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
-                .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.Amount)))
+                .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.ReportingAmount ?? t.Amount)))
                 .OrderByDescending(g => g.Total)
                 .ToList();
 
@@ -212,8 +213,8 @@ namespace MyFinance.API.Controllers
                     projectedNetWorth,
                     freeToSpend.FreeToSpendAmount,
                     invoicePayments,
-                    operationalTransactions.Where(t => t.Type == "Income" && !t.Paid).Sum(t => t.Amount),
-                    operationalTransactions.Where(t => t.Type == "Expense" && !t.Paid).Sum(t => t.Amount)),
+                    operationalTransactions.Where(t => t.Type == "Income" && !t.Paid).Sum(t => t.ReportingAmount ?? t.Amount),
+                    operationalTransactions.Where(t => t.Type == "Expense" && !t.Paid).Sum(t => t.ReportingAmount ?? t.Amount)),
                 transactions,
                 transactions.Where(t => t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports).Take(5).ToList(),
                 recentSettlements,
@@ -318,6 +319,7 @@ namespace MyFinance.API.Controllers
             int Id,
             string Description,
             decimal Amount,
+            decimal? ReportingAmount,
             DateTime Date,
             string Type,
             bool Paid,
@@ -408,7 +410,7 @@ namespace MyFinance.API.Controllers
                     !t.IsTransfer &&
                     !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
 
             var predictedIncomeTransactions = snapshot.Transactions
                 .Where(t =>
@@ -419,7 +421,7 @@ namespace MyFinance.API.Controllers
                     !t.IsTransfer &&
                     !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
 
             var paidExpenseTransactions = snapshot.Transactions
                 .Where(t =>
@@ -430,7 +432,7 @@ namespace MyFinance.API.Controllers
                     !t.IsTransfer &&
                     !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
 
             var pendingExpenseTransactions = snapshot.Transactions
                 .Where(t =>
@@ -441,7 +443,7 @@ namespace MyFinance.API.Controllers
                     !t.IsTransfer &&
                     !t.ExcludeFromReports && t.ReportingKind == ReportingKinds.Normal &&
                     cashAccounts.ContainsKey(t.AccountId))
-                .Sum(t => t.Amount);
+                .Sum(t => t.ReportingAmount ?? t.Amount);
 
             var projectedRecurringIncome = snapshot.RecurringRules
                 .Where(r =>

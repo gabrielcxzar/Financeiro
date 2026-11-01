@@ -50,7 +50,7 @@ export default function Budgets({ month, year }) {
       const [budgetsRes, catRes, transRes] = await Promise.all([
         api.get(`/budgets?month=${month}&year=${year}`, { signal }),
         api.get('/categories', { signal }),
-        api.get(`/transactions?month=${month}&year=${year}`, { signal }),
+        api.get(`/transactions?month=${month}&year=${year}&view=consumption`, { signal }),
       ]);
 
       setBudgets(budgetsRes.data);
@@ -92,7 +92,7 @@ export default function Budgets({ month, year }) {
   const renderBudgetCard = (budget) => {
     const spent = transactions
       .filter((t) => t.categoryId === budget.categoryId && t.type === 'Expense')
-      .reduce((acc, t) => acc + t.amount, 0);
+      .reduce((acc, t) => acc + (t.reportingAmount ?? t.amount), 0);
 
     const percent = Math.min((spent / budget.amount) * 100, 100);
     const strokeColor = percent >= 100 ? '#F43F5E' : percent > 80 ? '#F59E0B' : '#10B981';

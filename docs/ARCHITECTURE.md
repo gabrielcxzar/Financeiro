@@ -52,6 +52,8 @@ graph TD
   - `financial_goals`: Metas de economia ou dívidas (`FinancialGoal`).
   - `fii_holdings`: Posições em fundos imobiliários (`FiiHolding`).
 
+Em `transactions`, `amount` preserva o valor bruto do lançamento e `reporting_amount` é opcional para a parcela atribuída aos relatórios. O modelo está em [Transaction.cs](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/MyFinance.API/Models/Transaction.cs); a política operacional permanece centralizada em [ReportingPolicy.cs](file:///C:/Users/Gabriel/Documents/Projetos%20dev/Financeiro/MyFinance.API/Services/ReportingPolicy.cs).
+
 ---
 
 ## 3. Modelo ER de Entidades

@@ -47,6 +47,9 @@ namespace MyFinance.API.Data
                 .IsUnique()
                 .HasFilter("external_id IS NOT NULL");
 
+            modelBuilder.Entity<Transaction>().ToTable(t => t.HasCheckConstraint(
+                "ck_transactions_reporting_amount", "reporting_amount IS NULL OR (reporting_amount >= 0 AND reporting_amount <= amount)"));
+
             modelBuilder.Entity<ImportBatch>()
                 .HasIndex(b => new { b.UserId, b.AccountId, b.FileHash });
             modelBuilder.Entity<ImportBatch>()

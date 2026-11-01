@@ -35,8 +35,8 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
             .GroupBy(_ => 1)
             .Select(g => new
             {
-                Income = g.Where(t => t.Type.ToLower() == "income").Sum(t => t.Amount),
-                Expense = g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.Amount)),
+                Income = g.Where(t => t.Type.ToLower() == "income").Sum(t => t.ReportingAmount ?? t.Amount),
+                Expense = g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.ReportingAmount ?? t.Amount)),
                 Count = g.Count()
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -51,8 +51,8 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
                 {
                     g.Key.Year,
                     g.Key.Month,
-                    Income = g.Where(t => t.Type.ToLower() == "income").Sum(t => t.Amount),
-                    Expense = g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.Amount))
+                    Income = g.Where(t => t.Type.ToLower() == "income").Sum(t => t.ReportingAmount ?? t.Amount),
+                    Expense = g.Where(t => t.Type.ToLower() != "income").Sum(t => Math.Abs(t.ReportingAmount ?? t.Amount))
                 })
                 .OrderBy(x => x.Year).ThenBy(x => x.Month).ToListAsync(cancellationToken))
                 .Select(x => new MonthlySummary(x.Year, x.Month, x.Income, x.Expense, x.Income - x.Expense))
@@ -60,7 +60,7 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
             : [];
         var top = topCategories == 0 ? [] : await db.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.Date >= from && t.Date < to).Where(ReportingPolicy.OperationalPredicate).Where(t => t.Type.ToLower() != "income")
             .GroupBy(t => new { t.CategoryId, Name = t.Category == null ? "Sem categoria" : t.Category.Name })
-            .Select(g => new { g.Key.CategoryId, g.Key.Name, Amount = g.Sum(t => Math.Abs(t.Amount)), Count = g.Count() }).OrderByDescending(x => x.Amount).ThenBy(x => x.Name).Take(topCategories).ToListAsync(cancellationToken);
+            .Select(g => new { g.Key.CategoryId, g.Key.Name, Amount = g.Sum(t => Math.Abs(t.ReportingAmount ?? t.Amount)), Count = g.Count() }).OrderByDescending(x => x.Amount).ThenBy(x => x.Name).Take(topCategories).ToListAsync(cancellationToken);
         var topDtos = top.Select(x => new CategorySpend(x.CategoryId, x.Name, x.Amount, expense == 0 ? 0 : decimal.Round(x.Amount / expense * 100m, 2), x.Count)).ToList();
         return Envelope(new FinancialSummary(income, expense, net, savings, aggregate?.Count ?? 0, monthly, topDtos), to.AddTicks(-1));
     }
@@ -98,7 +98,7 @@ public sealed class FinancialInsightsService(AppDbContext db, IDataProtectionPro
         ValidatePeriod(from, to, 24); limit = Math.Clamp(limit, 1, 50);
         var rows = await db.Transactions.AsNoTracking().Where(t => t.UserId == userId && t.Date >= from && t.Date < to).Where(ReportingPolicy.OperationalPredicate).Where(t => t.Type.ToLower() != "income" && (includeUncategorized || t.CategoryId != null))
             .GroupBy(t => new { t.CategoryId, Name = t.Category == null ? "Sem categoria" : t.Category.Name })
-            .Select(g => new { g.Key.CategoryId, g.Key.Name, Amount = g.Sum(t => Math.Abs(t.Amount)), Count = g.Count() }).OrderByDescending(x => x.Amount).ThenBy(x => x.Name).ToListAsync(cancellationToken);
+            .Select(g => new { g.Key.CategoryId, g.Key.Name, Amount = g.Sum(t => Math.Abs(t.ReportingAmount ?? t.Amount)), Count = g.Count() }).OrderByDescending(x => x.Amount).ThenBy(x => x.Name).ToListAsync(cancellationToken);
         var total = rows.Sum(x => x.Amount);
         rows = rows.Take(limit).ToList();
         return Envelope(new CategorySpendingData(from.Date, to.AddTicks(-1).Date, total, rows.Select(x => new CategorySpend(x.CategoryId, x.Name, x.Amount, total == 0 ? 0 : decimal.Round(x.Amount / total * 100m, 2), x.Count)).ToList()), to.AddTicks(-1));
