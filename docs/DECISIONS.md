@@ -56,6 +56,15 @@ Este documento registra o histórico imutável das Decisões Arquiteturais (Arch
 
 ---
 
+## ADR-005: Indicadores mensais confirmados e pendências explícitas
+
+- **Data**: 2026-11-01
+- **Contexto**: O dashboard somava histórico operacional em cards mensais e misturava critérios de status entre cards e categorias.
+- **Decisão**: `income`, `expense` e categorias usam lançamentos operacionais confirmados do mês selecionado; `pendingIncome` e `pendingExpense` são campos aditivos com lançamentos operacionais não confirmados cadastrados. Recorrências sem lançamento ficam nas projeções. O snapshot de patrimônio continua atual e independente do período. A fatura por cartão usa a referência selecionada.
+- **Impacto**: O resumo MCP inclui os dois status cadastrados e não projeta recorrências. Logo, a soma dos dois campos de cada tipo no dashboard corresponde ao escopo de lançamentos operacionais equivalentes do MCP, sujeito às diferenças de tratamento de tipos e valores legados. A projeção e o livre para gastar usam critérios próprios; datas legadas mantêm a convenção civil existente.
+
+---
+
 ## Confidence
 
 ### Alta

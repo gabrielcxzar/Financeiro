@@ -51,6 +51,10 @@ Este documento formaliza os Requisitos Funcionais (RF) e Não-Funcionais (RNF) e
 
 ---
 
+## Dashboard: competência mensal e status
+
+Os cards de receitas e despesas e o gráfico de categorias usam movimentações operacionais confirmadas da data civil no mês selecionado. Pendências cadastradas são mostradas separadamente, sem somar regras de recorrência ainda não lançadas. A comparação usa as despesas confirmadas dos dois meses. Saldo e patrimônio representam o snapshot atual, não o fechamento histórico do mês selecionado. Detalhes e riscos: [especificação da correção](DASHBOARD_MONTHLY_FIX.md).
+
 ## Confidence
 
 ### Alta

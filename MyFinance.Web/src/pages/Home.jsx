@@ -26,6 +26,8 @@ export default function Home({ month, year, onOpenOnboarding }) {
     total: 0,
     income: 0,
     expense: 0,
+    pendingIncome: 0,
+    pendingExpense: 0,
     pendingTotal: 0,
     projectedTotal: 0,
     cardLiability: 0,
@@ -36,7 +38,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
     projectedNetWorth: 0,
     invoicePayments: 0,
   });
-  const [prevExpense, setPrevExpense] = useState(0);
+  const [prevExpense, setPrevExpense] = useState(null);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [recentSettlements, setRecentSettlements] = useState([]);
   const [categorySummary, setCategorySummary] = useState([]);
@@ -98,7 +100,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
       title: 'Data',
       dataIndex: 'date',
       key: 'date',
-      render: (d) => new Date(d).toLocaleDateString('pt-BR'),
+      render: (d) => d?.slice(0, 10).split('-').reverse().join('/'),
     },
     {
       title: 'Status',
@@ -137,6 +139,8 @@ export default function Home({ month, year, onOpenOnboarding }) {
           total: apiSummary.total || 0,
           income: apiSummary.income || 0,
           expense: apiSummary.expense || 0,
+          pendingIncome: apiSummary.pendingIncome || 0,
+          pendingExpense: apiSummary.pendingExpense || 0,
           pendingTotal: apiSummary.pendingTotal || 0,
           projectedTotal: apiSummary.projectedTotal || 0,
           cardLiability: apiSummary.cardLiability || 0,
@@ -155,9 +159,11 @@ export default function Home({ month, year, onOpenOnboarding }) {
           const prevRes = await api.get(`/dashboard/summary?month=${prevMonth}&year=${prevYear}`, {
             signal: controller.signal,
           });
-          setPrevExpense(prevRes.data?.summary?.expense || 0);
+          if (!isActive) return;
+          setPrevExpense(prevRes.data?.summary?.expense ?? null);
         } catch {
-          setPrevExpense(0);
+          if (!isActive) return;
+          setPrevExpense(null);
         }
 
         setRecentTransactions(payload.recentTransactions || []);
@@ -328,7 +334,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <Tag style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#047857', margin: 0, fontSize: 11 }}>
-                Confirmadas + previstas
+                Confirmadas · Pendentes cadastradas: {formatMoney(summary.pendingIncome)}
               </Tag>
             </div>
           </Card>
@@ -357,9 +363,9 @@ export default function Home({ month, year, onOpenOnboarding }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 6 }}>
               <span style={{ fontSize: 12, color: '#64748B' }}>
-                Fixas: {formatMoney(predictedFixed)}
+                Confirmadas · Pendentes cadastradas: {formatMoney(summary.pendingExpense)} · Regras fixas ativas: {formatMoney(predictedFixed)}
               </span>
-              {prevExpense > 0 && summary.expense > 0 && (
+              {prevExpense > 0 && (
                 (() => {
                   const momDiff = Math.round(((summary.expense - prevExpense) / prevExpense) * 100);
                   const isBetter = momDiff <= 0;
@@ -437,7 +443,7 @@ export default function Home({ month, year, onOpenOnboarding }) {
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
           <Card
-            title={<strong>Despesas por Categoria</strong>}
+            title={<strong>Despesas confirmadas por Categoria</strong>}
             bordered={false}
             style={{ minHeight: isCompact ? 340 : 420 }}
           >
@@ -445,8 +451,8 @@ export default function Home({ month, year, onOpenOnboarding }) {
               <DashboardCharts categorySummary={categorySummary} compact={isCompact} />
             ) : (
               <ActionableEmptyState
-                title="Sem despesas neste mês"
-                description="Cadastre transações para visualizar o gráfico de categorias."
+                title="Sem despesas confirmadas neste mês"
+                description="Despesas confirmadas aparecerão no gráfico de categorias."
                 actionLabel="Adicionar Lançamento"
                 onAction={() => {}}
               />
@@ -492,6 +498,9 @@ export default function Home({ month, year, onOpenOnboarding }) {
                 <div>
                   <div style={{ marginBottom: 14, color: '#64748B', fontSize: 13 }}>
                     Saldo de partida considerado: <strong>{formatMoney(projectionStart)}</strong>
+                  </div>
+                  <div style={{ marginBottom: 14, color: '#64748B', fontSize: 13 }}>
+                    A projeção parte do saldo atual e não representa um fechamento histórico.
                   </div>
                   <Table
                     dataSource={projection}

@@ -1,5 +1,10 @@
 # Finflow - Histórico de Alterações de IA (CHANGELOG_AI)
 
+## [Não lançado] - 2026-11-01
+
+- **Dashboard**: receitas, despesas e categorias confirmadas limitadas ao mês; pendências cadastradas identificadas separadamente; comparação e fatura de cartão respeitam a referência selecionada. A política operacional e o snapshot patrimonial foram preservados.
+- **Validação**: testes sintéticos cobrem competência, status, classificações, faturas, patrimônio e recorrência. A especificação e a ADR-005 registram as diferenças em relação ao MCP e os riscos das datas legadas.
+
 ## [1.9.3] - 2026-09-17
 
 - **Limpeza e consolidação**: os commits locais `42f9db9` e `bb61b7d` foram preservados em patches externos, comprovados redundantes com `origin/main` e descartados apenas do ponteiro local; `main` foi alinhada ao commit oficial `6ba2fef`.

@@ -85,6 +85,7 @@ namespace MyFinance.API.Controllers
                         : new CategoryDto(t.Category.Id, t.Category.Name, t.Category.Type, t.Category.Icon, t.Category.Color)))
                 .ToList();
             var operationalTransactions = snapshot.Transactions
+                .Where(t => t.Date >= startDate && t.Date < endDate)
                 .Where(ReportingPolicy.IsOperational)
                 .ToList();
             _logger.LogInformation(
@@ -149,7 +150,7 @@ namespace MyFinance.API.Controllers
                 .Where(r => r.Type == "Expense" && (!r.AccountId.HasValue || accounts.First(a => a.Id == r.AccountId.Value).IsCreditCard == false))
                 .Sum(r => r.Amount);
             var categorySummary = operationalTransactions
-                .Where(t => t.Type == "Expense")
+                .Where(t => t.Type == "Expense" && t.Paid)
                 .GroupBy(t => new { Name = t.Category?.Name ?? "Outros", Color = t.Category?.Color ?? "#8c8c8c" })
                 .Select(g => new CategorySummaryDto(g.Key.Name, g.Key.Color, g.Sum(t => t.Amount)))
                 .OrderByDescending(g => g.Total)
@@ -210,7 +211,9 @@ namespace MyFinance.API.Controllers
                     pendingNetWorth,
                     projectedNetWorth,
                     freeToSpend.FreeToSpendAmount,
-                    invoicePayments),
+                    invoicePayments,
+                    operationalTransactions.Where(t => t.Type == "Income" && !t.Paid).Sum(t => t.Amount),
+                    operationalTransactions.Where(t => t.Type == "Expense" && !t.Paid).Sum(t => t.Amount)),
                 transactions,
                 transactions.Where(t => t.ReportingKind == ReportingKinds.Normal && !t.IsTransfer && !t.ExcludeFromReports).Take(5).ToList(),
                 recentSettlements,
@@ -221,7 +224,7 @@ namespace MyFinance.API.Controllers
                         a.Name,
                         a.InitialBalance,
                         accountSnapshots[a.Id].RealBalance,
-                        _financialSnapshotService.CalculateInvoiceAmount(a, snapshot.Transactions, DateTime.UtcNow.Month, DateTime.UtcNow.Year),
+                        _financialSnapshotService.CalculateInvoiceAmount(a, snapshot.Transactions, month, year),
                         a.Type,
                         a.IsCreditCard,
                         a.CreditLimit,
@@ -289,7 +292,9 @@ namespace MyFinance.API.Controllers
             decimal PendingNetWorth,
             decimal ProjectedNetWorth,
             decimal FreeToSpend,
-            decimal InvoicePayments);
+            decimal InvoicePayments,
+            decimal PendingIncome,
+            decimal PendingExpense);
 
         public sealed record AccountSnapshotDto(
             int Id,

@@ -73,6 +73,7 @@ export default function Reports({ month, year }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <h2 style={{ margin: 0, color: '#001529' }}>Analise de Despesas</h2>
+      <div>Despesas operacionais cadastradas, confirmadas e pendentes, no mês selecionado.</div>
 
       {transactions.length === 0 ? (
         <Empty description="Nenhuma transacao registrada" style={{ marginTop: 24 }} />

@@ -4,6 +4,11 @@ Todas as alterações notáveis, novas funcionalidades e correções importantes
 
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) e este projeto adere ao [Versioning Semântico](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Corrigido
+- Dashboard limita totais e categorias operacionais ao mês selecionado, distingue pendências cadastradas e usa a referência selecionada nas faturas de cartão.
+
 ## [1.1.0] - 2026-09-08
 
 ### Modificado
